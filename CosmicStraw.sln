@@ -1,0 +1,24 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 14
+VisualStudioVersion = 14.0.25420.1
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{00D1A9C2-B5F0-4AF3-8072-F6C62B433612}") = "CosmicStraw", "CosmicStraw\CosmicStraw.sqlproj", "{6FC58BCA-B400-4AAB-9A8C-E161B7670D7E}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{6FC58BCA-B400-4AAB-9A8C-E161B7670D7E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{6FC58BCA-B400-4AAB-9A8C-E161B7670D7E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{6FC58BCA-B400-4AAB-9A8C-E161B7670D7E}.Debug|Any CPU.Deploy.0 = Debug|Any CPU
+		{6FC58BCA-B400-4AAB-9A8C-E161B7670D7E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{6FC58BCA-B400-4AAB-9A8C-E161B7670D7E}.Release|Any CPU.Build.0 = Release|Any CPU
+		{6FC58BCA-B400-4AAB-9A8C-E161B7670D7E}.Release|Any CPU.Deploy.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal
