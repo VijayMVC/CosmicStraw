@@ -1,0 +1,2 @@
+﻿CREATE USER [ENT\surah1] FOR LOGIN [ENT\surah1];
+

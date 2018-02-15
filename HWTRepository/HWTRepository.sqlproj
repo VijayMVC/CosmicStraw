@@ -1,0 +1,200 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="4.0">
+  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <Name>HWTRepository</Name>
+    <SchemaVersion>2.0</SchemaVersion>
+    <ProjectVersion>4.1</ProjectVersion>
+    <ProjectGuid>{d8754e0d-98b2-43b9-8bd3-499e1d325a48}</ProjectGuid>
+    <DSP>Microsoft.Data.Tools.Schema.Sql.Sql130DatabaseSchemaProvider</DSP>
+    <OutputType>Database</OutputType>
+    <RootPath>
+    </RootPath>
+    <RootNamespace>HWTRepository</RootNamespace>
+    <AssemblyName>HWTRepository</AssemblyName>
+    <ModelCollation>1033, CI</ModelCollation>
+    <DefaultFileStructure>BySchemaAndSchemaType</DefaultFileStructure>
+    <DeployToDatabase>True</DeployToDatabase>
+    <TargetFrameworkVersion>v4.5.2</TargetFrameworkVersion>
+    <TargetLanguage>CS</TargetLanguage>
+    <AppDesignerFolder>Properties</AppDesignerFolder>
+    <SqlServerVerification>False</SqlServerVerification>
+    <IncludeCompositeObjects>True</IncludeCompositeObjects>
+    <TargetDatabaseSet>True</TargetDatabaseSet>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <OutputPath>bin\Release\</OutputPath>
+    <BuildScriptName>$(MSBuildProjectName).sql</BuildScriptName>
+    <TreatWarningsAsErrors>False</TreatWarningsAsErrors>
+    <DebugType>pdbonly</DebugType>
+    <Optimize>true</Optimize>
+    <DefineDebug>false</DefineDebug>
+    <DefineTrace>true</DefineTrace>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <OutputPath>bin\Debug\</OutputPath>
+    <BuildScriptName>$(MSBuildProjectName).sql</BuildScriptName>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <DefineDebug>true</DefineDebug>
+    <DefineTrace>true</DefineTrace>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <PropertyGroup>
+    <VisualStudioVersion Condition="'$(VisualStudioVersion)' == ''">11.0</VisualStudioVersion>
+    <!-- Default to the v11.0 targets path if the targets file for the current VS version is not found -->
+    <SSDTExists Condition="Exists('$(MSBuildExtensionsPath)\Microsoft\VisualStudio\v$(VisualStudioVersion)\SSDT\Microsoft.Data.Tools.Schema.SqlTasks.targets')">True</SSDTExists>
+    <VisualStudioVersion Condition="'$(SSDTExists)' == ''">11.0</VisualStudioVersion>
+  </PropertyGroup>
+  <Import Condition="'$(SQLDBExtensionsRefPath)' != ''" Project="$(SQLDBExtensionsRefPath)\Microsoft.Data.Tools.Schema.SqlTasks.targets" />
+  <Import Condition="'$(SQLDBExtensionsRefPath)' == ''" Project="$(MSBuildExtensionsPath)\Microsoft\VisualStudio\v$(VisualStudioVersion)\SSDT\Microsoft.Data.Tools.Schema.SqlTasks.targets" />
+  <ItemGroup>
+    <Folder Include="Properties" />
+    <Folder Include="Database Triggers" />
+    <Folder Include="hwt" />
+    <Folder Include="hwt\Stored Procedures" />
+    <Folder Include="hwt\Tables" />
+    <Folder Include="hwt\Triggers" />
+    <Folder Include="hwt\Views" />
+    <Folder Include="labViewStage" />
+    <Folder Include="labViewStage\Tables" />
+    <Folder Include="labViewStage\Triggers" />
+    <Folder Include="Publish Scripts" />
+    <Folder Include="Security" />
+    <Folder Include="utility" />
+    <Folder Include="utility\Functions" />
+    <Folder Include="utility\Stored Procedures" />
+    <Folder Include="utility\Tables" />
+    <Folder Include="XML Files" />
+    <Folder Include="Security\Users" />
+    <Folder Include="Security\Schemas" />
+    <Folder Include="Unused Scripts" />
+    <Folder Include="Security\Logins" />
+  </ItemGroup>
+  <ItemGroup>
+    <Build Include="Database Triggers\ddlDatabaseTriggerLog.sql" />
+    <Build Include="hwt\Stored Procedures\hwt.usp_AssignTagsToDatasets.sql" />
+    <Build Include="hwt\Stored Procedures\hwt.usp_DeleteTagsFromRepository.sql" />
+    <Build Include="hwt\Stored Procedures\hwt.usp_GetDatasetXML.sql" />
+    <Build Include="hwt\Stored Procedures\hwt.usp_GetResultsByTag.sql" />
+    <Build Include="hwt\Stored Procedures\hwt.usp_GetTags.sql" />
+    <Build Include="hwt\Stored Procedures\hwt.usp_GetTagsByHeader.sql" />
+    <Build Include="hwt\Stored Procedures\hwt.usp_GetTagsByTagType.sql" />
+    <Build Include="hwt\Stored Procedures\hwt.usp_InsertTagsToRepository.sql" />
+    <Build Include="hwt\Stored Procedures\hwt.usp_LoadAppConstFromStage.sql" />
+    <Build Include="hwt\Stored Procedures\hwt.usp_LoadEquipmentFromStage.sql" />
+    <Build Include="hwt\Stored Procedures\hwt.usp_LoadHeaderFromStage.sql" />
+    <Build Include="hwt\Stored Procedures\hwt.usp_LoadLibraryFileFromStage.sql" />
+    <Build Include="hwt\Stored Procedures\hwt.usp_LoadOptionFromStage.sql" />
+    <Build Include="hwt\Stored Procedures\hwt.usp_LoadRepositoryFromStage.sql" />
+    <Build Include="hwt\Stored Procedures\hwt.usp_LoadTestErrorFromStage.sql" />
+    <Build Include="hwt\Stored Procedures\hwt.usp_LoadVectorElementFromStage.sql" />
+    <Build Include="hwt\Stored Procedures\hwt.usp_LoadVectorFromStage.sql" />
+    <Build Include="hwt\Stored Procedures\hwt.usp_LoadVectorResultFromStage.sql" />
+    <Build Include="hwt\Stored Procedures\hwt.usp_RemoveTagsFromDatasets.sql" />
+    <Build Include="hwt\Tables\hwt.AppConst.sql" />
+    <Build Include="hwt\Tables\hwt.Element.sql" />
+    <Build Include="hwt\Tables\hwt.Equipment.sql" />
+    <Build Include="hwt\Tables\hwt.Header.sql" />
+    <Build Include="hwt\Tables\hwt.HeaderAppConst.sql" />
+    <Build Include="hwt\Tables\hwt.HeaderEquipment.sql" />
+    <Build Include="hwt\Tables\hwt.HeaderLibraryFile.sql" />
+    <Build Include="hwt\Tables\hwt.HeaderOption.sql" />
+    <Build Include="hwt\Tables\hwt.HeaderTag.sql" />
+    <Build Include="hwt\Tables\hwt.LibraryFile.sql" />
+    <Build Include="hwt\Tables\hwt.Option.sql" />
+    <Build Include="hwt\Tables\hwt.Result.sql" />
+    <Build Include="hwt\Tables\hwt.Tag.sql" />
+    <Build Include="hwt\Tables\hwt.TagType.sql" />
+    <Build Include="hwt\Tables\hwt.TestError.sql" />
+    <Build Include="hwt\Tables\hwt.Vector.sql" />
+    <Build Include="hwt\Tables\hwt.VectorElement.sql" />
+    <Build Include="hwt\Tables\hwt.VectorResult.sql" />
+    <Build Include="hwt\Views\hwt.vw_AllTags.sql" />
+    <Build Include="hwt\Views\hwt.vw_SearchResults.sql" />
+    <Build Include="labViewStage\Tables\labViewStage.appConst_element.sql" />
+    <Build Include="labViewStage\Tables\labViewStage.equipment_element.sql" />
+    <Build Include="labViewStage\Tables\labViewStage.error_element.sql" />
+    <Build Include="labViewStage\Tables\labViewStage.header.sql" />
+    <Build Include="labViewStage\Tables\labViewStage.libraryInfo_file.sql" />
+    <Build Include="labViewStage\Tables\labViewStage.option_element.sql" />
+    <Build Include="labViewStage\Tables\labViewStage.result_element.sql" />
+    <Build Include="labViewStage\Tables\labViewStage.vector.sql" />
+    <Build Include="labViewStage\Tables\labViewStage.vector_element.sql" />
+    <Build Include="labViewStage\Triggers\labViewStage.trg_appConst_element.sql" />
+    <Build Include="labViewStage\Triggers\labViewStage.trg_equipment_element.sql" />
+    <Build Include="labViewStage\Triggers\labViewStage.trg_error_element.sql" />
+    <Build Include="labViewStage\Triggers\labViewStage.trg_header.sql" />
+    <Build Include="labViewStage\Triggers\labViewStage.trg_libraryInfo_file.sql" />
+    <Build Include="labViewStage\Triggers\labViewStage.trg_option_element.sql" />
+    <Build Include="labViewStage\Triggers\labViewStage.trg_result_element.sql" />
+    <Build Include="labViewStage\Triggers\labViewStage.trg_vector.sql" />
+    <Build Include="labViewStage\Triggers\labViewStage.trg_vector_element.sql" />
+    <PostDeploy Include="Publish Scripts\LoadTagTypesAndTags.sql" />
+    <Build Include="utility\Functions\utility.ufn_GetDuration.sql" />
+    <Build Include="utility\Functions\utility.ufn_SplitString.sql" />
+    <Build Include="utility\Stored Procedures\utility.captureSQLError.sql" />
+    <Build Include="utility\Stored Procedures\utility.printSQLError.sql" />
+    <Build Include="utility\Stored Procedures\utility.usp_RemoveDatasetFromRepository.sql" />
+    <Build Include="utility\Tables\utility.DatabaseLog.sql" />
+    <Build Include="utility\Tables\utility.ErrorLog.sql" />
+    <Build Include="Security\Users\ENT_chenx40.sql" />
+    <Build Include="Security\Schemas\hwt.sql" />
+    <Build Include="Security\Schemas\labViewStage.sql" />
+    <Build Include="Security\Schemas\utility.sql" />
+    <Build Include="Security\RoleMemberships.sql" />
+    <None Include="Unused Scripts\hwt.usp_GetTags.sql" />
+    <Build Include="Security\Users\ENT_mallmd1.sql" />
+    <Build Include="Security\Users\ENT_pendej3.sql" />
+    <Build Include="Security\Users\ENT_schoew3.sql" />
+    <Build Include="Security\Users\ENT_surah1.sql" />
+    <Build Include="Security\Users\ENT_svc-crmhwtlab.sql" />
+    <Build Include="Security\Users\HWTUser.sql" />
+    <Build Include="Security\Logins\HWTUser.sql" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="hwt\Stored Procedures\notes" />
+    <None Include="Publish Scripts\HWTRepository_cc.local.publish.xml" />
+    <None Include="Publish Scripts\HWTRepositoryD.publish.xml" />
+    <None Include="XML Files\ACXE4MY_541_EDVT_BOL_250 Ohm.xml" />
+    <None Include="XML Files\ACXE4MY_541_EDVT_BOL_No 250 Ohm.xml" />
+    <None Include="XML Files\ACXE4MY_541_EDVT_Less then ERI_250 Ohm.xml" />
+    <None Include="XML Files\ACXE4MY_541_EDVT_Less then ERI_No 250 Ohm.xml" />
+    <None Include="XML Files\ExecuteTransform.ps1" />
+    <None Include="XML Files\HWTHeader.xsl" />
+    <None Include="XML Files\MDT2030678-Eval_BLD200003H.xml" />
+    <None Include="XML Files\MDT2281158-CRTPQ Inc2 Regulated Supplies Evaluation Data ABMCMLA-004_TELB_Flash.xml" />
+    <None Include="XML Files\MDT2284283-Orion_V_611 ABNTJSP Arial Bipolar.xml" />
+    <None Include="XML Files\MDT2284290-Orion_V_611 ABNTKLH RV Bipolar.xml" />
+    <None Include="XML Files\MDT2289066-Orion_E_224_CRTPQ_BiV_RNY316202M_Unipolar_ResultsFile.xml" />
+    <None Include="XML Files\MDT2306908-DATA_Mono%28X-Axis)_10 Samples%28EJB600135S).xml" />
+    <None Include="XML Files\MDT2306910-DATA_Mono%28Y-Axis)_10 Samples%28EJB600135S).xml" />
+    <None Include="XML Files\MDT2306911-DATA_Mono%28Z-Axis)_10 Samples%28EJB600135S).xml" />
+    <None Include="XML Files\MDT2329775-POL367201M_RX_Req 002_BOS_raw data.xml" />
+    <None Include="XML Files\MDT2329776-POL367202M_RX_Req 002_BOS_raw data.xml" />
+    <None Include="XML Files\MDT2329777-POL367203M_RX_Req 002_BOS_raw data.xml" />
+    <None Include="XML Files\MDT2329787-POL367201M_RX_Req 002_EOS_raw data.xml" />
+    <None Include="XML Files\MDT2329788-POL367202M_RX_Req 002_EOS_raw data.xml" />
+    <None Include="XML Files\MDT2329789-POL367203M_RX_Req 002_EOS_raw data.xml" />
+    <None Include="XML Files\MDT2330715-POL367103M_RX_Req 002_BOS_raw data.xml" />
+    <None Include="XML Files\MDT2330716-POL367104M_RX_Req 002_BOS_raw data.xml" />
+    <None Include="XML Files\MDT2330717-POL367204M_RX_Req 002_BOS_raw data.xml" />
+    <None Include="XML Files\MDT2330752-POL367103M_RX_Req 002_EOS_raw data.xml" />
+    <None Include="XML Files\MDT2330753-POL367104M_RX_Req 002_EOS_raw data.xml" />
+    <None Include="XML Files\MDT2330754-POL367204M_RX_Req 002_EOS_raw data.xml" />
+    <None Include="XML Files\MDT2333634-EVR600277S_PER_Induction_Raw Data.xml" />
+  </ItemGroup>
+  <ItemGroup>
+    <SqlCmdVariable Include="HWTUserPassword">
+      <DefaultValue>zzz</DefaultValue>
+      <Value>$(SqlCmdVar__1)</Value>
+    </SqlCmdVariable>
+  </ItemGroup>
+</Project>
