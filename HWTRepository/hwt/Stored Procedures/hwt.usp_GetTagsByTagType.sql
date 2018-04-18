@@ -57,13 +57,14 @@ BEGIN TRY
 
 		   UNION ALL 
 			  SELECT 	'Assets'
-					  , EquipmentID * -1
+					  , MIN( EquipmentID * -1 )
 					  , Asset + ' - ' + REPLACE( LEFT( Description, 20 ), ',', ' ' )
 					  , Description
 					  , 0
 					  , 0
 					  , 0
 				FROM 	hwt.Equipment AS e
+			GROUP BY	Asset + ' - ' + REPLACE( LEFT( Description, 20 ), ',', ' ' ), Description
 			ORDER BY 	TagTypeName, TagName 
 						;
 		END
@@ -86,7 +87,7 @@ BEGIN TRY
 
 		   UNION ALL 
 			  SELECT 	'Assets'
-					  , EquipmentID * -1
+					  , MIN( EquipmentID * -1 )
 					  , Asset + ' - ' + REPLACE( LEFT( Description, 20 ), ',', ' ' )
 					  , Description
 					  , 0
@@ -96,6 +97,7 @@ BEGIN TRY
 						INNER JOIN utility.ufn_SplitString( @pCriteria, '|' ) AS x
 								ON @pCriteria IS NULL
 									OR( x.Item = 'Assets' ) 				
+			GROUP BY	Asset + ' - ' + REPLACE( LEFT( Description, 20 ), ',', ' ' ), Description									
 			ORDER BY 	TagTypeName, TagName 
 						;
 
