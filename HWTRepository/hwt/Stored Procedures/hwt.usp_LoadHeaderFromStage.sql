@@ -210,15 +210,16 @@ BEGIN TRY
 	   
 	  SELECT	HeaderID    =   tmp.ID
 			  , TagTypeID   =   tType.TagTypeID
-			  , Name        =   tmp.PartSN
+			  , Name        =   RTRIM( LTRIM( x.Item ) )
 			  , Description =   N'Device SN loaded from test dataset'
 			  , UpdatedBy   =   tmp.OperatorName
 			  , TagID       =   CONVERT( int, NULL )
 		FROM 	#changes AS tmp
-				CROSS JOIN hwt.TagType AS tType
-	   
+				CROSS JOIN 	hwt.TagType AS tType
+				CROSS APPLY	utility.ufn_SplitString
+					( tmp.PartSN, ',' ) AS x	   
 	   WHERE 	tType.Name = N'DeviceSN'
-					AND ISNULL( tmp.PartSN, '' ) != ''
+					AND ISNULL( RTRIM( LTRIM( x.Item ) ), '' ) != ''
 					
 	   UNION
 	   
