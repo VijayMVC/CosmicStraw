@@ -67,6 +67,7 @@ BEGIN TRY
 			GROUP BY	Asset + ' - ' + REPLACE( LEFT( Description, 20 ), ',', ' ' ), Description
 			ORDER BY 	TagTypeName, TagName 
 						;
+			RETURN 0 ; 	
 		END
 
 
