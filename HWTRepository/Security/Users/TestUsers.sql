@@ -11,4 +11,8 @@ GO
 CREATE USER		[HWTUser] 
 FOR LOGIN		[HWTUser] 
 ;
+GO
 
+CREATE USER		[HWTValidator] 
+FOR LOGIN		[HWTValidator] 
+;

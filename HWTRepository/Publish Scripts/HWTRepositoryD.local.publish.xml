@@ -15,12 +15,15 @@
     </SqlCmdVariable>
     <SqlCmdVariable Include="FileStreamFolder">
       <Value>HWTFiles</Value>
-    </SqlCmdVariable>	
+    </SqlCmdVariable>
     <SqlCmdVariable Include="FilestreamRoot">
       <Value>C:\FSData</Value>
     </SqlCmdVariable>
     <SqlCmdVariable Include="HWTUserPassword">
       <Value>am1!u$erhwT01</Value>
+    </SqlCmdVariable>
+    <SqlCmdVariable Include="HWTValidatorPassword">
+      <Value>Mh6&amp;pt5-LV$</Value>
     </SqlCmdVariable>
     <SqlCmdVariable Include="LogFileRoot">
       <Value>C:\MSSQL\Logs</Value>

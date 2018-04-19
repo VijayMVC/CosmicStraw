@@ -308,6 +308,7 @@
     <None Include="XML Files\MDT2330754-POL367204M_RX_Req 002_EOS_raw data.xml" />
     <None Include="XML Files\MDT2333634-EVR600277S_PER_Induction_Raw Data.xml" />
     <None Include="Publish Scripts\HWTRepositoryDev.server.publish.xml" />
+    <None Include="Publish Scripts\HWTRepositoryD.F1L3Q32.publish.xml" />
   </ItemGroup>
   <ItemGroup>
     <SqlCmdVariable Include="DataRoot">
@@ -325,6 +326,10 @@
     <SqlCmdVariable Include="HWTUserPassword">
       <DefaultValue>zzz</DefaultValue>
       <Value>$(SqlCmdVar__1)</Value>
+    </SqlCmdVariable>
+    <SqlCmdVariable Include="HWTValidatorPassword">
+      <DefaultValue>zzz</DefaultValue>
+      <Value>$(SqlCmdVar__6)</Value>
     </SqlCmdVariable>
     <SqlCmdVariable Include="LogFileRoot">
       <DefaultValue>C:\MSSQL\Logs</DefaultValue>
