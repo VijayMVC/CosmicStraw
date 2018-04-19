@@ -53,15 +53,49 @@ BEGIN TRY
           , Type            	nvarchar(50)
           , Units           	nvarchar(50)
           , ResultN         	int
-          , ResultValue     	nvarchar(max)
+          , ResultValue     	nvarchar(250)
           , OperatorName    	nvarchar(50)
           , HWTChecksum     	int
           , ResultID        	int
         ) 
 		;
 
-
---  1)  INSERT data into temp storage from trigger
+--	1)	Scrub any escaped XML from input 
+	DECLARE 	@EscapedXMLPattern	nvarchar(20) = N'%&%;%' ;
+	IF	EXISTS	( SELECT 1 FROM #changes WHERE PATINDEX( Name, @EscapedXMLPattern ) > 0 ) 
+		BEGIN 
+			  UPDATE 	#changes 
+			     SET 	Name 	=	REPLACE( REPLACE( REPLACE( REPLACE( REPLACE( Name, '&amp;', '&' ), '&lt;', '<' ), '&gt', '>' ), '&quot', '"' ), '&apos;', '''' )
+			   WHERE    PATINDEX( Name, @EscapedXMLPattern ) > 0
+						;
+		END
+		
+	IF	EXISTS	( SELECT 1 FROM #changes WHERE PATINDEX( Type, @EscapedXMLPattern ) > 0 ) 
+		BEGIN 
+			  UPDATE 	#changes 
+			     SET 	Name 	=	REPLACE( REPLACE( REPLACE( REPLACE( REPLACE( Type, '&amp;', '&' ), '&lt;', '<' ), '&gt', '>' ), '&quot', '"' ), '&apos;', '''' )
+			   WHERE    PATINDEX( Type, @EscapedXMLPattern ) > 0
+						;
+		END
+		
+	IF	EXISTS	( SELECT 1 FROM #changes WHERE PATINDEX( Units, @EscapedXMLPattern ) > 0 ) 
+		BEGIN 
+			  UPDATE 	#changes 
+			     SET 	Units 	=	REPLACE( REPLACE( REPLACE( REPLACE( REPLACE( Units, '&amp;', '&' ), '&lt;', '<' ), '&gt', '>' ), '&quot', '"' ), '&apos;', '''' )
+			   WHERE    PATINDEX( Units, @EscapedXMLPattern ) > 0
+						;
+		END		
+		
+	IF	EXISTS	( SELECT 1 FROM #changes WHERE PATINDEX( ResultValue, @EscapedXMLPattern ) > 0 ) 
+		BEGIN 
+			  UPDATE 	#changes 
+			     SET 	ResultValue 	=	REPLACE( REPLACE( REPLACE( REPLACE( REPLACE( ResultValue, '&amp;', '&' ), '&lt;', '<' ), '&gt', '>' ), '&quot', '"' ), '&apos;', '''' )
+			   WHERE    PATINDEX( ResultValue, @EscapedXMLPattern ) > 0
+						;
+		END		
+	
+				
+--  2)  INSERT data into temp storage from trigger
       INSERT 	#changes
 					( 
 						ID, VectorID, VectorResultNumber, Name, Type
@@ -90,10 +124,9 @@ BEGIN TRY
 						ON h.ID = v.HeaderID
 
 				CROSS APPLY utility.ufn_SplitString( i.Value, ',' ) AS x 
-				;
+				;				
 
-
---  2)  MERGE elements from temp storage into hwt.Result
+--  3)  MERGE elements from temp storage into hwt.Result
         WITH	cte AS
 				(
 				  SELECT 	DISTINCT
@@ -133,7 +166,7 @@ BEGIN TRY
 				;
 
 
---  3)  MERGE result elements from temp storage into hwt.VectorResult
+--  4)  MERGE result elements from temp storage into hwt.VectorResult
 		WITH	cte AS
 				(
 				  SELECT	VectorID    		=   c.VectorID

@@ -4,7 +4,7 @@
       , ResultID    		int             NOT NULL
 	  , VectorResultNumber	int				NOT NULL
       , ResultN     		int				NOT NULL
-      , ResultValue			nvarchar(50)
+      , ResultValue			nvarchar(250)
       , CONSTRAINT PK_hwt_VectorResult 
 			PRIMARY KEY CLUSTERED( VectorID ASC, ResultID, VectorResultNumber ASC, ResultN ASC )
 				WITH( DATA_COMPRESSION = PAGE )
