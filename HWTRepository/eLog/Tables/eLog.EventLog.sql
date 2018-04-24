@@ -7,7 +7,7 @@ CREATE TABLE 	eLog.EventLog
 */
 	(
 		EventLogID		bigint			NOT NULL		IDENTITY
-	  , LogDate			datetime2(3)	NOT NULL		DEFAULT sysdatetime()	
+	  , LogDate			datetime2(7)	NOT NULL		DEFAULT sysdatetime()	
 	  , MessageID		nvarchar(36)					-- used with localisation and custom errors.
 	  , ErrorNumber		int								-- SQL Server error_number().
 	  , Severity		tinyint			NOT NULL		-- SQL Server error_severity(), can bu.

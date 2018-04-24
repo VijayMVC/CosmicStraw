@@ -7,9 +7,11 @@
 
     Logic Summary
     -------------
-    1)  INSERT data into temp storage from trigger
-    2)  MERGE equipment from temp storage into hwt.Equipment
-    3)  MERGE header equipment from temp storage into hwt.HeaderEquipment
+	1)  INSERT data into temp storage from trigger
+	2)  INSERT new Equipment data from temp storage into hwt.Equipment
+	3)	UPDATE EquipmentID back into temp storage
+	4)  INSERT header Equipment from temp storage into hwt.HeaderEquipment
+
 
     Parameters
     ----------
@@ -20,10 +22,10 @@
 
     Revision
     --------
-    carsoc3     2018-02-01      alpha release
+    carsoc3     2018-04-27		production release
 
 ***********************************************************************************************************************************
-*/
+*/	
 AS
 
 SET XACT_ABORT, NOCOUNT ON ;
@@ -32,8 +34,7 @@ BEGIN TRY
 
     --  define temp storage tables
     IF  ( 1 = 0 )
-		BEGIN 
-			CREATE TABLE	#inserted
+	  CREATE 	TABLE #inserted
 				(
 					ID                  int
 				  , HeaderID            int
@@ -41,27 +42,27 @@ BEGIN TRY
 				  , Asset               nvarchar(50)
 				  , CalibrationDueDate  nvarchar(50)
 				  , CostCenter          nvarchar(50)
+				  , CreatedDate			datetime
 				) 
 				;
-		END 
 		
-	CREATE TABLE 	#changes
-		(
-			ID                  int
-		  , HeaderID            int
-		  , Description         nvarchar(100)
-		  , Asset               nvarchar(50)
-		  , CalibrationDueDate  nvarchar(50)
-		  , CostCenter          nvarchar(50)
-		  , OperatorName        nvarchar(50)
-		  , HWTChecksum         int
-		  , EquipmentID         int
-		) 
-		;
+	  CREATE 	TABLE #changes
+				(
+					ID                  int
+				  , HeaderID            int
+				  , Description         nvarchar(100)
+				  , Asset               nvarchar(50)
+				  , CalibrationDueDate  nvarchar(50)
+				  , CostCenter          nvarchar(50)
+				  , OperatorName        nvarchar(50)
+				  , EquipmentN         	int
+				  , EquipmentID         int
+				) 
+				;
 
 --  1)  INSERT data into temp storage from trigger
 	  INSERT	#changes
-					( ID, HeaderID, Description, Asset, CalibrationDueDate, CostCenter, OperatorName, HWTChecksum )
+					( ID, HeaderID, Description, Asset, CalibrationDueDate, CostCenter, OperatorName, EquipmentN )
 	  SELECT 	i.ID                  
 			  , i.HeaderID            
 			  , i.Description         
@@ -72,89 +73,77 @@ BEGIN TRY
 													END  
 			  , i.CostCenter          
 	  	      , h.OperatorName
-			  , HWTChecksum     	=   BINARY_CHECKSUM
-											(
-												i.Description
-											  , i.Asset
-											  , i.CalibrationDueDate
-											  , i.CostCenter
-											)
+			  , EquipmentN     		=   existingCount.N + ROW_NUMBER() OVER( PARTITION BY i.HeaderID, i.Asset, i.Description, i.CostCenter 
+																				 ORDER BY i.ID )
 		FROM 	#inserted AS i
 				INNER JOIN labViewStage.header AS h
 						ON h.ID = i.HeaderID 
+						
+				OUTER APPLY
+					(
+					  SELECT 	COUNT(*) 
+					    FROM	labViewStage.equipment_element AS lvs
+					   WHERE	lvs.HeaderID = i.HeaderID 
+									AND lvs.Asset = i.Asset
+									AND lvs.Description = i.Description
+									AND lvs.CostCenter = i.CostCenter
+					) AS existingCount(N)
 				;
 
 
---  2)  MERGE equipment from temp storage into hwt.Equipment
+--  2)  INSERT new Equipment data from temp storage into hwt.Equipment
 		WITH	cte AS
 				(
 				  SELECT 	DISTINCT 
 							Asset               =   tmp.Asset
 						  , Description         =   tmp.Description
-						  , CalibrationDueDate  =   CASE ISDATE( tmp.CalibrationDueDate )
-														WHEN 1 THEN CONVERT( datetime, tmp.CalibrationDueDate )
-														ELSE CONVERT( datetime, '1900-01-01' )
-													END
 						  , CostCenter          =   tmp.CostCenter
-						  , HWTChecksum         =   tmp.HWTChecksum
-						  , UpdatedBy           =   tmp.OperatorName
 					FROM 	#changes AS tmp
+					
+				  EXCEPT
+				  SELECT	Asset               
+						  , Description         
+						  , CostCenter          
+					FROM	hwt.Equipment
 				)
-	   MERGE 	INTO hwt.Equipment  AS tgt
-				USING cte AS src
-					ON src.Asset = tgt.Asset
-						AND src.CalibrationDueDate = tgt.CalibrationDueDate
-		
-		WHEN 	MATCHED AND src.HWTChecksum != tgt.HWTChecksum 
-				THEN  UPDATE
-						 SET	tgt.Asset               =   src.Asset
-							  , tgt.Description         =   src.Description
-							  , tgt.CalibrationDueDate  =   src.CalibrationDueDate
-							  , tgt.CostCenter          =   src.CostCenter
-							  , tgt.HWTChecksum         =   src.HWTChecksum
-							  , tgt.UpdatedBy           =   src.UpdatedBy
-							  , tgt.UpdatedDate         =   GETDATE()
+				
+	  INSERT 	hwt.Equipment
+					( Asset, Description, CostCenter, UpdatedBy, UpdatedDate )		
+	  SELECT 	DISTINCT 
+				Asset               =   cte.Asset
+			  , Description         =   cte.Description
+			  , CostCenter          =   cte.CostCenter
+			  , UpdatedBy           =   tmp.OperatorName
+			  , UpdatedDate         =   SYSDATETIME()
+		FROM 	cte 
+				INNER JOIN 	#changes AS tmp
+						ON 	tmp.Asset = cte.Asset 
+								AND tmp.Description = cte.Description
+								AND tmp.CostCenter = cte.CostCenter
+				; 
 
-		WHEN 	NOT MATCHED BY TARGET 
-				THEN  INSERT
-						( 	
-							Asset, Description, CalibrationDueDate, CostCenter
-								, HWTChecksum, UpdatedBy, UpdatedDate 
-						)		
-					  VALUES
-						(	src.Asset, src.Description, src.CalibrationDueDate, src.CostCenter
-								, src.HWTChecksum, src.UpdatedBy, GETDATE()
-						) 
-				;
-
-    --  Apply EquipmentID back into temp storage
+--  3)	UPDATE EquipmentID back into temp storage
       UPDATE	tmp
 		 SET	EquipmentID =   e.EquipmentID
 		FROM 	#changes AS tmp
 				INNER JOIN hwt.Equipment AS e
 						ON e.Asset = tmp.Asset
-							AND e.CalibrationDueDate = tmp.CalibrationDueDate 
+							AND e.Description = tmp.Description
+							AND e.CostCenter = tmp.CostCenter							
 				; 
 
 
---  3)  MERGE header equipment from temp storage into hwt.HeaderEquipment
-		WITH	cte AS
-				(
-				  SELECT 	HeaderID    =   chg.HeaderID
-						  , EquipmentID =   chg.EquipmentID
-						  , UpdatedBy   =   chg.OperatorName
-					FROM 	#changes AS chg
-				)
-	   
-	   MERGE 	INTO hwt.HeaderEquipment  AS tgt
-				USING cte AS src
-					ON src.HeaderID = tgt.HeaderID
-						AND src.EquipmentID = tgt.EquipmentID
-
-		WHEN 	NOT MATCHED BY TARGET 
-				THEN  INSERT( HeaderID, EquipmentID, UpdatedBy, UpdatedDate )
-					  VALUES( src.HeaderID, src.EquipmentID, src.UpdatedBy, GETDATE() ) 
-				;
+--  4)  INSERT header equipment from temp storage into hwt.HeaderEquipment
+	  INSERT	hwt.HeaderEquipment
+					( HeaderID, EquipmentID, EquipmentN, CalibrationDueDate, UpdatedBy, UpdatedDate ) 
+	  SELECT 	HeaderID
+			  , EquipmentID
+			  , EquipmentN
+			  , CalibrationDueDate
+			  , OperatorName
+			  , SYSDATETIME()
+		FROM 	#changes 
+				; 
 
     	RETURN 0 ; 
 	

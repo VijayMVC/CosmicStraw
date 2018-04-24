@@ -7,9 +7,12 @@
 
     Logic Summary
     -------------
-    1)  INSERT data into temp storage from trigger
-    2)  MERGE test libraryFile from temp storage into hwt.LibraryFile
-    3)  MERGE header library files from temp storage into hwt.HeaderLibraryFile
+    1)	INSERT data into temp storage from trigger
+    2)	INSERT new Library File data from temp storage into hwt.LibraryFile
+    3)	UPDATE LibraryFileID back into temp storage
+    4)	INSERT header libraryFile data from temp storage into hwt.HeaderLibraryFile
+
+
 
     Parameters
     ----------
@@ -20,10 +23,10 @@
 
     Revision
     --------
-    carsoc3     2018-02-01      alpha release
+    carsoc3     2018-04-27		production release
 
 ***********************************************************************************************************************************
-*/
+*/	
 AS
 
 SET XACT_ABORT, NOCOUNT ON ;
@@ -33,31 +36,31 @@ BEGIN TRY
     --  define temp storage tables
     IF  ( 1 = 0 ) 
         CREATE TABLE	#inserted
-			(
-                ID          int
-              , HeaderID    int
-              , FileName    nvarchar(400)
-              , FileRev     nvarchar(50)
-              , Status      nvarchar(50)
-              , HashCode    nvarchar(100)
-            ) ;
+						(
+							ID          int
+						  , HeaderID    int
+						  , FileName    nvarchar(400)
+						  , FileRev     nvarchar(50)
+						  , Status      nvarchar(50)
+						  , HashCode    nvarchar(100)
+						  , CreatedDate datetime
+						) ;
 
     CREATE TABLE	#changes
-		(
-            ID              int
-          , HeaderID        int
-          , FileName        nvarchar(400)
-          , FileRev         nvarchar(50)
-          , Status          nvarchar(50)
-          , HashCode        nvarchar(100)
-          , OperatorName    nvarchar(50)
-          , HWTChecksum     int
-          , LibraryFileID   int
-        ) ;
+					(
+						ID              int
+					  , HeaderID        int
+					  , FileName        nvarchar(400)
+					  , FileRev         nvarchar(50)
+					  , Status          nvarchar(50)
+					  , HashCode        nvarchar(100)
+					  , OperatorName    nvarchar(50)
+					  , LibraryFileID   int
+					) ;
 
 --  1)  INSERT data into temp storage from trigger
       INSERT	INTO #changes
-					( ID, HeaderID, FileName, FileRev, Status, HashCode, OperatorName, HWTChecksum )
+					( ID, HeaderID, FileName, FileRev, Status, HashCode, OperatorName )
       SELECT	i.ID          
               , i.HeaderID    
               , i.FileName    
@@ -65,19 +68,12 @@ BEGIN TRY
               , i.Status      
               , i.HashCode    
 			  , h.OperatorName
-			  , HWTChecksum     =   BINARY_CHECKSUM
-										(
-											i.FileName
-										  , i.FileRev
-										  , i.Status
-										  , i.HashCode
-										)
 		FROM	#inserted AS i
 				INNER JOIN labViewStage.header AS h
 						ON h.ID = i.HeaderID ;
 
 
---  2)  MERGE library files from temp storage into hwt.LibraryFile
+--  2)  INSERT new Library File data from temp storage into hwt.LibraryFile
 		WITH	cte AS
 				(
 					  SELECT 	DISTINCT 
@@ -85,43 +81,55 @@ BEGIN TRY
 							  , FileRev
 							  , Status
 							  , HashCode
-							  , HWTChecksum
-							  , UpdatedBy       =   tmp.OperatorName
-						FROM	#changes AS tmp
+						FROM	#changes
+						
+					  EXCEPT 
+					  SELECT 	FileName
+							  , FileRev
+							  , Status
+							  , HashCode
+						FROM	hwt.LibraryFile
 				)    
-	   MERGE 	INTO hwt.LibraryFile  AS tgt
-				USING cte AS src
-					ON src.HWTChecksum = tgt.HWTChecksum
-    
-		WHEN 	NOT MATCHED BY TARGET 
-				THEN  INSERT	( FileName, FileRev, Status, HashCode, HWTChecksum, UpdatedBy, UpdatedDate )
-					  VALUES	( src.FileName, src.FileRev, src.Status, src.HashCode, src.HWTChecksum, src.UpdatedBy, GETDATE() ) ;
+	  INSERT	hwt.LibraryFile 
+					( FileName, FileRev, Status, HashCode, UpdatedBy, UpdatedDate )
+	  SELECT 	DISTINCT 
+				cte.FileName
+			  , cte.FileRev
+			  , cte.Status
+			  , cte.HashCode
+			  , tmp.OperatorName 
+			  , GETDATE() 
+		FROM 	cte
+				INNER JOIN #changes AS tmp 
+						ON tmp.FileName = cte.FileName 
+							AND tmp.FileRev  = cte.FileRev        
+							AND tmp.Status   = cte.Status         
+							AND tmp.HashCode = cte.HashCode    				
+				;
+				
 
-    --  Apply LibraryFile back into temp storage
+--  3)	Apply LibraryFileID back into temp storage
       UPDATE	tmp
 		 SET	LibraryFileID   =   l.LibraryFileID
 		FROM	#changes AS tmp
 				INNER JOIN hwt.LibraryFile AS l
-						ON l.HWTChecksum = tmp.HWTChecksum ;
+						ON l.FileName = tmp.FileName 
+							AND l.FileRev = tmp.FileRev        
+							AND l.Status = tmp.Status         
+							AND l.HashCode = tmp.HashCode       
+				;
 
 
---  3)  MERGE header libraryFile data from temp storage into hwt.HeaderLibraryFile
-		WITH	cte AS
-				(
-					  SELECT 	HeaderID        =   c.HeaderID
-							  , LibraryFileID   =   c.LibraryFileID
-							  , UpdatedBy       =   c.OperatorName
-						FROM 	#changes AS c
-				)
-       
-	   MERGE 	INTO hwt.HeaderLibraryFile AS tgt
-				USING cte AS src
-					ON  src.HeaderID = tgt.HeaderID
-						AND src.LibraryFileID = tgt.LibraryFileID
-
-		WHEN 	NOT MATCHED BY TARGET 
-				THEN  INSERT	( HeaderID, LibraryFileID, UpdatedBy, UpdatedDate )
-					  VALUES	( src.HeaderID, src.LibraryFileID, src.UpdatedBy, GETDATE() ) ;
+--  4)  INSERT header libraryFile data from temp storage into hwt.HeaderLibraryFile
+     
+	  INSERT	hwt.HeaderLibraryFile 
+					( HeaderID, LibraryFileID, UpdatedBy, UpdatedDate )
+	  SELECT 	HeaderID
+			  , LibraryFileID
+			  , OperatorName 
+			  , GETDATE() 
+		FROM 	#changes 
+				;
 
 	RETURN 0 ; 
 	

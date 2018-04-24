@@ -8,8 +8,9 @@
     Logic Summary
     -------------
     1)  INSERT data into temp storage from trigger
-    2)  MERGE AppConst from temp storage into hwt.AppConst
-    3)  MERGE header AppConst from temp storage into hwt.HeaderAppConst
+    2)  INSERT new AppConst data from temp storage into hwt.AppConst
+	3)	UPDATE AppConstID back into temp storage
+	4)  INSERT header AppConst data from temp storage into hwt.HeaderAppConst
 
     Parameters
     ----------
@@ -20,10 +21,10 @@
 
     Revision
     --------
-    carsoc3     2018-02-01      alpha release
+    carsoc3     2018-04-27		production release
 
 ***********************************************************************************************************************************
-*/
+*/	
 AS
 
 SET XACT_ABORT, NOCOUNT ON ;
@@ -32,115 +33,114 @@ BEGIN TRY
 
     --  define temp storage tables
     IF  ( 1 = 0 )
-        CREATE TABLE #inserted
-			(
-                ID          int
-              , HeaderID    int
-              , Name        nvarchar(100)
-              , Type        nvarchar(50)
-              , Units       nvarchar(50)
-              , Value       nvarchar(1000)
-            ) ;
+		CREATE TABLE 	#inserted
+						(
+							ID          int
+						  , HeaderID    int
+						  , Name        nvarchar(100)
+						  , Type        nvarchar(50)
+						  , Units       nvarchar(50)
+						  , Value       nvarchar(1000)
+						  , CreatedDate	datetime
+						) 
+						;
 
-    CREATE TABLE #changes
-		(
-            ID              int
-          , HeaderID        int
-          , Name            nvarchar(100)
-          , Type            nvarchar(50)
-          , Units           nvarchar(50)
-          , Value           nvarchar(50)
-          , OperatorName    nvarchar(1000)
-          , HWTChecksum     int
-          , AppConstID      int
-        ) ;
+    CREATE TABLE 	#changes
+					(
+						ID              int
+					  , HeaderID        int
+					  , Name            nvarchar(100)
+					  , Type            nvarchar(50)
+					  , Units           nvarchar(50)
+					  , Value           nvarchar(50)
+					  , OperatorName    nvarchar(1000)
+					  , AppConstN		int
+					  , AppConstID      int
+					) 
+					;
 
 		
 --  1)  INSERT data into temp storage from trigger
-      INSERT	INTO #changes
-						( ID, HeaderID, Name, Type, Units, Value, OperatorName, HWTChecksum )
+      INSERT	#changes
+					( ID, HeaderID, Name, Type, Units, Value, OperatorName, AppConstN )
 	  SELECT	i.ID          
               , i.HeaderID    
               , i.Name        
               , i.Type        
               , i.Units       
-              , i.Value       
+              , i.Value
 			  , h.OperatorName
-			  , HWTChecksum     =   BINARY_CHECKSUM
-										(
-											i.Name
-										  , i.Type
-										  , i.Units
-										)
+			  , AppConstN		=	existingCount.N + ROW_NUMBER() OVER( PARTITION BY i.HeaderID, i.Name, i.Type, i.Units ORDER BY i.ID )
 		FROM 	#inserted AS i
 				INNER JOIN labViewStage.header AS h
-						ON h.ID = i.HeaderID ;
+						ON h.ID = i.HeaderID 
+						
+				OUTER APPLY
+					(
+					  SELECT 	COUNT(*) 
+					    FROM	labViewStage.appConst_element AS lvs
+					   WHERE	lvs.HeaderID = i.HeaderID 
+									AND lvs.Name = i.Name 
+									AND lvs.Type = i.Type
+									AND lvs.Units = i.Units
+					) AS existingCount(N)
+				;
 
 
---  2)  MERGE changed AppConst from temp storage into hwt.AppConst
-    WITH	cte AS
-			(
-              SELECT 	DISTINCT 
-						Name        =   tmp.Name
-					  , DataType    =   tmp.Type
-					  , Units       =   tmp.Units
-					  , HWTChecksum =   tmp.HWTChecksum
-					  , UpdatedBy   =   tmp.OperatorName
-				FROM 	#changes AS tmp
-			)
-   MERGE 	INTO hwt.AppConst AS tgt
-			USING cte AS src
-				ON src.Name = tgt.Name
-    
-	WHEN 	MATCHED AND src.HWTChecksum != tgt.HWTChecksum 
-			THEN  UPDATE
-					 SET	tgt.DataType    =   src.DataType
-						  , tgt.Units       =   src.Units
-						  , tgt.HWTChecksum =   src.HWTChecksum
-						  , tgt.UpdatedBy   =   src.UpdatedBy
-						  , tgt.UpdatedDate =   GETDATE()
+--  2)  INSERT new AppConst data from temp storage into hwt.AppConst
+        WITH	cte AS
+					(
+					  SELECT 	DISTINCT 
+								Name        =   tmp.Name
+							  , DataType    =   tmp.Type
+							  , Units       =   tmp.Units
+						FROM 	#changes AS tmp
+					
+					  EXCEPT 
+					  SELECT 	Name        
+							  , DataType    
+							  , Units       
+						FROM 	hwt.AppConst 
+					)
+			
+	  INSERT	hwt.AppConst 
+					( Name, DataType, Units, UpdatedBy, UpdatedDate ) 
+	  SELECT 	DISTINCT 
+				Name 		=	cte.Name
+			  , DataType    =	cte.DataType
+			  , Units       =	cte.Units
+			  , UpdatedBy	=	tmp.OperatorName   
+			  , UpdatedDate	=	SYSDATETIME()
+		FROM 	cte
+				INNER JOIN 	#changes AS tmp 
+						ON 	tmp.Name = cte.Name 
+								AND tmp.Type = cte.DataType
+								AND	tmp.Units = cte.Units 
+				; 
 
-	WHEN 	NOT MATCHED BY TARGET 
-			THEN  INSERT	( Name, DataType, Units, HWTChecksum, UpdatedBy, UpdatedDate )
-				  VALUES	( src.Name, src.DataType, src.Units, src.HWTChecksum, src.UpdatedBy, GETDATE() ) ;
-
-    --  Apply AppConstID back into temp storage
-      UPDATE 	tmp
+--	3)	UPDATE AppConstID back into temp storage
+	  UPDATE 	tmp
 		 SET 	AppConstID  =   ac.AppConstID
 		FROM 	#changes AS tmp
 				INNER JOIN hwt.AppConst AS ac
 						ON ac.Name = tmp.Name
 							AND ac.DataType = tmp.Type
-							AND ac.Units = tmp.Units ;
+							AND ac.Units = tmp.Units 
+				;
 
 
---  3)  MERGE header AppConst data from temp storage into hwt.HeaderAppConst
-    WITH 	cte AS
-			(
-			  SELECT 	HeaderID		=   c.HeaderID
-					  , AppConstID		=   ac.AppConstID
-					  , AppConstValue	=   c.Value
-					  , UpdatedBy		=   c.OperatorName
-				FROM 	#changes AS c
-						INNER JOIN hwt.AppConst AS ac
-								ON c.AppConstID = ac.AppConstID
-			)
-   MERGE 	INTO hwt.HeaderAppConst AS tgt
-			USING cte AS src
-				ON  src.HeaderID = tgt.HeaderID
-					AND src.AppConstID = tgt.AppConstID
-    
-	WHEN 	MATCHED AND src.AppConstValue <> tgt.AppConstValue
-			THEN  UPDATE
-					 SET 	tgt.AppConstValue   =   src.AppConstValue
-						  , tgt.UpdatedBy		=   src.UpdatedBy
-						  , tgt.UpdatedDate		=   GETDATE()
-    
-	WHEN 	NOT MATCHED BY TARGET 
-			THEN  INSERT( HeaderID, AppConstID, AppConstValue, UpdatedBy, UpdatedDate )
-				  VALUES( src.HeaderID, src.AppConstID, src.AppConstValue, src.UpdatedBy, GETDATE() ) ;
+--  4)  INSERT header AppConst data from temp storage into hwt.HeaderAppConst
+	  INSERT	hwt.HeaderAppConst
+					( HeaderID, AppConstID, AppConstN, AppConstValue, UpdatedBy, UpdatedDate ) 
 
-    RETURN ;
+	  SELECT 	HeaderID
+			  , AppConstID
+			  , AppConstN
+			  , Value
+			  , OperatorName
+			  , SYSDATETIME()
+		FROM 	#changes
+				; 
 
 END TRY
 

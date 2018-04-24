@@ -17,12 +17,13 @@
     Notes
     -----
 
+
     Revision
     --------
-    carsoc3     2018-02-01      alpha release
+    carsoc3     2018-04-27		production release
 
 ***********************************************************************************************************************************
-*/
+*/	
 AS
 
 SET XACT_ABORT, NOCOUNT ON ;
@@ -31,91 +32,46 @@ BEGIN TRY
 
     --  define temp storage tables
     IF  ( 1 = 0 ) 
-		BEGIN 
-			CREATE TABLE	#inserted
-				(
-					ID          int
-				  , VectorID    int
-				  , Name        nvarchar(250)
-				  , Type        nvarchar(50)
-				  , Units       nvarchar(50)
-				  , Value       nvarchar(max)
-				) 
-				;
-		END 
+		CREATE TABLE	#inserted
+						(
+							ID          int
+						  , VectorID    int
+						  , Name        nvarchar(250)
+						  , Type        nvarchar(50)
+						  , Units       nvarchar(50)
+						  , Value       nvarchar(max)
+						  , CreatedDate	datetime
+						) 
+						;
 
     CREATE TABLE	#changes
-		(
-            ID              	int
-          , VectorID        	int
-		  , VectorResultNumber	int 
-          , Name            	nvarchar(250)
-          , Type            	nvarchar(50)
-          , Units           	nvarchar(50)
-          , ResultN         	int
-          , ResultValue     	nvarchar(250)
-          , OperatorName    	nvarchar(50)
-          , HWTChecksum     	int
-          , ResultID        	int
-        ) 
-		;
+					(
+						ID              	int
+					  , VectorID        	int
+					  , VectorResultN		int 
+					  , Name            	nvarchar(250)
+					  , Type            	nvarchar(50)
+					  , Units           	nvarchar(50)
+					  , ResultN         	int
+					  , ResultValue     	nvarchar(250)
+					  , OperatorName    	nvarchar(50)
+					  , ResultID        	int
+					) 
+					;
 
---	1)	Scrub any escaped XML from input 
-	DECLARE 	@EscapedXMLPattern	nvarchar(20) = N'%&%;%' ;
-	IF	EXISTS	( SELECT 1 FROM #changes WHERE PATINDEX( Name, @EscapedXMLPattern ) > 0 ) 
-		BEGIN 
-			  UPDATE 	#changes 
-			     SET 	Name 	=	REPLACE( REPLACE( REPLACE( REPLACE( REPLACE( Name, '&amp;', '&' ), '&lt;', '<' ), '&gt', '>' ), '&quot', '"' ), '&apos;', '''' )
-			   WHERE    PATINDEX( Name, @EscapedXMLPattern ) > 0
-						;
-		END
-		
-	IF	EXISTS	( SELECT 1 FROM #changes WHERE PATINDEX( Type, @EscapedXMLPattern ) > 0 ) 
-		BEGIN 
-			  UPDATE 	#changes 
-			     SET 	Name 	=	REPLACE( REPLACE( REPLACE( REPLACE( REPLACE( Type, '&amp;', '&' ), '&lt;', '<' ), '&gt', '>' ), '&quot', '"' ), '&apos;', '''' )
-			   WHERE    PATINDEX( Type, @EscapedXMLPattern ) > 0
-						;
-		END
-		
-	IF	EXISTS	( SELECT 1 FROM #changes WHERE PATINDEX( Units, @EscapedXMLPattern ) > 0 ) 
-		BEGIN 
-			  UPDATE 	#changes 
-			     SET 	Units 	=	REPLACE( REPLACE( REPLACE( REPLACE( REPLACE( Units, '&amp;', '&' ), '&lt;', '<' ), '&gt', '>' ), '&quot', '"' ), '&apos;', '''' )
-			   WHERE    PATINDEX( Units, @EscapedXMLPattern ) > 0
-						;
-		END		
-		
-	IF	EXISTS	( SELECT 1 FROM #changes WHERE PATINDEX( ResultValue, @EscapedXMLPattern ) > 0 ) 
-		BEGIN 
-			  UPDATE 	#changes 
-			     SET 	ResultValue 	=	REPLACE( REPLACE( REPLACE( REPLACE( REPLACE( ResultValue, '&amp;', '&' ), '&lt;', '<' ), '&gt', '>' ), '&quot', '"' ), '&apos;', '''' )
-			   WHERE    PATINDEX( ResultValue, @EscapedXMLPattern ) > 0
-						;
-		END		
-	
-				
---  2)  INSERT data into temp storage from trigger
+					
+--  1)  INSERT data into temp storage from trigger for non-array values
       INSERT 	#changes
-					( 
-						ID, VectorID, VectorResultNumber, Name, Type
-							, Units, ResultN, ResultValue, OperatorName, HWTChecksum 
-					)
+					( ID, VectorID, Name, Type, Units, VectorResultN, ResultN, ResultValue, OperatorName )
       SELECT	i.ID
 			  , i.VectorID
-			  , ROW_NUMBER() OVER( PARTITION BY i.VectorID, i.ID ORDER BY i.ID ) 
-			  , i.Name
-			  , i.Type
-			  , i.Units
+			  , i.Name 			
+			  , i.Type			
+			  , i.Units			
+			  , VectorResultN 	=	existingCount.N + DENSE_RANK() OVER( PARTITION BY i.VectorID, i.Name, i.Type, i.Units ORDER BY i.ID )
 			  , ResultN         =   x.ItemNumber
 			  , ResultValue     =   x.Item
 			  , h.OperatorName
-			  , HWTChecksum     =   BINARY_CHECKSUM
-									(
-										Name
-									  , Type
-									  , Units
-									)
 		FROM	#inserted AS i
 				INNER JOIN labViewStage.vector AS v
 						ON v.ID = i.VectorID
@@ -124,89 +80,107 @@ BEGIN TRY
 						ON h.ID = v.HeaderID
 
 				CROSS APPLY utility.ufn_SplitString( i.Value, ',' ) AS x 
-				;				
+				
+				OUTER APPLY
+					(
+					  SELECT 	COUNT(*) 
+					    FROM	labViewStage.result_element AS lvs
+					   WHERE	lvs.VectorID = i.VectorID 
+									AND lvs.Name = i.Name 
+									AND lvs.Type = i.Type
+									AND lvs.Units = i.Units
+					) AS existingCount(N)
+	   WHERE 	ISJSON( i.Value ) = 0 
+				;			
 
---  3)  MERGE elements from temp storage into hwt.Result
+--  2)  INSERT data into temp storage from trigger for array values
+      INSERT 	#changes
+					( ID, VectorID, Name, Type, Units, VectorResultN, ResultN, ResultValue, OperatorName )
+      SELECT	i.ID
+			  , i.VectorID
+			  , i.Name 			
+			  , i.Type			
+			  , i.Units			
+			  , VectorResultN 	=	existingCount.N + DENSE_RANK() OVER( PARTITION BY i.VectorID, i.Name, i.Type, i.Units ORDER BY i.ID )
+			  , ResultN         =   ISNULL( x.[key] + 1, 1 ) 
+			  , ResultValue     =   ISNULL( x.Value, '' ) 
+			  , h.OperatorName
+		FROM	#inserted AS i
+				INNER JOIN labViewStage.vector AS v
+						ON v.ID = i.VectorID
+				
+				INNER JOIN labViewStage.header AS h
+						ON h.ID = v.HeaderID
+
+				OUTER APPLY OPENJSON( i.Value ) AS x 
+				
+				OUTER APPLY
+					(
+					  SELECT 	COUNT(*) 
+					    FROM	labViewStage.result_element AS lvs
+					   WHERE	lvs.VectorID = i.VectorID 
+									AND lvs.Name = i.Name 
+									AND lvs.Type = i.Type
+									AND lvs.Units = i.Units
+					) AS existingCount(N)
+	   WHERE 	ISJSON( i.Value ) = 1
+				;			
+
+				
+--  3)  INSERT new Result data from temp storage into hwt.Result
         WITH	cte AS
 				(
 				  SELECT 	DISTINCT
 							Name        =   tmp.Name
 						  , DataType    =   tmp.Type
 						  , Units       =   tmp.Units
-						  , HWTChecksum =   tmp.HWTChecksum
-						  , UpdatedBy   =   tmp.OperatorName
 					FROM 	#changes AS tmp
+					
+				  EXCEPT	
+				  SELECT	Name
+						  , DataType
+						  , Units
+					FROM 	hwt.Result
 				)
 				
-	   MERGE 	INTO hwt.Result AS tgt
-				USING cte AS src
-					ON src.Name = tgt.Name
-    
-		WHEN 	MATCHED AND src.HWTChecksum != tgt.HWTChecksum 
-				THEN  UPDATE
-						 SET	tgt.DataType    =   src.DataType
-							  , tgt.Units       =   src.Units
-							  , tgt.HWTChecksum =   src.HWTChecksum
-							  , tgt.UpdatedBy   =   src.UpdatedBy
-							  , tgt.UpdatedDate =   GETDATE()
-		
-		WHEN 	NOT MATCHED BY TARGET 
-				THEN  INSERT	
-						( Name, DataType, Units, HWTChecksum, UpdatedBy, UpdatedDate )
-					  VALUES	
-						( src.Name, src.DataType, src.Units, src.HWTChecksum, src.UpdatedBy, GETDATE() ) 
-				;
+	  INSERT 	hwt.Result
+					( Name, DataType, Units, UpdatedBy, UpdatedDate )
+	  SELECT 	DISTINCT 
+				Name		=	cte.Name		
+			  , DataType    =	cte.DataType    
+			  , Units       =	cte.Units       
+			  , UpdatedBy   =	tmp.OperatorName 
+			  , UpdatedDate =	SYSDATETIME()
+		FROM 	cte
+				INNER JOIN	#changes AS tmp 
+						ON 	tmp.Name = cte.Name 
+								AND tmp.Type = cte.DataType
+								AND	tmp.Units = cte.Units 
+				; 
 
-    --  Apply ResultID back into temp storage
-      UPDATE	tmp
-         SET 	ResultID    =   r.ResultID
-        FROM	#changes AS tmp
+				
+--	4)	UPDATE ResultID back into temp storage
+	  UPDATE 	tmp
+		 SET 	ResultID  =   r.ResultID
+		FROM 	#changes AS tmp
 				INNER JOIN hwt.Result AS r
-						ON r.Name = tmp.Name 
+						ON r.Name = tmp.Name
+							AND r.DataType = tmp.Type
+							AND r.Units = tmp.Units 
 				;
-
-
---  4)  MERGE result elements from temp storage into hwt.VectorResult
-		WITH	cte AS
-				(
-				  SELECT	VectorID    		=   c.VectorID
-						  , ResultID    		=   r.ResultID
-						  , VectorResultNumber	=	c.VectorResultNumber
-						  , ResultN     		=   c.ResultN
-						  , ResultValue 		=   c.ResultValue
-					FROM	#changes AS c
-							INNER JOIN hwt.Result AS r
-									ON r.ResultID = c.ResultID
-				)
 				
-			  , cteVectorResult AS
-				(	
-				  SELECT	*
-					FROM    hwt.VectorResult AS vr
-				   WHERE   	EXISTS
-							(	  
-							  SELECT 	1 
-								FROM 	#changes AS c
-							   WHERE 	c.VectorID = vr.VectorID 
-											AND c.ResultID				=	vr.ResultID 
-											AND c.VectorResultNumber	=	vr.VectorResultNumber 
-							)
-				)
-				
-	   MERGE 	INTO cteVectorResult AS tgt
-				USING cte AS src
-					ON  src.VectorID 				=	tgt.VectorID
-						AND src.ResultID			=	tgt.ResultID 
-						AND src.VectorResultNumber	= 	tgt.VectorResultNumber
-						AND src.ResultN 			= 	tgt.ResultN
-    
-	    WHEN 	MATCHED AND src.ResultValue <> tgt.ResultValue
-				THEN  UPDATE
-						 SET	tgt.ResultValue =   src.ResultValue
-    
-		WHEN 	NOT MATCHED BY TARGET 
-				THEN  INSERT	( VectorID, ResultID, VectorResultNumber, ResultN, ResultValue )
-					  VALUES	( src.VectorID, src.ResultID, src.VectorResultNumber, src.ResultN, src.ResultValue ) 
+
+--  5)  INSERT vector results from temp storage into hwt.VectorResult
+	  INSERT 	hwt.VectorResult
+					( VectorID, ResultID, VectorResultN, ResultN, ResultValue, UpdatedBy, UpdatedDate )
+	  SELECT	VectorID    	
+			  , ResultID    	
+			  , VectorResultN   
+			  , ResultN     	
+			  , ResultValue 
+			  , UpdatedBy		=	OperatorName 
+			  , UpdatedDate		=	SYSDATETIME()
+		FROM	#changes 
 				;
 
     RETURN 0 ; 

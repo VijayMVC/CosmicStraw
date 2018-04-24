@@ -1,71 +1,73 @@
 ﻿CREATE TRIGGER	labViewStage.trg_libraryInfo_file
 			ON 	labViewStage.libraryInfo_file
-	INSTEAD OF 	INSERT, UPDATE
--- invoke process to load repository with stage data
+	INSTEAD OF 	INSERT
+/*
+***********************************************************************************************************************************
+
+    Procedure:  hwt.trg_libraryInfo_file
+    Abstract:   Loads libraryInfo_file records into staging environment
+
+    Logic Summary
+    -------------
+    1)	Load trigger data into temp storage
+    2)	Load repository libraryInfo data from stage data
+	3) 	INSERT updated trigger data from temp storage into labViewStage 	
+
+    
+    Revision
+    --------
+    carsoc3     2018-04-27		production release
+
+***********************************************************************************************************************************
+*/	
 AS
 
 SET XACT_ABORT, NOCOUNT ON ;
 
 BEGIN TRY
 
---	Load trigger data into temp storage
-    SELECT * INTO #inserted FROM inserted ;
-
+     DECLARE 	@CurrentID int ; 
 	
---	Load repository equipment data from stage data
-    EXECUTE hwt.usp_LoadRepositoryFromStage @pSourceTable = N'libraryInfo_file' ;
+	  SELECT 	@CurrentID = ISNULL( MAX( ID ), 0 ) FROM labViewStage.libraryInfo_file ; 
 
+--	1)	Load trigger data into temp storage
+	  SELECT 	i.ID          
+			  , i.HeaderID
+			  , FileName	=	REPLACE( REPLACE( REPLACE( i.FileName, '&amp;', '&' ), '&lt;', '<' ), '&gt;', '>' )
+			  , FileRev     =	REPLACE( REPLACE( REPLACE( i.FileRev, '&amp;', '&' ), '&lt;', '<' ), '&gt;', '>' ) 
+			  , i.Status
+			  , i.HashCode
+			  , i.CreatedDate
+		INTO 	#inserted
+		FROM 	inserted AS i
+				;
+
+				
+	  UPDATE 	#inserted 
+	     SET 	@CurrentID = ID = @CurrentID + 1
+	   WHERE 	ISNULL( ID, 0 ) = 0 
+				; 
+				
+--	2)	Load repository libraryInfo_file data from stage data
+     EXECUTE 	hwt.usp_LoadRepositoryFromStage 
+					@pSourceTable = N'libraryInfo_file' 
+				;
 	
---	MERGE trigger data into labViewStage.appConst_element table 
-	 WITH	existing AS
-			( 
-			  SELECT 	ID
-					  , HeaderID	
-					  , FileName		
-					  , FileRev
-					  , Status
-                      , HashCode
-					  , trg_checksum	= 	BINARY_CHECKSUM
-												( 
-													HeaderID	
-												  , FileName		
-												  , FileRev
-												  , Status
-												  , HashCode												
-												) 
-				FROM 	labViewStage.libraryInfo_file AS a 
-			   WHERE 	HeaderID IN ( SELECT HeaderID FROM inserted ) 
-			)
-
-		  , src AS 
-			(
-			  SELECT 	HeaderID	
-					  , FileName		
-					  , FileRev
-					  , Status
-					  , HashCode	
-					  , trg_checksum	= 	BINARY_CHECKSUM
-												( 
-													HeaderID	
-												  , FileName		
-												  , FileRev
-												  , Status
-												  , HashCode	
-												) 
-				FROM 	inserted
-			)
-	MERGE 	INTO existing AS e
-			USING src AS s 
-				ON s.trg_checksum = e.trg_checksum 	
-				
-	WHEN 	NOT MATCHED BY TARGET 
-			THEN  INSERT
-					( HeaderID, FileName, FileRev, Status, HashCode	) 
-				
-				  VALUES 
-					( s.HeaderID, s.FileName, s.FileRev, s.Status, s.HashCode ) ;
+--	3) 	INSERT trigger data into labViewStage 	
+	  INSERT	labViewStage.libraryInfo_file
+					( ID, HeaderID, FileName, FileRev, Status, HashCode, CreatedDate ) 
+	  SELECT 	ID          
+			  , HeaderID
+			  , FileName
+			  , FileRev
+			  , Status
+			  , HashCode
+			  , CreatedDate
+		FROM 	#inserted 
+				; 
 					
 END TRY
+
 
 BEGIN CATCH
 

@@ -8,7 +8,7 @@
 	  , LCID		smallint		NOT NULL
 	  , MessageText	nvarchar(1960)	NOT NULL
 	  , UpdatedBy	sysname			NOT NULL
-	  , UpdatedDate	datetime2(0)	NOT NULL	DEFAULT GETDATE()
+	  , UpdatedDate	datetime		NOT NULL	DEFAULT GETDATE()
 	  
 	  , CONSTRAINT 	PK_eLog_UserMessage 		
 			PRIMARY KEY CLUSTERED( MessageID ASC, LCID ASC )

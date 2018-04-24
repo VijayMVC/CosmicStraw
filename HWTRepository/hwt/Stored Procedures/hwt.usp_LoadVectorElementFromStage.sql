@@ -20,10 +20,10 @@
 
     Revision
     --------
-    carsoc3     2018-02-01      alpha release
+    carsoc3     2018-04-27		production release
 
 ***********************************************************************************************************************************
-*/
+*/	
 AS
 
 SET XACT_ABORT, NOCOUNT ON ;
@@ -32,34 +32,35 @@ BEGIN TRY
 
     --  define temp storage tables
     IF  ( 1 = 0 )
-        CREATE TABLE 	#inserted
-			(
-                ID          int
-              , VectorID    int
-              , Name        nvarchar(100)
-              , Type        nvarchar(50)
-              , Units       nvarchar(50)
-              , Value       nvarchar(1000)
-            ) 
-			;
+		CREATE TABLE 	#inserted
+						(
+							ID          int
+						  , VectorID    int
+						  , Name        nvarchar(100)
+						  , Type        nvarchar(50)
+						  , Units       nvarchar(50)
+						  , Value       nvarchar(1000)
+						  , CreatedDate	datetime
+						) 
+						;
 
     CREATE TABLE 	#changes
-		(
-            ID              int
-          , VectorID        int
-          , Name            nvarchar(100)
-          , Type            nvarchar(50)
-          , Units           nvarchar(50)
-          , Value           nvarchar(1000)
-          , OperatorName    nvarchar(50)
-          , HWTChecksum     int
-          , ElementID       int
-        ) 
-		;
+					(
+						ID              int
+					  , VectorID        int
+					  , Name            nvarchar(100)
+					  , Type            nvarchar(50)
+					  , Units           nvarchar(50)
+					  , Value           nvarchar(1000)
+					  , OperatorName    nvarchar(50)
+					  , ElementN     	int
+					  , ElementID       int
+					) 
+					;
 
 --  1)  INSERT data into temp storage from trigger
       INSERT	INTO #changes
-					( ID, VectorID, Name, Type, Units, Value, OperatorName, HWTChecksum )
+					( ID, VectorID, Name, Type, Units, Value, OperatorName, ElementN )
       SELECT	i.ID          
               , i.VectorID    
               , i.Name        
@@ -67,45 +68,59 @@ BEGIN TRY
               , i.Units       
               , i.Value       
 			  , h.OperatorName
-			  , HWTChecksum     =   BINARY_CHECKSUM
-									(
-										i.Name
-									  , i.Type
-									  , i.Units
-									)
+			  , ElementN 		=	existingCount.N + ROW_NUMBER() OVER( PARTITION BY i.VectorID, i.Name, i.Type, i.Units ORDER BY i.ID )
 		FROM	#inserted AS i
 				INNER JOIN labViewStage.vector AS v
 						ON v.ID = i.VectorID
 				
 				INNER JOIN labViewStage.header AS h
 						ON v.HeaderID = h.ID 
+						
+				OUTER APPLY
+					(
+					  SELECT 	COUNT(*) 
+					    FROM	labViewStage.vector_element AS lvs
+					   WHERE	lvs.VectorID = i.VectorID  
+									AND lvs.Name = i.Name 
+									AND lvs.Type = i.Type
+									AND lvs.Units = i.Units
+					) AS existingCount(N)
 				;
 
 
---  2)  MERGE elements from temp storage into hwt.Element
+
+--  2)  INSERT new Element data from temp storage into hwt.Element
 		WITH	cte AS
 				(
 				  SELECT 	DISTINCT 
 							Name        =   tmp.Name
 						  , DataType    =   tmp.Type
 						  , Units       =   tmp.Units
-						  , HWTChecksum =   tmp.HWTChecksum
-						  , UpdatedBy   =   tmp.OperatorName
 					FROM	#changes AS tmp
+				  
+				  EXCEPT
+				  SELECT 	Name 
+						  , DataType
+						  , Units 
+					FROM 	hwt.Element
 				)
 	   
-	   MERGE 	INTO hwt.Element  AS tgt
-				USING cte AS src
-					ON src.Name = tgt.Name
-						AND src.DataType = tgt.DataType
-						AND src.Units = tgt.Units
-		
-		WHEN 	NOT MATCHED BY TARGET 
-				THEN  INSERT( Name, DataType, Units, HWTChecksum, UpdatedBy, UpdatedDate )
-					  VALUES( src.Name, src.DataType, src.Units, src.HWTChecksum, src.UpdatedBy, GETDATE() ) 
+	  INSERT 	hwt.Element 
+					( Name, DataType, Units, UpdatedBy, UpdatedDate )
+	  SELECT	DISTINCT 
+				Name		=	cte.Name		
+			  , DataType    =	cte.DataType    
+			  , Units       =	cte.Units       
+			  , UpdatedBy   =	tmp.OperatorName 
+			  , UpdatedDate =	SYSDATETIME()
+		FROM 	cte
+				INNER JOIN #changes AS tmp
+						ON tmp.Name = cte.Name
+							AND tmp.Type = cte.DataType
+							AND tmp.Units = cte.Units
 				;
 
-    --  Apply ElementID back into temp storage
+--	3)	UPDATE ElementID back into temp storage
       UPDATE 	tmp
 		 SET 	ElementID   =   e.ElementID
 		FROM 	#changes AS tmp
@@ -116,32 +131,17 @@ BEGIN TRY
 				;
 
 
---  3)  MERGE vector elements from temp storage into hwt.VectorElement
-		WITH	cte AS
-				(
-				  SELECT 	VectorID		=   c.VectorID
-						  , ElementID		=   e.ElementID
-						  , ElementValue	=   c.Value
-						  , UpdatedBy		=   c.OperatorName
-					FROM 	#changes AS c
-							INNER JOIN hwt.Element AS e
-									ON e.ElementID = c.ElementID
-				)
-	   MERGE 	INTO hwt.VectorElement AS tgt
-				USING cte AS src
-					ON  src.VectorID = tgt.VectorID
-						AND src.ElementID = tgt.ElementID
-
-		WHEN 	MATCHED AND src.ElementValue <> tgt.ElementValue
-				THEN  UPDATE	
-						 SET 	tgt.ElementValue	=	src.ElementValue
-							  , tgt.UpdatedBy		=   src.UpdatedBy
-							  , tgt.UpdatedDate		=   GETDATE()
-		
-		WHEN 	NOT MATCHED BY TARGET 
-				THEN  INSERT	( VectorID, ElementID, ElementValue, UpdatedBy, UpdatedDate )
-					  VALUES	( src.VectorID, src.ElementID, src.ElementValue, src.UpdatedBy, GETDATE() ) 
-				;
+--  4)  INSERT vector element data from temp storage into hwt.VectorElement
+	  INSERT	hwt.VectorElement
+					( VectorID, ElementID, ElementN, ElementValue, UpdatedBy, UpdatedDate )
+	  SELECT 	VectorID		=   VectorID
+			  , ElementID		=   ElementID
+			  , ElementN		=   ElementN
+			  , ElementValue	=   Value
+			  , UpdatedBy		=   OperatorName
+			  , SYSDATETIME()
+		FROM 	#changes 
+				; 
 
     RETURN 0 ; 
 	

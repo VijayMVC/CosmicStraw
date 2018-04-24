@@ -28,5 +28,8 @@
     <SqlCmdVariable Include="LogFileRoot">
       <Value>C:\MSSQL\Logs</Value>
     </SqlCmdVariable>
+    <SqlCmdVariable Include="Production">
+      <Value>Test</Value>
+    </SqlCmdVariable>
   </ItemGroup>
 </Project>

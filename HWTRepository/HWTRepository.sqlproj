@@ -56,8 +56,8 @@
     <ServiceBrokerOption>EnableBroker</ServiceBrokerOption>
     <DateCorrelationOptimizationOn>False</DateCorrelationOptimizationOn>
     <Parameterization>FORCED</Parameterization>
-    <AllowSnapshotIsolation>False</AllowSnapshotIsolation>
-    <ReadCommittedSnapshot>False</ReadCommittedSnapshot>
+    <AllowSnapshotIsolation>True</AllowSnapshotIsolation>
+    <ReadCommittedSnapshot>True</ReadCommittedSnapshot>
     <VardecimalStorageFormatOn>True</VardecimalStorageFormatOn>
     <SupplementalLoggingOn>False</SupplementalLoggingOn>
     <CompatibilityMode>130</CompatibilityMode>
@@ -87,7 +87,7 @@
     <GenerateCreateScript>True</GenerateCreateScript>
     <IncludeSchemaNameInFileName>True</IncludeSchemaNameInFileName>
     <FileStreamDirectoryName>FSData</FileStreamDirectoryName>
-    <DefaultFileStreamFilegroup>FSFileGroup</DefaultFileStreamFilegroup>
+    <DefaultFileStreamFilegroup>HWTFiles</DefaultFileStreamFilegroup>
     <DbScopedConfigLegacyCardinalityEstimationSecondary>Primary</DbScopedConfigLegacyCardinalityEstimationSecondary>
     <DbScopedConfigMaxDOPSecondary>2</DbScopedConfigMaxDOPSecondary>
   </PropertyGroup>
@@ -125,8 +125,14 @@
   <Import Condition="'$(SQLDBExtensionsRefPath)' == ''" Project="$(MSBuildExtensionsPath)\Microsoft\VisualStudio\v$(VisualStudioVersion)\SSDT\Microsoft.Data.Tools.Schema.SqlTasks.targets" />
   <ItemGroup>
     <Folder Include="Properties" />
+    <Folder Include="archive" />
+    <Folder Include="archive\Tables" />
     <Folder Include="Database Triggers" />
+    <Folder Include="eLog" />
+    <Folder Include="eLog\Stored Procedures" />
+    <Folder Include="eLog\Tables" />
     <Folder Include="hwt" />
+    <Folder Include="hwt\FileTables\" />
     <Folder Include="hwt\Stored Procedures" />
     <Folder Include="hwt\Tables" />
     <Folder Include="hwt\Triggers" />
@@ -134,34 +140,26 @@
     <Folder Include="labViewStage" />
     <Folder Include="labViewStage\Tables" />
     <Folder Include="labViewStage\Triggers" />
+    <Folder Include="Post-Deployment Scripts" />
     <Folder Include="Publish Scripts" />
     <Folder Include="Security" />
-    <Folder Include="XML Files" />
-    <Folder Include="Security\Users" />
-    <Folder Include="Security\Schemas" />
-    <Folder Include="Unused Scripts" />
     <Folder Include="Security\Logins" />
-    <Folder Include="Security\Roles" />
     <Folder Include="Security\Permissions" />
+    <Folder Include="Security\Roles" />
+    <Folder Include="Security\Schemas" />
+    <Folder Include="Security\Users" />
+    <Folder Include="Service Broker\" />
     <Folder Include="Storage\" />
-    <Folder Include="xmlStage" />
-    <Folder Include="xmlStage\FileTables\" />
-    <Folder Include="hwt\FileTables\" />
     <Folder Include="utility" />
     <Folder Include="utility\Functions" />
     <Folder Include="utility\Stored Procedures" />
     <Folder Include="utility\Tables" />
-    <Folder Include="Post-Deployment Scripts" />
-    <Folder Include="xmlStage\XMLSchemaCollections" />
+    <Folder Include="xmlStage" />
+    <Folder Include="xmlStage\FileTables\" />
+    <Folder Include="xmlStage\Stored Procedures" />
     <Folder Include="xmlStage\Tables" />
     <Folder Include="xmlStage\Triggers" />
-    <Folder Include="xmlStage\Stored Procedures" />
-    <Folder Include="eLog" />
-    <Folder Include="eLog\Stored Procedures" />
-    <Folder Include="eLog\Tables" />
-    <Folder Include="archive\Tables" />
-    <Folder Include="archive" />
-    <Folder Include="Service Broker\" />
+    <Folder Include="xmlStage\XMLSchemaCollections" />
   </ItemGroup>
   <ItemGroup>
     <Build Include="Database Triggers\ddlDatabaseTriggerLog.sql" />
@@ -224,14 +222,8 @@
     <Build Include="Security\Schemas\hwt.sql" />
     <Build Include="Security\Schemas\labViewStage.sql" />
     <Build Include="Security\Schemas\utility.sql" />
-    <None Include="Unused Scripts\hwt.usp_GetTags.sql" />
     <Build Include="Security\Permissions\CONNECT.sql" />
-    <Build Include="Storage\HWTRepositoryD_log.sql" />
-    <Build Include="Storage\PRIMARY.HWTRepositoryD.sql" />
-    <Build Include="Storage\FSFileGroup.HWTFileStream.sql" />
-    <Build Include="Storage\FSFileGroup.sql" />
-    <Build Include="Security\Users\TestUsers.sql" />
-    <Build Include="Security\Logins\TestLogins.sql" />
+    <Build Include="Security\Users\Users.sql" />
     <Build Include="Security\Schemas\xmlStage.sql" />
     <Build Include="xmlStage\FileTables\xmlStage.LegacyXML_Files.sql" />
     <Build Include="hwt\FileTables\hwt.SupportingFiles.sql" />
@@ -275,40 +267,19 @@
     <Build Include="hwt\Triggers\hwt.trg_Tag_delete.sql" />
     <Build Include="hwt\Triggers\hwt.trg_Tag_update.sql" />
     <Build Include="xmlStage\Tables\xmlStage.ShreddedFile.sql" />
+    <Build Include="Storage\FileGroups.sql" />
+    <Build Include="Storage\Files.sql" />
+    <Build Include="Security\Logins\Logins.sql" />
+    <Build Include="hwt\Tables\hwt.VectorRequirement.sql" />
+    <Build Include="Security\Roles\db_owner.sql" />
   </ItemGroup>
   <ItemGroup>
     <None Include="hwt\Stored Procedures\notes" />
     <None Include="Publish Scripts\HWTRepositoryD.local.publish.xml" />
     <None Include="Publish Scripts\HWTRepositoryD.publish.xml" />
-    <None Include="XML Files\ACXE4MY_541_EDVT_BOL_250 Ohm.xml" />
-    <None Include="XML Files\ACXE4MY_541_EDVT_BOL_No 250 Ohm.xml" />
-    <None Include="XML Files\ACXE4MY_541_EDVT_Less then ERI_250 Ohm.xml" />
-    <None Include="XML Files\ACXE4MY_541_EDVT_Less then ERI_No 250 Ohm.xml" />
-    <None Include="XML Files\ExecuteTransform.ps1" />
-    <None Include="XML Files\HWTHeader.xsl" />
-    <None Include="XML Files\MDT2030678-Eval_BLD200003H.xml" />
-    <None Include="XML Files\MDT2281158-CRTPQ Inc2 Regulated Supplies Evaluation Data ABMCMLA-004_TELB_Flash.xml" />
-    <None Include="XML Files\MDT2284283-Orion_V_611 ABNTJSP Arial Bipolar.xml" />
-    <None Include="XML Files\MDT2284290-Orion_V_611 ABNTKLH RV Bipolar.xml" />
-    <None Include="XML Files\MDT2289066-Orion_E_224_CRTPQ_BiV_RNY316202M_Unipolar_ResultsFile.xml" />
-    <None Include="XML Files\MDT2306908-DATA_Mono%28X-Axis)_10 Samples%28EJB600135S).xml" />
-    <None Include="XML Files\MDT2306910-DATA_Mono%28Y-Axis)_10 Samples%28EJB600135S).xml" />
-    <None Include="XML Files\MDT2306911-DATA_Mono%28Z-Axis)_10 Samples%28EJB600135S).xml" />
-    <None Include="XML Files\MDT2329775-POL367201M_RX_Req 002_BOS_raw data.xml" />
-    <None Include="XML Files\MDT2329776-POL367202M_RX_Req 002_BOS_raw data.xml" />
-    <None Include="XML Files\MDT2329777-POL367203M_RX_Req 002_BOS_raw data.xml" />
-    <None Include="XML Files\MDT2329787-POL367201M_RX_Req 002_EOS_raw data.xml" />
-    <None Include="XML Files\MDT2329788-POL367202M_RX_Req 002_EOS_raw data.xml" />
-    <None Include="XML Files\MDT2329789-POL367203M_RX_Req 002_EOS_raw data.xml" />
-    <None Include="XML Files\MDT2330715-POL367103M_RX_Req 002_BOS_raw data.xml" />
-    <None Include="XML Files\MDT2330716-POL367104M_RX_Req 002_BOS_raw data.xml" />
-    <None Include="XML Files\MDT2330717-POL367204M_RX_Req 002_BOS_raw data.xml" />
-    <None Include="XML Files\MDT2330752-POL367103M_RX_Req 002_EOS_raw data.xml" />
-    <None Include="XML Files\MDT2330753-POL367104M_RX_Req 002_EOS_raw data.xml" />
-    <None Include="XML Files\MDT2330754-POL367204M_RX_Req 002_EOS_raw data.xml" />
-    <None Include="XML Files\MDT2333634-EVR600277S_PER_Induction_Raw Data.xml" />
     <None Include="Publish Scripts\HWTRepositoryDev.server.publish.xml" />
     <None Include="Publish Scripts\HWTRepositoryD.F1L3Q32.publish.xml" />
+    <None Include="Publish Scripts\HWTRepository.Production.publish.xml" />
   </ItemGroup>
   <ItemGroup>
     <SqlCmdVariable Include="DataRoot">
@@ -316,11 +287,11 @@
       <Value>$(SqlCmdVar__2)</Value>
     </SqlCmdVariable>
     <SqlCmdVariable Include="FileStreamFolder">
-      <DefaultValue>HWTFiles</DefaultValue>
+      <DefaultValue>HWTRepositoryFiles</DefaultValue>
       <Value>$(SqlCmdVar__5)</Value>
     </SqlCmdVariable>
     <SqlCmdVariable Include="FilestreamRoot">
-      <DefaultValue>C:\FSData</DefaultValue>
+      <DefaultValue>C:\FileStreamData</DefaultValue>
       <Value>$(SqlCmdVar__4)</Value>
     </SqlCmdVariable>
     <SqlCmdVariable Include="HWTUserPassword">
@@ -328,12 +299,16 @@
       <Value>$(SqlCmdVar__1)</Value>
     </SqlCmdVariable>
     <SqlCmdVariable Include="HWTValidatorPassword">
-      <DefaultValue>zzz</DefaultValue>
-      <Value>$(SqlCmdVar__6)</Value>
+      <DefaultValue>zzzz</DefaultValue>
+      <Value>$(SqlCmdVar__7)</Value>
     </SqlCmdVariable>
     <SqlCmdVariable Include="LogFileRoot">
       <DefaultValue>C:\MSSQL\Logs</DefaultValue>
       <Value>$(SqlCmdVar__3)</Value>
+    </SqlCmdVariable>
+    <SqlCmdVariable Include="Production">
+      <DefaultValue>PRODUCTION</DefaultValue>
+      <Value>$(SqlCmdVar__6)</Value>
     </SqlCmdVariable>
   </ItemGroup>
   <ItemGroup>

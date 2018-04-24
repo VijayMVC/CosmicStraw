@@ -1,69 +1,70 @@
 ﻿CREATE TRIGGER	labViewStage.trg_option_element
 			ON 	labViewStage.option_element
-	INSTEAD OF 	INSERT, UPDATE
--- invoke process to load repository with stage data
+	INSTEAD OF 	INSERT
+/*
+***********************************************************************************************************************************
+
+    Procedure:  hwt.trg_option_element
+    Abstract:   Loads option_element records into staging environment
+
+    Logic Summary
+    -------------
+    1)	Load trigger data into temp storage
+    2)	Load repository option data from stage data
+	3) 	INSERT updated trigger data from temp storage into labViewStage 	
+
+    
+    Revision
+    --------
+    carsoc3     2018-04-27		production release
+
+***********************************************************************************************************************************
+*/	
 AS
 
 SET XACT_ABORT, NOCOUNT ON ;
 
 BEGIN TRY
 
---	Load trigger data into temp storage
-    SELECT * INTO #inserted FROM inserted ;
+     DECLARE 	@CurrentID int ; 
+	
+	  SELECT 	@CurrentID = ISNULL( MAX( ID ), 0 ) FROM labViewStage.option_element ; 
+
+--	1)	Load trigger data into temp storage
+      SELECT 	i.ID
+			  , i.HeaderID
+			  , Name			=	REPLACE( REPLACE( REPLACE( i.Name, '&amp;', '&' ), '&lt;', '<' ), '&gt;', '>' ) 
+			  , i.Type            
+			  , Units           =	REPLACE( REPLACE( REPLACE( i.Units, '&amp;', '&' ), '&lt;', '<' ), '&gt;', '>' )
+			  , Value           =	REPLACE( REPLACE( REPLACE( i.Value, '&amp;', '&' ), '&lt;', '<' ), '&gt;', '>' )
+			  , i.CreatedDate
+		INTO 	#inserted 
+		FROM 	inserted AS i
+				;
+
+				
+	  UPDATE 	#inserted 
+	     SET 	@CurrentID = ID = @CurrentID + 1
+	   WHERE 	ISNULL( ID, 0 ) = 0 
+				; 
+				
+--	2)	Load repository option data from stage data
+     EXECUTE 	hwt.usp_LoadRepositoryFromStage 
+					@pSourceTable = N'option_element' ;
 
 	
---	Load repository equipment data from stage data
-    EXECUTE hwt.usp_LoadRepositoryFromStage @pSourceTable = N'option_element' ;
-
-	
---	MERGE trigger data into labViewStage.option_element table 
-	 WITH	existing AS
-			( 
-			  SELECT 	ID
-					  , HeaderID	
-					  , Name		
-					  , Type		
-					  , Units		
-                      , Value		
-					  , trg_checksum	= 	BINARY_CHECKSUM
-												( 
-													HeaderID	
-												  , Name		
-												  , Type		
-												  , Units		
-												  , Value	
-												) 
-				FROM 	labViewStage.option_element AS a 
-			   WHERE 	HeaderID IN ( SELECT HeaderID FROM inserted ) 
-			)
-
-		  , src AS 
-			(
-			  SELECT 	HeaderID	
-					  , Name		
-					  , Type		
-					  , Units		
-                      , Value		
-					  , trg_checksum	= 	BINARY_CHECKSUM
-												( 
-													HeaderID	
-												  , Name		
-												  , Type		
-												  , Units		
-												  , Value	
-												) 
-				FROM 	inserted
-			)
-	MERGE 	INTO existing AS e
-			USING src AS s 
-				ON s.trg_checksum = e.trg_checksum 	
-				
-	WHEN 	NOT MATCHED BY TARGET 
-			THEN  INSERT
-					( HeaderID, Name, Type, Units, Value ) 
-				
-				  VALUES 
-					( s.HeaderID, s.Name, s.Type, s.Units, s.Value ) ;
+--	3) 	INSERT trigger data into labViewStage 	
+	  INSERT	labViewStage.option_element
+					( ID, HeaderID, Name, Type, Units, Value, CreatedDate ) 
+	  SELECT 	ID          
+			  , HeaderID    
+			  , Name        
+			  , Type        
+			  , Units       
+			  , Value   
+			  , CreatedDate
+		FROM 	#inserted 
+				; 
 					
 END TRY
 

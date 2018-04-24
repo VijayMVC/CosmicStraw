@@ -15,3 +15,22 @@ Post-Deployment Script Template
 :r .\SQLEventLogPostDeployment.sql
 
 :r .\ErrorMessages.sql
+
+   ALTER 	DATABASE [$(DatabaseName)]
+  MODIFY	FILEGROUP [HWTTables] 
+			DEFAULT
+			;
+
+IF '$(Production)' = 'Production' 
+	BEGIN 
+
+		DROP USER [ENT\HWTRepository-Dev-ElevatedPrivilege] ;
+		DROP LOGIN [ENT\HWTRepository-Dev-ElevatedPrivilege] ; 
+
+		DROP USER [ENT\HWTRepository-Dev-LowPrivilege] ;
+		DROP LOGIN [ENT\HWTRepository-Dev-LowPrivilege] ; 
+
+		DROP USER [HWTValidator] ;
+		DROP LOGIN [HWTValidator] ; 
+
+	END 

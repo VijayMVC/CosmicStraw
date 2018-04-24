@@ -29,19 +29,20 @@ SET XACT_ABORT, NOCOUNT ON ;
 
 BEGIN TRY
 
-    --  define temp storage tables
-    IF  ( 1 = 0 )
-        CREATE TABLE	#inserted
-			(
-                ID          int
-              , VectorID    int
-              , ErrorCode   int
-              , ErrorText   int
-            ) ;
+	IF	( 1 = 0 ) 
+		CREATE TABLE	#inserted
+						(
+							ID	int         
+						  , VectorID    int             
+						  , ErrorCode   int             
+						  , ErrorText   nvarchar(max)   
+						  , CreatedDate datetime
+						) 
+						; 
 
 
 --  1)  INSERT error data from trigger into hwt.TestError
-      INSERT 	INTO hwt.TestError
+      INSERT 	hwt.TestError
 					( VectorID, ErrorCode, ErrorText, UpdatedBy, UpdatedDate )
       SELECT	tmp.VectorID
 			  , tmp.ErrorCode
@@ -63,7 +64,8 @@ BEGIN TRY
 				   WHERE	te.VectorID = tmp.VectorID
 							AND te.ErrorCode = tmp.ErrorCode
 							AND te.ErrorText = tmp.ErrorText
-				) ;
+				) 
+				;
 
 	RETURN 0 ; 
 	

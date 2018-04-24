@@ -1,1 +1,3 @@
-﻿CREATE SCHEMA [eLog] AUTHORIZATION [dbo] ;
+﻿CREATE SCHEMA [eLog]
+    AUTHORIZATION [dbo];
+

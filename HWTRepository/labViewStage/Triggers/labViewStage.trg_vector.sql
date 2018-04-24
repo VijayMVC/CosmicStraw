@@ -1,54 +1,73 @@
 ﻿CREATE TRIGGER	labViewStage.trg_vector
 			ON 	labViewStage.vector
-	INSTEAD OF 	INSERT, UPDATE
--- invoke process to load repository with stage data
+	INSTEAD OF 	INSERT
+/*
+***********************************************************************************************************************************
+
+    Procedure:  hwt.trg_vector
+    Abstract:   Loads vector records into staging environment
+
+    Logic Summary
+    -------------
+    1)	Load trigger data into temp storage
+    2)	Load repository vector data from stage data
+	3) 	INSERT updated trigger data from temp storage into labViewStage 	
+
+    
+    Revision
+    --------
+    carsoc3     2018-04-27		production release
+
+***********************************************************************************************************************************
+*/	
 AS
 
 SET XACT_ABORT, NOCOUNT ON ;
 
 BEGIN TRY
 
-	 DECLARE 	@CurrentVectorID int ; 
+     DECLARE 	@CurrentID int ; 
 	
-	  SELECT 	@CurrentVectorID = ISNULL( MAX( VectorID ), 0 ) FROM hwt.Vector ; 
+	  SELECT 	@CurrentID = ISNULL( MAX( ID ), 0 ) FROM labViewStage.vector ; 
 
---	Load trigger data into temp storage
-      SELECT 	*
+--	1)	Load trigger data into temp storage
+	  SELECT 	i.ID          
+			  , i.HeaderID    
+			  , i.VectorNum
+			  , i.Loop
+			  , ReqID			=	REPLACE( REPLACE( REPLACE( i.ReqID, '&amp;', '&' ), '&lt;', '<' ), '&gt;', '>' )
+			  , i.StartTime
+			  , i.EndTime
+			  , i.CreatedDate 
 		INTO 	#inserted 
-		FROM 	inserted 
+		FROM 	inserted AS i
 				;
 
+				
 	  UPDATE 	#inserted 
-	     SET 	@CurrentVectorID = ID = @CurrentVectorID + 1 
+	     SET 	@CurrentID = ID = @CurrentID + 1
 	   WHERE 	ISNULL( ID, 0 ) = 0 
 				; 
-	
---	Load repository vector data from stage data
-     EXECUTE 	hwt.usp_LoadRepositoryFromStage 
-				@pSourceTable = N'vector' 
-				;
-	
---	UPDATE existing labViewStage.Vector with trigger data 	
-	  UPDATE 	v  
-		 SET 	ReqID 	=	v.ReqID 
-			  , EndTime	=	v.EndTime			
-		FROM	labViewStage.vector AS v 
-				INNER JOIN #inserted AS i
-					ON i.ID = v.ID
-				; 
 				
-	 
-	  INSERT	labViewStage.vector
-					( 
-					  ID, HeaderID, VectorNum, Loop, ReqID, StartTime, EndTime 
-					) 
-	  SELECT	i.ID, i.HeaderID, i.VectorNum, i.Loop, i.ReqID, i.StartTime, i.EndTime 
-		FROM	#inserted AS i 
-				LEFT JOIN labViewStage.vector AS v 
-						ON v.ID = i.ID 
-	   WHERE 	v.ID IS NULL 
+--	2)	Load repository vector data from stage data
+     EXECUTE 	hwt.usp_LoadRepositoryFromStage 
+					@pSourceTable = N'vector' 
 				;
-			
+	
+--	3) 	INSERT trigger data into labViewStage 	
+	  INSERT	labViewStage.vector
+					( ID, HeaderID, VectorNum, Loop, ReqID, StartTime, EndTime, CreatedDate )
+	  SELECT 	ID          
+			  , HeaderID    
+			  , VectorNum
+			  , Loop
+			  , ReqID
+			  , StartTime
+			  , EndTime
+			  , CreatedDate 
+		FROM 	#inserted 
+				; 
+					
 END TRY
 
 BEGIN CATCH

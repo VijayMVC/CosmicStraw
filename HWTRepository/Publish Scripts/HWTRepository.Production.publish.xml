@@ -2,34 +2,38 @@
 <Project ToolsVersion="14.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup>
     <IncludeCompositeObjects>True</IncludeCompositeObjects>
-    <TargetDatabaseName>HWTRepositoryD</TargetDatabaseName>
-    <DeployScriptFileName>HWTRepositoryD.sql</DeployScriptFileName>
-    <TargetConnectionString>Data Source=CARSOC3-D1;Integrated Security=True;Persist Security Info=False;Pooling=False;MultipleActiveResultSets=False;Connect Timeout=60;Encrypt=False;TrustServerCertificate=True</TargetConnectionString>
+    <TargetDatabaseName>HWTRepository</TargetDatabaseName>
+    <DeployScriptFileName>HWTRepository.sql</DeployScriptFileName>
+    <TargetConnectionString>Data Source=MSPM1BDB251\DB01;Integrated Security=True;Persist Security Info=False;Pooling=False;MultipleActiveResultSets=False;Connect Timeout=60;Encrypt=False;TrustServerCertificate=True</TargetConnectionString>
     <ProfileVersionNumber>1</ProfileVersionNumber>
     <BlockOnPossibleDataLoss>True</BlockOnPossibleDataLoss>
     <CreateNewDatabase>True</CreateNewDatabase>
+    <IgnoreFileSize>False</IgnoreFileSize>
+    <IgnoreFilegroupPlacement>False</IgnoreFilegroupPlacement>
+    <IgnoreFileAndLogFilePath>False</IgnoreFileAndLogFilePath>
+    <ScriptFileSize>True</ScriptFileSize>
   </PropertyGroup>
   <ItemGroup>
     <SqlCmdVariable Include="DataRoot">
-      <Value>D:\MSSQL\Data</Value>
+      <Value>D:\SQL\MSSQL13.DB01\MSSQL\DATA</Value>
     </SqlCmdVariable>
     <SqlCmdVariable Include="FileStreamFolder">
       <Value>HWTFiles</Value>
     </SqlCmdVariable>
     <SqlCmdVariable Include="FilestreamRoot">
-      <Value>E:\FSData</Value>
+      <Value>D:\FSData</Value>
     </SqlCmdVariable>
     <SqlCmdVariable Include="HWTUserPassword">
       <Value>am1!u$erhwT01</Value>
     </SqlCmdVariable>
     <SqlCmdVariable Include="HWTValidatorPassword">
-      <Value>Mh6&amp;pt5-LV$</Value>
+      <Value>1234</Value>
     </SqlCmdVariable>
     <SqlCmdVariable Include="LogFileRoot">
-      <Value>D:\MSSQL\Logs</Value>
+      <Value>D:\SQL\MSSQL13.DB01\MSSQL\DATA</Value>
     </SqlCmdVariable>
     <SqlCmdVariable Include="Production">
-      <Value>TEST</Value>
+      <Value>Production</Value>
     </SqlCmdVariable>
   </ItemGroup>
 </Project>

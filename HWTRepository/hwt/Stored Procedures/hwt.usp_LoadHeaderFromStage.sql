@@ -62,7 +62,9 @@ BEGIN TRY
               , Comments            nvarchar(max)
               , ExternalFileInfo    nvarchar(max)
 			  , IsLegacyXML			int
-            ) ;
+			  , CreatedDate			datetime
+            ) 
+			;
 	
     CREATE TABLE #changes
 		(
@@ -88,11 +90,12 @@ BEGIN TRY
           , ExternalFileInfo    nvarchar(max)
 		  , IsLegacyXML			int
           , HWTChecksum         int
-        ) ;
+        ) 
+		;
 
 
 --  1)  INSERT data into temp storage from trigger
-      INSERT 	INTO #changes
+      INSERT 	#changes
 					( 
 						ID, ResultFile, StartTime, FinishTime, TestDuration, ProjectName, FirmwareRev
 							, HardwareRev, PartSN, OperatorName, TestMode, TestStationID, TestName
@@ -141,8 +144,9 @@ BEGIN TRY
 										  , KdrivePath
 										  , LEFT( Comments, 500 )
 										  , LEFT( ExternalFileInfo, 500 )
-									)
-		FROM	#inserted AS i ;
+										)
+		FROM	#inserted
+				;
 
 
 --  2)  DELETE header records that are unchanged from temp storage
@@ -150,7 +154,8 @@ BEGIN TRY
       DELETE 	tmp
 		FROM 	#changes AS tmp
 				INNER JOIN hwt.Header as h
-						ON h.HWTChecksum = tmp.HWTChecksum ;
+						ON h.HWTChecksum = tmp.HWTChecksum 
+				;
 
 	   
     --  exit if no records remain ( there were no header changes )
@@ -169,7 +174,8 @@ BEGIN TRY
 		  , Description 	nvarchar(200) 	
 		  , UpdatedBy   	sysname 		
 		  , TagID       	int 			
-		) ; 
+		) 
+		; 
 
     --  INSERT tags into temp storage from following header fields:
     --      OperatorName
@@ -177,7 +183,7 @@ BEGIN TRY
     --      DeviceSN
 	--		TestMode
 	
-	  INSERT 	INTO #tags
+	  INSERT 	#tags
 					( HeaderID, TagTypeID, Name, Description, UpdatedBy, TagID ) 
 	
       SELECT 	HeaderID    =   tmp.ID
@@ -193,11 +199,10 @@ BEGIN TRY
 					AND ISNULL( tmp.OperatorName, '' ) != ''
     
 	   UNION
-
 	  SELECT	HeaderID    =   tmp.ID
 			  , TagTypeID   =   tType.TagTypeID
 			  , Name        =   tmp.FirmwareRev
-			  , Description =   N'Firmware Rev  loaded from test dataset'
+			  , Description =   N'Firmware Rev loaded from test dataset'
 			  , UpdatedBy   =   tmp.OperatorName
 			  , TagID       =   CONVERT( int, NULL )
 		FROM 	#changes AS tmp
@@ -207,7 +212,6 @@ BEGIN TRY
 					AND ISNULL( tmp.FirmwareRev, '' ) != ''
     
 	   UNION
-	   
 	  SELECT	HeaderID    =   tmp.ID
 			  , TagTypeID   =   tType.TagTypeID
 			  , Name        =   RTRIM( LTRIM( x.Item ) )
@@ -222,7 +226,6 @@ BEGIN TRY
 					AND ISNULL( RTRIM( LTRIM( x.Item ) ), '' ) != ''
 					
 	   UNION
-	   
 	  SELECT 	HeaderID    =   tmp.ID
 			  , TagTypeID   =   tType.TagTypeID
 			  , Name        =   tmp.TestMode
@@ -233,13 +236,15 @@ BEGIN TRY
 				CROSS JOIN hwt.TagType AS tType
       
 	   WHERE	tType.Name = N'TestMode'
-					AND ISNULL( tmp.TestMode, '' ) != '' ;
+					AND ISNULL( tmp.TestMode, '' ) != '' 
+				;
 
 	--  INSERT tags into temp storage from following header fields:
 	--		Project ( if not coming from HWT )
 	--		HW Increment ( if not coming from HWT )
 	
-	  INSERT 	#tags( HeaderID, TagTypeID, Name, Description, UpdatedBy, TagID ) 
+	  INSERT 	#tags
+					( HeaderID, TagTypeID, Name, Description, UpdatedBy, TagID ) 
 
 	  SELECT	HeaderID    =   tmp.ID
 			  , TagTypeID   =   tType.TagTypeID
@@ -255,7 +260,6 @@ BEGIN TRY
 					AND tmp.IsLegacyXML = 1
 						
 	   UNION 
-	   
 	  SELECT 	HeaderID    =   tmp.ID
 			  , TagTypeID   =   tType.TagTypeID
 			  , Name        =   tmp.HardwareRev
@@ -267,15 +271,16 @@ BEGIN TRY
 				
 	   WHERE 	tType.Name = N'HWIncrement'
 					AND ISNULL( tmp.HardwareRev, '' ) != '' 
-					AND tmp.IsLegacyXML = 1 ;
+					AND tmp.IsLegacyXML = 1 
+				;
 	
 --  4)  MERGE header changes from temp storage into hwt.Header
 		WITH	cte AS
 				(
 				  SELECT	HeaderID            =   tmp.ID
 						  , ResultFileName      =   LEFT( tmp.ResultFile, 250 )
-						  , StartTime           =   CONVERT( datetime, tmp.StartTime )
-						  , FinishTime          =   NULLIF( CONVERT( datetime, tmp.FinishTime ), '1900-01-01' )
+						  , StartTime           =   CONVERT( datetime, tmp.StartTime, 109 )
+						  , FinishTime          =   NULLIF( CONVERT( datetime, tmp.FinishTime, 109 ), '1900-01-01' )
 						  , Duration			=	tmp.TestDuration
 						  , TestStationID       =   tmp.TestStationID
 						  , TestName            =   tmp.TestName
@@ -296,7 +301,7 @@ BEGIN TRY
 					
 		WHEN 	MATCHED 
 				THEN  UPDATE
-						 SET 	tgt.ResultFileName      =   src.ResultFileName
+							SET	tgt.ResultFileName      =   src.ResultFileName
 							  , tgt.StartTime           =   src.StartTime
 							  , tgt.FinishTime          =   src.FinishTime
 							  , tgt.Duration			=	src.Duration
@@ -314,7 +319,7 @@ BEGIN TRY
 							  , tgt.UpdatedDate         =   GETDATE()
 
 		WHEN 	NOT MATCHED BY TARGET 
-				THEN  INSERT
+				THEN  INSERT																
 							(
 								HeaderID, ResultFileName, StartTime
 							  , FinishTime, Duration, TestStationName
@@ -330,7 +335,8 @@ BEGIN TRY
 							  , src.TestCodeRevision, src.HWTSysCodeRevision, src.KdrivePath
 							  , src.Comments, src.ExternalFileInfo, src.HWTChecksum
 							  , src.OperatorName, GETDATE()
-							) ;
+							) 
+							;
 
 
 --  5)  INSERT tags from temp storage into hwt.Tag
@@ -352,10 +358,11 @@ BEGIN TRY
 											AND tag.Name = tmp.Name
 							)
 				)
-      INSERT 	INTO hwt.Tag
+      INSERT 	hwt.Tag
 					( TagTypeID, Name, Description, IsDeleted, UpdatedBy, UpdatedDate )
       SELECT	* 
-	    FROM 	newTags ;
+	    FROM 	newTags 
+				;
 
     --  Apply new TagID back into temp storage
       UPDATE	tmp
@@ -364,14 +371,15 @@ BEGIN TRY
 				INNER JOIN
 					hwt.Tag AS tag
 						ON tag.TagTypeID = tmp.TagTypeID
-							AND tag.Name = tmp.Name ;
+							AND tag.Name = tmp.Name 
+				;
 
 
 --  6)  MERGE new header tag data into hwt.HeaderTag
 	DECLARE 	@HeaderID		int ; 
 	DECLARE 	@TagID			nvarchar(max) ; 
 	DECLARE		@OperatorName	sysname ; 
-				;
+	
 				
 	WHILE EXISTS ( SELECT 1 FROM #tags ) 
 		BEGIN 

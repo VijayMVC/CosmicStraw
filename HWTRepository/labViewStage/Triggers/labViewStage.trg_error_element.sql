@@ -1,61 +1,66 @@
 ﻿CREATE TRIGGER	labViewStage.trg_error_element
 			ON 	labViewStage.error_element
-	INSTEAD OF 	INSERT, UPDATE
--- invoke process to load repository with stage data
+	INSTEAD OF 	INSERT
+/*
+***********************************************************************************************************************************
+
+    Procedure:  hwt.trg_error_element
+    Abstract:   Loads error_element records into staging environment
+
+    Logic Summary
+    -------------
+    1)	Load trigger data into temp storage
+    2)	Load repository error data from stage data
+	3) 	INSERT updated trigger data from temp storage into labViewStage 	
+
+    
+    Revision
+    --------
+    carsoc3     2018-04-27		production release
+
+***********************************************************************************************************************************
+*/	
 AS
 
 SET XACT_ABORT, NOCOUNT ON ;
 
 BEGIN TRY
 
---	Load trigger data into temp storage
-    SELECT * INTO #inserted FROM inserted ;
-
+     DECLARE 	@CurrentID int ; 
 	
---	Load repository equipment data from stage data
-    EXECUTE hwt.usp_LoadRepositoryFromStage @pSourceTable = N'error_element' ;
-	
---	MERGE trigger data into labViewStage.error_element table 
-	 WITH	existing AS
-			( 
-			  SELECT 	ID
-					  , VectorID  
-					  , ErrorCode 
-					  , ErrorText 
-					  , trg_checksum	= 	BINARY_CHECKSUM
-												( 
-												    VectorID    
-												  , ErrorCode   
-												  , ErrorText   
-												) 
-				FROM 	labViewStage.error_element AS a 
-			   WHERE 	VectorID IN ( SELECT VectorID FROM inserted ) 
-			)
+	  SELECT 	@CurrentID = ISNULL( MAX( ID ), 0 ) FROM labViewStage.error_element ; 
 
-		  , src AS 
-			(
-			  SELECT 	VectorID	
-					  , ErrorCode 
-					  , ErrorText 
-					  , trg_checksum	= 	BINARY_CHECKSUM
-												( 
-												    VectorID    
-												  , ErrorCode   
-												  , ErrorText   
-												) 
-				FROM 	inserted
-			)
-	MERGE 	INTO existing AS e
-			USING src AS s 
-				ON s.trg_checksum = e.trg_checksum 	
+--	1)	Load trigger data into temp storage
+	  SELECT 	i.ID          
+			  , i.VectorID
+			  , ErrorCode		=	REPLACE( REPLACE( REPLACE( i.ErrorCode, '&amp;', '&' ), '&lt;', '<' ), '&gt;', '>' )
+			  , ErrorText       =	REPLACE( REPLACE( REPLACE( i.ErrorText, '&amp;', '&' ), '&lt;', '<' ), '&gt;', '>' )
+			  , i.CreatedDate
+		INTO 	#inserted 
+		FROM 	inserted AS i
+				;
+
 				
-	WHEN 	NOT MATCHED BY TARGET 
-			THEN  INSERT
-					( VectorID, ErrorCode, ErrorText )
+	  UPDATE 	#inserted 
+	     SET 	@CurrentID = ID = @CurrentID + 1
+	   WHERE 	ISNULL( ID, 0 ) = 0 
+				; 
 				
-				  VALUES 
-					( s.VectorID, s.ErrorCode, s.ErrorText ) ;
-					
+--	2)	Load repository error data from stage data
+     EXECUTE 	hwt.usp_LoadRepositoryFromStage 
+					@pSourceTable = N'error_element' 
+				;
+	
+--	3) 	INSERT trigger data into labViewStage 	
+	  INSERT	labViewStage.error_element
+					( ID, VectorID, ErrorCode, ErrorText, CreatedDate ) 
+	  SELECT 	ID          
+			  , VectorID
+			  , ErrorCode
+			  , ErrorText
+			  , CreatedDate
+		FROM 	#inserted 
+				; 
 					
 END TRY
 
