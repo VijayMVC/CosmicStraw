@@ -1,10 +1,10 @@
-CREATE PROCEDURE 	eLog.log_ExpandParameters
-	(
-		@pMessageIO		nvarchar(2048)				OUTPUT
-	  ,	@pParamNum 		tinyint
-	  , @pVariantIn     sql_variant
-	  , @pStringOut		nvarchar(400) 	= 	NULL 	OUTPUT 
-	)
+CREATE 	PROCEDURE eLog.log_ExpandParameters
+			(
+				@pMessageIO		nvarchar(2048)				OUTPUT
+			  ,	@pParamNum 		tinyint
+			  , @pVariantIn     sql_variant
+			  , @pStringOut		nvarchar(400) 	= 	NULL 	OUTPUT 
+			)
 /*
 ***********************************************************************************************************************************
 
@@ -40,33 +40,34 @@ CREATE PROCEDURE 	eLog.log_ExpandParameters
     Revision
     --------
     carsoc3     2018-02-20		Added to alpha release, refactored 
-	
+	carsoc3		2018-04-27		Original production release
 	
 
 ***********************************************************************************************************************************
 */
 AS
 
-	SET XACT_ABORT, NOCOUNT ON ; 
+SET XACT_ABORT, NOCOUNT ON ; 
   
-	DECLARE		@pPosition	char(2)	=	'%' + LTRIM( STR( @pParamNum ) )
-		      , @vBaseType 	sysname ;
+ DECLARE	@pPosition	char(2)	=	'%' + LTRIM( STR( @pParamNum ) )
+		  , @vBaseType 	sysname 
+			;
 
 
 --	exit when desired parameter is not in the message text.
-	IF 	( CHARINDEX( @pPosition, @pMessageIO COLLATE Latin1_General_BIN2 ) = 0 )
-	BEGIN
-		  SELECT 	@pStringOut	=	NULL ; 
-			GOTO 	endOfProc ;
-	END
+IF 	( CHARINDEX( @pPosition, @pMessageIO COLLATE Latin1_General_BIN2 ) = 0 )
+BEGIN
+	  SELECT 	@pStringOut	=	NULL ; 
+		GOTO 	endOfProc ;
+END
 
 	
 --	determine base type of inbound parameter
-	SELECT @vBaseType = CONVERT( nvarchar(128), sql_variant_property( @pVariantIn, 'Basetype') ) ;
+  SELECT 	@vBaseType = CONVERT( nvarchar(128), sql_variant_property( @pVariantIn, 'Basetype') ) ;
 
 
 --	format string output based on input parameter base type
-	IF	( @pVariantIn IS NULL )
+IF	( @pVariantIn IS NULL )
 	BEGIN
 		  SELECT 	@pStringOut = '(null)' ; 
 			GOTO 	endOfProc ;
@@ -81,7 +82,8 @@ AS
 										WHEN ABS( CONVERT( float, @pVariantIn ) ) < 1E-9
 											THEN CONVERT( nvarchar(23), CONVERT( float, @pVariantIn ) )
 										ELSE CONVERT( nvarchar(23), CONVERT( float, @pVariantIn ), 2 )
-									END ; 
+									END 
+					; 
 			GOTO 	endOfProc ;
 	END 	
 
@@ -100,7 +102,8 @@ AS
 										WHEN @vBaseType = 'smalldatetime' 
 											THEN CONVERT( varchar(16), CONVERT( smalldatetime, @pVariantIn ), 121 )
 										ELSE CONVERT( varchar(23), CONVERT( datetime2(3), @pVariantIn ), 121 )
-									END ;
+									END 
+					;
 			GOTO 	endOfProc ;
 	END
 

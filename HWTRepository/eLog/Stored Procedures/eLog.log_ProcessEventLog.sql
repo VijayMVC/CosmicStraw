@@ -1,21 +1,22 @@
-CREATE PROCEDURE	eLog.log_ProcessEventLog
-	( 	
-		@pProcID			int
-	  , @pMessage			nvarchar(2048)
-	  , @pSeverity  		tinyint			= 	16
-	  , @pMessageID   		varchar(36)   	= 	NULL
-	  , @pRaiserror 		bit           	= 	NULL
-	  , @pErrorNumber		int           	= 	NULL
-	  , @pErrorProcedure   	sysname       	= 	NULL
-	  , @pErrorLine			int           	= 	NULL
-	  , @p1        			sql_variant   	= 	NULL
-	  , @p2        			sql_variant   	= 	NULL
-	  , @p3        			sql_variant   	= 	NULL
-	  , @p4        			sql_variant   	= 	NULL
-	  , @p5        			sql_variant   	= 	NULL
-	  , @p6        			sql_variant   	= 	NULL
-	  , @pLogID				bigint        	= 	NULL OUTPUT 
-	) 
+CREATE 	PROCEDURE eLog.log_ProcessEventLog
+			( 	
+				@pProcID			int
+			  , @pMessage			nvarchar(2048)
+			  , @pSeverity  		tinyint			= 	16
+			  , @pMessageID   		varchar(36)   	= 	NULL
+			  , @pRaiserror 		bit           	= 	NULL
+			  , @pErrorNumber		int           	= 	NULL
+			  , @pErrorProcedure   	sysname       	= 	NULL
+			  , @pErrorLine			int           	= 	NULL
+			  , @p1        			sql_variant   	= 	NULL
+			  , @p2        			sql_variant   	= 	NULL
+			  , @p3        			sql_variant   	= 	NULL
+			  , @p4        			sql_variant   	= 	NULL
+			  , @p5        			sql_variant   	= 	NULL
+			  , @p6        			sql_variant   	= 	NULL
+			  , @pDataID			int				=	NULL
+			  , @pLogID				bigint        	= 	NULL OUTPUT 
+			) 
 /*
 ***********************************************************************************************************************************
 
@@ -48,6 +49,7 @@ CREATE PROCEDURE	eLog.log_ProcessEventLog
     @p4        			sql_variant   	formatted parameters from error message 
     @p5        			sql_variant   	formatted parameters from error message 
     @p6        			sql_variant   	formatted parameters from error message 
+	@pDataID			int				HW Test Data Manager Unique ID -- refers to either HeaderID or VectorID
     @pLogID				bigint        	return key for error that was logged 
   
     Notes
@@ -58,6 +60,8 @@ CREATE PROCEDURE	eLog.log_ProcessEventLog
     Revision
     --------
     carsoc3     2018-02-20		Added to alpha release
+	carsoc3		2018-04-27		Original production release
+	carsoc3		2018-06-30		Add parameter @pDataID	
 	
 	
 	Original comments
@@ -100,7 +104,8 @@ BEGIN TRY
 			  , @logSPName	nvarchar(200)	=	'LOOPBACK.' + QUOTENAME( DB_NAME() ) + '.eLog.log_InsertEvent'
 			  , @userlang 	smallint
 			  , @syslang  	smallint
-			  ,	@usermsg  	nvarchar(2048) ;
+			  ,	@usermsg  	nvarchar(2048) 
+				;
 
 
 --	1) 	Replace parameter holders in @pMessage by converting parameter values to strings 
@@ -110,37 +115,43 @@ BEGIN TRY
 						@pMessageIO	= 	@pMessage	OUTPUT
 					  , @pParamNum 	= 	1
 					  , @pVariantIn	= 	@p1
-					  , @pStringOut	= 	@str1 		OUTPUT ;
+					  , @pStringOut	= 	@str1 		OUTPUT 
+					;
 		
 		  EXECUTE 	eLog.log_ExpandParameters 	
 						@pMessageIO	= 	@pMessage	OUTPUT
 					  , @pParamNum 	= 	2
 					  , @pVariantIn	= 	@p2
-					  , @pStringOut	= 	@str2 		OUTPUT ;
+					  , @pStringOut	= 	@str2 		OUTPUT 
+					;
 		
 		  EXECUTE 	eLog.log_ExpandParameters 	
 						@pMessageIO	= 	@pMessage	OUTPUT
 					  , @pParamNum 	= 	3
 					  , @pVariantIn	= 	@p3
-					  , @pStringOut	= 	@str3 		OUTPUT ;
+					  , @pStringOut	= 	@str3 		OUTPUT 
+					;
 		
 		  EXECUTE 	eLog.log_ExpandParameters 	
 						@pMessageIO	= 	@pMessage	OUTPUT
 					  , @pParamNum 	= 	4
 					  , @pVariantIn	= 	@p4
-					  , @pStringOut	= 	@str4		OUTPUT ;
+					  , @pStringOut	= 	@str4		OUTPUT 
+					;
 		
 		  EXECUTE 	eLog.log_ExpandParameters 	
 						@pMessageIO	= 	@pMessage	OUTPUT
 					  , @pParamNum 	= 	5
 					  , @pVariantIn	= 	@p5
-					  , @pStringOut	= 	@str5 		OUTPUT ;
+					  , @pStringOut	= 	@str5 		OUTPUT 
+					;
 		
 		  EXECUTE 	eLog.log_ExpandParameters 	
 						@pMessageIO	= 	@pMessage	OUTPUT
 					  , @pParamNum 	= 	6
 					  , @pVariantIn	= 	@p6
-					  , @pStringOut	= 	@str6 		OUTPUT   ;
+					  , @pStringOut	= 	@str6 		OUTPUT 
+					;
 	END
 	
 	ELSE
@@ -152,7 +163,8 @@ BEGIN TRY
 	  SELECT	@username	=	CASE 
 									WHEN SYSTEM_USER = ORIGINAL_LOGIN() OR ISNULL( ORIGINAL_LOGIN(), '' ) = '' THEN SYSTEM_USER
 									ELSE CONVERT( nvarchar(60), SYSTEM_USER ) + ' (' + CONVERT( nvarchar(60), ORIGINAL_LOGIN() ) + ')'
-								END ;
+								END 
+				;
 						
 		
 --	3)	log error message to eLog.EventLog
@@ -177,7 +189,9 @@ BEGIN TRY
 					  , @p3					=	@str3
 					  , @p4					=	@str4
 					  , @p5					=	@str5
-					  , @p6					=	@str6 ;
+					  , @p6					=	@str6 
+					  , @pDataID			=	@pDataID 
+					;
 	END
 	
 	ELSE
@@ -202,7 +216,9 @@ BEGIN TRY
 					  , @p3					=	@str3
 					  , @p4					=	@str4
 					  , @p5					=	@str5
-					  , @p6					=	@str6 ;
+					  , @p6					=	@str6 
+					  , @pDataID			=	@pDataID 
+					;
 	END
 
 	
@@ -220,15 +236,17 @@ BEGIN TRY
 				-- Get the language ids to use.
 			  SELECT	@userlang	=	lcid 		
 				FROM 	master.sys.syslanguages 
-			   WHERE	langid 		= 	@@langid ;
+			   WHERE	langid 		= 	@@langid 
+						;
 				
 				
 			  SELECT	@syslang = l.lcid
 				FROM   	master.sys.configurations AS c
 						INNER JOIN master.sys.syslanguages AS l 
-							ON c.value_in_use = l.langid
+								ON c.value_in_use = l.langid
 							
-			   WHERE  	c.configuration_id = 124 ;
+			   WHERE  	c.configuration_id = 124 
+						;
 
 			   
 				-- Get the user message 
@@ -239,7 +257,8 @@ BEGIN TRY
 			ORDER BY	CASE LCID 
 							WHEN @userlang THEN 1 
 							WHEN @syslang THEN 2 
-						END ;
+						END 
+						;
 
 				-- substitute parameters into the user message 
 			IF  ( @usermsg IS NOT NULL )
@@ -247,33 +266,39 @@ BEGIN TRY
 				 EXECUTE 	eLog.log_ExpandParameters  	
 								@pMessageIO	=	@usermsg OUTPUT
 							  , @pParamNum 	= 	1
-							  , @pVariantIn = 	@p1 ; 
-						
+							  , @pVariantIn = 	@p1
+							;
+							
 				 EXECUTE 	eLog.log_ExpandParameters  	
 								@pMessageIO	=	@usermsg OUTPUT
 							  , @pParamNum 	= 	2
-							  , @pVariantIn = 	@p2 ; 
-						
+							  , @pVariantIn = 	@p2
+							;
+							
 				 EXECUTE 	eLog.log_ExpandParameters  	
 								@pMessageIO	=	@usermsg OUTPUT
 							  , @pParamNum 	= 	3
-							  , @pVariantIn = 	@p3 ; 
-						
+							  , @pVariantIn = 	@p3
+							;
+							
 				 EXECUTE 	eLog.log_ExpandParameters  	
 								@pMessageIO	=	@usermsg OUTPUT
 							  , @pParamNum 	= 	4
-							  , @pVariantIn = 	@p4 ; 
-						
+							  , @pVariantIn = 	@p4 
+							;
+							
 				 EXECUTE 	eLog.log_ExpandParameters  	
 								@pMessageIO	=	@usermsg OUTPUT
 							  , @pParamNum 	= 	5
-							  , @pVariantIn = 	@p5 ; 
-						
+							  , @pVariantIn = 	@p5
+							;
+							
 				 EXECUTE 	eLog.log_ExpandParameters  	
 								@pMessageIO	=	@usermsg OUTPUT
 							  , @pParamNum 	= 	6
-							  , @pVariantIn = 	@p6 ; 
-						
+							  , @pVariantIn = 	@p6
+							;
+							
 			END
 		END
 
@@ -281,8 +306,11 @@ BEGIN TRY
 		SELECT @usermsg = ISNULL( @usermsg, @pMessage ) ;
 			
 	END
+
+	RETURN 0 ;
 	
 END TRY
+
 BEGIN CATCH
 
 	-- 	This should not occur.
@@ -293,7 +321,8 @@ BEGIN CATCH
 									+ SUBSTRING( ERROR_MESSAGE(), 1, 800) 
 									+ CHAR(13) + CHAR(10) 
 									+ 'Original error message was: ' 
-									+ @pMessage	;
+									+ @pMessage	
+				;
 
 	-- Avoid new error if transaction is doomed.
 	IF 	( XACT_STATE() = -1 ) ROLLBACK TRANSACTION ;
@@ -309,4 +338,3 @@ BEGIN
 	
 END
 
-RETURN 0 ;

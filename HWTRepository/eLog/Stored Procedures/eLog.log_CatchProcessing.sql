@@ -1,11 +1,12 @@
-CREATE PROCEDURE eLog.log_CatchProcessing
-	(
-		@pProcID		int 			= 	NULL
-	  , @pReraise       bit 			= 	1
-	  , @pError_Number  int 			= 	NULL 	OUTPUT 
-	  , @pMessage		nvarchar(2048) 	= 	NULL 	OUTPUT 
-	  , @pMessage_aug   nvarchar(2048) 	=	NULL 	OUTPUT 
-	)
+CREATE 	PROCEDURE eLog.log_CatchProcessing
+			(
+				@pProcID		int 			= 	NULL
+			  , @pReraise       bit 			= 	1
+			  , @pError_Number  int 			= 	NULL 	OUTPUT 
+			  , @pMessage		nvarchar(2048) 	= 	NULL 	OUTPUT 
+			  , @pMessage_aug   nvarchar(2048) 	=	NULL 	OUTPUT 
+			  , @pDataID		int				=	NULL
+			)
 /*
 ***********************************************************************************************************************************
 
@@ -31,8 +32,10 @@ CREATE PROCEDURE eLog.log_CatchProcessing
 	@pMessage		nvarchar(2048) 	original error message
 	@pMessage_aug	nvarchar(2048) 	enhanced error message containing name of 
 										calling object and line number of error
+										
+	@pDataID		int				HW Test Data Manager ID for dataset where error was invoked
+										Can represent either a HeaderID or a VectorID
 	 
-
     Notes
     -----
 	derived from:	Error and Transaction Handling in SQL Server, Erland Sommarskog, SQL Server MVP 
@@ -41,6 +44,9 @@ CREATE PROCEDURE eLog.log_CatchProcessing
     Revision
     --------
     carsoc3     2018-03-15		Added to alpha release
+	carsoc3		2018-04-27		Original production release
+	carsoc3		2018-06-30		Add parameter @pDataID
+	
 	
 	
 	Original comments
@@ -57,14 +63,15 @@ SET XACT_ABORT, NOCOUNT ON ;
 
 BEGIN TRY
 
-	DECLARE		@crlf       		char(2)			= 	CHAR(13) + CHAR(10)
+	 DECLARE	@crlf       		char(2)			= 	CHAR(13) + CHAR(10)
 			  , @error_message		nvarchar(2048)	=	ERROR_MESSAGE()
 			  , @error_number		int				=	ERROR_NUMBER()
 			  , @error_procedure	sysname			=	ERROR_PROCEDURE()
 			  , @error_line    		int				=	ERROR_LINE()
 			  , @error_severity     int				=	ERROR_SEVERITY()
 			  , @error_state      	int				=	ERROR_STATE()
-			  , @temperrno  		varchar(9) ;
+			  , @temperrno  		varchar(9) 
+				;
 
    
 -- 	1)	Rollback transaction if required ( Sommarskog, Part Three, section 2.3 )
@@ -73,7 +80,8 @@ BEGIN TRY
 		
 --	2)	Assign output parameters
 	  SELECT	@pError_Number	=	@error_number
-			  , @pMessage		=	@error_message ;
+			  , @pMessage		=	@error_message
+				;
    
 
 --	3) 	Process error, accounting for re-raised errors and original errors 
@@ -85,20 +93,23 @@ BEGIN TRY
 		-- 	process an original error passed into the catch handler externally
 		--		log the error by calling eLog.log_ProcessEventLog
 		--		specify @pRaiserror = 0 so that error is not re-raised in eLog.log_ProcessEventLog
-		 EXECUTE	eLog.log_ProcessEventLog	
+		 EXECUTE	eLog.log_ProcessEventLog		
 						@pProcID			=	@pProcID
+					  , @pDataID			=	@pDataID
 					  , @pMessage			=	@error_message
 					  , @pRaiserror			= 	0
 					  , @pSeverity 			= 	@error_severity
 					  , @pErrorNumber		= 	@error_number
 					  , @pErrorProcedure	= 	@error_procedure
-					  , @pErrorLine			= 	@error_line ;
+					  , @pErrorLine			= 	@error_line 
+					;
 		
 		-- 	augment error message.  Include message number, procedure and line number
 		  SELECT	@pMessage_aug 	= 	'{' + LTRIM( STR( @error_number ) ) + '}'
 											+ ISNULL( ' Procedure ' + @error_procedure + ',' , ',' )
 											+ ' Line ' + LTRIM( STR( @error_line ) ) + @crlf 
-											+ @error_message ;
+											+ @error_message 
+					;
 	END
 
 	ELSE
@@ -111,23 +122,28 @@ BEGIN TRY
 		BEGIN
 		--	this is a re-raised error previously formatted by error processing routines
 		--		extract the original error number.
-			SELECT @temperrno = SUBSTRING( @error_message, 2, CHARINDEX( '}', @error_message ) - 2 ) ; 
-			IF  ( @temperrno NOT LIKE '%[^0-9]%' )
-				SELECT @error_number = CONVERT( INT, @temperrno ) ; 
+			  SELECT 	@temperrno = SUBSTRING( @error_message, 2, CHARINDEX( '}', @error_message ) - 2 ) ; 
+			  IF  ( @temperrno NOT LIKE '%[^0-9]%' )
+					SELECT @error_number = CONVERT( INT, @temperrno ) ; 
 
 		-- 		Write to the two output variables for the error message.
-			SELECT		@pMessage		= 	SUBSTRING( @error_message, CHARINDEX( @crlf, @error_message ) + 2, LEN( @error_message ) ) 
-					  , @pMessage_aug	= 	@error_message ;
+			  SELECT	@pMessage		= 	SUBSTRING( @error_message, CHARINDEX( @crlf, @error_message ) + 2, LEN( @error_message ) ) 
+					  , @pMessage_aug	= 	@error_message 
+						;
 		END
 		
 		ELSE
 			
 		BEGIN
 		-- 	Presumably a message raised by calling eLog.log_ProcessEventLog directly.
-			SELECT		@pMessage		= 	@error_message
-				      , @pMessage_aug	= 	@error_message ;
+		  SELECT	@pMessage		= 	@error_message
+				  , @pMessage_aug	= 	@error_message 
+					;
 		END
 	END 
+
+	RETURN 0 ;
+
 END TRY
 
 BEGIN CATCH
@@ -146,11 +162,13 @@ BEGIN CATCH
 													+ @crlf 
 													+ 'Original error: ' 
 													+ @error_message
-									END ;
+									END 
+				;
 				
 	-- 	Set output variables if this has not been done.
 	  SELECT 	@pMessage 		=	ISNULL( @pMessage, @error_message )  
-			  , @pMessage_aug 	=	ISNULL(	@pMessage_aug, @error_message ) ;
+			  , @pMessage_aug 	=	ISNULL(	@pMessage_aug, @error_message ) 
+				;
 
    -- Avoid new error if transaction is doomed.
 	IF 	( XACT_STATE() = -1 ) ROLLBACK TRANSACTION ; 
@@ -168,4 +186,3 @@ BEGIN
 		
 END
 	
-RETURN 0 ;
