@@ -5,7 +5,7 @@ CREATE 	PROCEDURE eLog.log_CatchProcessing
 			  , @pError_Number  int 			= 	NULL 	OUTPUT 
 			  , @pMessage		nvarchar(2048) 	= 	NULL 	OUTPUT 
 			  , @pMessage_aug   nvarchar(2048) 	=	NULL 	OUTPUT 
-			  , @pDataID		int				=	NULL
+			  , @pErrorData		xml				=	NULL
 			)
 /*
 ***********************************************************************************************************************************
@@ -33,8 +33,8 @@ CREATE 	PROCEDURE eLog.log_CatchProcessing
 	@pMessage_aug	nvarchar(2048) 	enhanced error message containing name of 
 										calling object and line number of error
 										
-	@pDataID		int				HW Test Data Manager ID for dataset where error was invoked
-										Can represent either a HeaderID or a VectorID
+	@pErrorData		xml				xml representation of data states at time of error.
+										contents are formatted by calling program at run-time
 	 
     Notes
     -----
@@ -45,7 +45,7 @@ CREATE 	PROCEDURE eLog.log_CatchProcessing
     --------
     carsoc3     2018-03-15		Added to alpha release
 	carsoc3		2018-04-27		Original production release
-	carsoc3		2018-06-30		Add parameter @pDataID
+	carsoc3		2018-08-31		Add parameter @pErrorData
 	
 	
 	
@@ -95,13 +95,13 @@ BEGIN TRY
 		--		specify @pRaiserror = 0 so that error is not re-raised in eLog.log_ProcessEventLog
 		 EXECUTE	eLog.log_ProcessEventLog		
 						@pProcID			=	@pProcID
-					  , @pDataID			=	@pDataID
 					  , @pMessage			=	@error_message
 					  , @pRaiserror			= 	0
 					  , @pSeverity 			= 	@error_severity
 					  , @pErrorNumber		= 	@error_number
 					  , @pErrorProcedure	= 	@error_procedure
 					  , @pErrorLine			= 	@error_line 
+					  , @pErrorData			=	@pErrorData
 					;
 		
 		-- 	augment error message.  Include message number, procedure and line number

@@ -17,7 +17,7 @@ CREATE 	PROCEDURE eLog.log_InsertEvent
 			  , @p4					nvarchar(400)
 			  , @p5					nvarchar(400)
 			  , @p6					nvarchar(400) 
-			  , @pDataID			int
+			  , @pErrorData			xml
 			)
 /*
 ***********************************************************************************************************************************
@@ -52,7 +52,7 @@ CREATE 	PROCEDURE eLog.log_InsertEvent
 	@p4					nvarchar(400)   input parameters for error message, translated to string
 	@p5					nvarchar(400)   input parameters for error message, translated to string
 	@p6					nvarchar(400)   input parameters for error message, translated to string
-	@pDataID			int				Unique ID from HWT Repository database, represents either HeaderID or VectorID
+	@pErrorData			xml				representation of query data at the time of the error
   
     Notes
     -----
@@ -63,7 +63,7 @@ CREATE 	PROCEDURE eLog.log_InsertEvent
     --------
     carsoc3     2018-02-20		Added to alpha release
 	carsoc3		2018-04-27		Original production release
-	carsoc3		2018-06-30		Add parameter @pDataID		
+	carsoc3		2018-08-31		Add parameter @pErrorData
 	
 	Original comments
 
@@ -94,12 +94,11 @@ BEGIN TRY
 	--	The COALESCE statements standardize input from calling procs where the input format may not be known. 
 	  INSERT	eLog.EventLog
 					(
-						MessageID, DataID, ErrorNumber, Severity, LoggingProc, FullMessage
-							, ErrorProc, LineNumber, UserName, AppName, HostName
+						MessageID, ErrorNumber, Severity, LoggingProc, FullMessage, ErrorProc
+							, LineNumber, UserName, AppName, HostName, ErrorData
 					)
 		
       SELECT	MessageID	=	@pMessageID
-			  , DataID		=	@pDataID
 			  , ErrorNumber =	@pErrorNumber
 			  , Severity    =	COALESCE( @pSeverity, 16 )
 			  , LoggingProc	=	@logProc
@@ -109,6 +108,7 @@ BEGIN TRY
 			  , UserName    =	COALESCE( @pUserName, SYSTEM_USER )
 			  , AppName     =	@pAppName
 			  , HostName    =	@pHostName 
+			  , ErrorData	=	@pErrorData
 				;
 			
 	  SELECT @pLogID = SCOPE_IDENTITY() ; 

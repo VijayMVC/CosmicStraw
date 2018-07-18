@@ -14,7 +14,7 @@ CREATE 	PROCEDURE eLog.log_ProcessEventLog
 			  , @p4        			sql_variant   	= 	NULL
 			  , @p5        			sql_variant   	= 	NULL
 			  , @p6        			sql_variant   	= 	NULL
-			  , @pDataID			int				=	NULL
+			  , @pErrorData			xml				=	NULL
 			  , @pLogID				bigint        	= 	NULL OUTPUT 
 			) 
 /*
@@ -49,7 +49,7 @@ CREATE 	PROCEDURE eLog.log_ProcessEventLog
     @p4        			sql_variant   	formatted parameters from error message 
     @p5        			sql_variant   	formatted parameters from error message 
     @p6        			sql_variant   	formatted parameters from error message 
-	@pDataID			int				HW Test Data Manager Unique ID -- refers to either HeaderID or VectorID
+	@pErrorData			xml				XML representation of error data at time of processing
     @pLogID				bigint        	return key for error that was logged 
   
     Notes
@@ -61,7 +61,7 @@ CREATE 	PROCEDURE eLog.log_ProcessEventLog
     --------
     carsoc3     2018-02-20		Added to alpha release
 	carsoc3		2018-04-27		Original production release
-	carsoc3		2018-06-30		Add parameter @pDataID	
+	carsoc3		2018-08-31		Add parameter @pErrorData
 	
 	
 	Original comments
@@ -190,7 +190,7 @@ BEGIN TRY
 					  , @p4					=	@str4
 					  , @p5					=	@str5
 					  , @p6					=	@str6 
-					  , @pDataID			=	@pDataID 
+					  , @pErrorData			=	@pErrorData
 					;
 	END
 	
@@ -217,7 +217,7 @@ BEGIN TRY
 					  , @p4					=	@str4
 					  , @p5					=	@str5
 					  , @p6					=	@str6 
-					  , @pDataID			=	@pDataID 
+					  , @pErrorData			=	@pErrorData
 					;
 	END
 

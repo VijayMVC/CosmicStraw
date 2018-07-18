@@ -21,7 +21,8 @@
 
     Revision
     --------
-    carsoc3     2018-4-27		Production release 
+    carsoc3     2018-04-27		Production release 
+	carsoc3		2018-08-31		added @pDataID to support enhanced error messaging
 	
 ***********************************************************************************************************************************
 */
@@ -31,12 +32,16 @@ SET XACT_ABORT, NOCOUNT ON ;
 
 BEGIN TRY
 
+	 DECLARE	@pDataID	int	=	TRY_CONVERT( int, @pHeaderID ) ; 
+
 --	1)	Validate input 
 	IF  ( @pHeaderID IS NULL ) 
 	BEGIN
 		--	@pHeaderID must not be NULL 
 		 EXECUTE	eLog.log_ProcessEventLog 	@pProcID	=	@@PROCID
-											  , @pMessage	=	N'Error: @pHeaderID must not be NULL' ; 
+											  , @pMessage	=	N'Error: @pHeaderID must not be NULL' 
+											  , @pDataID 	=	@pDataID
+												; 
 	END
 
 	IF	( PATINDEX( '%[^ 0-9|]%', @pHeaderID ) > 0 )
@@ -44,7 +49,9 @@ BEGIN TRY
 		--	@pHeaderID must contain only numerics, spaces and the pipe-delimiter {|} 
 		 EXECUTE	eLog.log_ProcessEventLog 	@pProcID	=	@@PROCID
 											  , @pMessage	=	N'Error: @pHeaderID contains invalid input.  @pHeaderID: %1' 
-											  , @p1			=	@pHeaderID ; 
+											  , @p1			=	@pHeaderID 
+											  , @pDataID 	=	@pDataID
+												; 
 	END
 	
 
@@ -97,7 +104,7 @@ BEGIN CATCH
 	IF  ( @@TRANCOUNT > 0 ) 
 		ROLLBACK TRANSACTION ; 
 	
-	  EXECUTE	eLog.log_CatchProcessing	@pProcID = @@PROCID ; 
+	  EXECUTE	eLog.log_CatchProcessing	@pProcID = @@PROCID, @pDataID = @pDataID ; 
 	
 	RETURN 55555 ; 
 
