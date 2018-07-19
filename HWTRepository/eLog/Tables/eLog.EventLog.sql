@@ -4,6 +4,11 @@ CREATE TABLE 	eLog.EventLog
 					http://www.sommarskog.se/error_handling/Part1.html ( and following links )
 
 	notes are based from original author
+	
+	Revisions
+	
+	2018-04-27		carsoc3		Initial production launch
+	2018-08-31		carsoc3		Added error data XML field to support enhanced error messaging 
 */
 	(
 		EventLogID		bigint			NOT NULL		IDENTITY
@@ -18,6 +23,7 @@ CREATE TABLE 	eLog.EventLog
 	  , UserName		sysname			NOT NULL		-- From original_login/SYSTEM_USER.
 	  , AppName			sysname							-- From app_name().
 	  , HostName		sysname							-- From host_name().
+	  , ErrorData		xml								-- XML representation of data related to error processing
 
 	  , CONSTRAINT PK_eLog_EventLog 
 			PRIMARY KEY NONCLUSTERED( EventLogID ASC )

@@ -34,6 +34,7 @@
     Revision
     --------
     carsoc3     2018-04-27 		production release 
+	carsoc3		2018-08-31		added @pDataID for error processing
 
 ***********************************************************************************************************************************
 */
@@ -64,6 +65,7 @@ BEGIN TRY
 						@pProcID	=	@@PROCID
 					  , @pMessage	=	'Error:  Input for hwt.GetDatasetXML must contain at least one dataset ID.  @pHeaderID = %1'
 					  , @p1			=	@pHeaderID 
+					  , @pDataID	=	TRY_CONVERT( int, @pHeaderID )
 					; 				
 	END 
 
@@ -97,6 +99,7 @@ BEGIN TRY
 					  , @pMessage	=	@invalidMsg
 					  , @p1			=	@invalidDatasetIDs
 					  , @p2			=	@recordCount 
+					  , @pDataID	=	TRY_CONVERT( int, @pHeaderID )
 					; 
 	END 	
 	
@@ -441,7 +444,7 @@ BEGIN CATCH
 
 	IF  ( @@TRANCOUNT > 0 ) ROLLBACK TRANSACTION ; 
 		
-	EXECUTE	eLog.log_CatchProcessing @pProcID = @@PROCID ; 
+	EXECUTE	eLog.log_CatchProcessing @pProcID = @@PROCID, @pDataID = TRY_CONVERT( int, @pHeaderID ) ; 
 	 
 	RETURN 55555 ; 
 

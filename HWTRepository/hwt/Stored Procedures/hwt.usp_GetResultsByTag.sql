@@ -75,6 +75,8 @@
     Revision
     --------
     carsoc3     2018-02-01      alpha release
+	carsoc3		2018-04-27		production release
+	carsoc3		2018-08-31		added @pDataID for error processing
 
 ***********************************************************************************************************************************
 */
@@ -91,6 +93,7 @@ BEGIN TRY
 			  , @lTestName		nvarchar(max)
 			  , @lSearchTerms	nvarchar(max) 
 			  , @lAssetNumbers 	nvarchar(max) 
+			  , @pDataID		int				=	TRY_CONVERT( int, @pHeaderID ) 
 				;	
 			  
 	
@@ -126,6 +129,7 @@ BEGIN TRY
 						  , @pMessage	=	N'StartDate of %1 is after EndDate of %2'
 						  , @p1			=	@pStartTime
 						  , @p2			=	@pEndTime 
+						  , @pDataID	=	@pDataID
 							; 	
 		END
 	
@@ -457,7 +461,7 @@ BEGIN CATCH
 
 	IF  ( @@TRANCOUNT > 0 ) ROLLBACK TRANSACTION ; 
 		
-	EXECUTE	eLog.log_CatchProcessing @pProcID = @@PROCID ; 
+	EXECUTE	eLog.log_CatchProcessing @pProcID = @@PROCID, @pDataID = @pDataID ; 
 	 
 	RETURN 55555 ; 
 

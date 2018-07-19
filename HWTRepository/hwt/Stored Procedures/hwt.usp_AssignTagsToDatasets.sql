@@ -29,6 +29,7 @@
     Revision
     --------
     carsoc3     2018-04-27		production release
+	carsoc3		2018-08-31		added @pDataID for enhanced error messaging
 
 ***********************************************************************************************************************************
 */	
@@ -41,6 +42,8 @@ BEGIN TRY
 	DROP TABLE IF EXISTS #header ;
 	DROP TABLE IF EXISTS #tag ;
 	DROP TABLE IF EXISTS #headerTag ;
+	
+	 DECLARE	@pDataID	int	=	TRY_CONVERT( int, @pHeaderID ) ; 
 
 --	1)	load dataset IDs into temp storage	
 	  SELECT	HeaderID = CONVERT( int, x.Item )
@@ -161,6 +164,7 @@ BEGIN TRY
 						  , @p2			=	@NewTagNames
 						  , @p3			=	@HeaderID 
 						  , @p4			=	@ExistingTagName
+						  , @pDataID	=	@HeaderID 
 						;
 		END
 		
@@ -200,7 +204,7 @@ BEGIN CATCH
 
 	IF  ( @@TRANCOUNT > 0 ) ROLLBACK TRANSACTION ; 
 		
-	EXECUTE		eLog.log_CatchProcessing @pProcID = @@PROCID ; 
+	EXECUTE		eLog.log_CatchProcessing @pProcID = @@PROCID, @pDataID = @pDataID ; 
 	 
 	RETURN 55555 ; 
 

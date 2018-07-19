@@ -1,23 +1,24 @@
-CREATE PROCEDURE 	eLog.log_InsertEvent
-	( 	
-		@pLogID				bigint OUTPUT
-	  , @pMessageID			varchar(255)
-	  , @pErrorNumber		int
-	  , @pSeverity			tinyint
-	  , @pLoggingProcID		int
-	  , @pMessage			nvarchar(2048)
-	  , @pErrorProcedure	sysname
-	  , @pErrorLine			int
-	  , @pUserName			sysname
-	  , @pAppName			sysname
-	  , @pHostName			sysname
-	  , @p1					nvarchar(400)
-	  , @p2					nvarchar(400)
-	  , @p3					nvarchar(400)
-	  , @p4					nvarchar(400)
-	  , @p5					nvarchar(400)
-	  , @p6					nvarchar(400) 
-	)
+CREATE 	PROCEDURE eLog.log_InsertEvent
+			( 	
+				@pLogID				bigint OUTPUT
+			  , @pMessageID			varchar(255)
+			  , @pErrorNumber		int
+			  , @pSeverity			tinyint
+			  , @pLoggingProcID		int
+			  , @pMessage			nvarchar(2048)
+			  , @pErrorProcedure	sysname
+			  , @pErrorLine			int
+			  , @pUserName			sysname
+			  , @pAppName			sysname
+			  , @pHostName			sysname
+			  , @p1					nvarchar(400)
+			  , @p2					nvarchar(400)
+			  , @p3					nvarchar(400)
+			  , @p4					nvarchar(400)
+			  , @p5					nvarchar(400)
+			  , @p6					nvarchar(400) 
+			  , @pErrorData			xml
+			)
 /*
 ***********************************************************************************************************************************
 
@@ -51,6 +52,7 @@ CREATE PROCEDURE 	eLog.log_InsertEvent
 	@p4					nvarchar(400)   input parameters for error message, translated to string
 	@p5					nvarchar(400)   input parameters for error message, translated to string
 	@p6					nvarchar(400)   input parameters for error message, translated to string
+	@pErrorData			xml				representation of query data at the time of the error
   
     Notes
     -----
@@ -60,7 +62,8 @@ CREATE PROCEDURE 	eLog.log_InsertEvent
     Revision
     --------
     carsoc3     2018-02-20		Added to alpha release
-	
+	carsoc3		2018-04-27		Original production release
+	carsoc3		2018-08-31		Add parameter @pErrorData
 	
 	Original comments
 
@@ -83,19 +86,20 @@ BEGIN TRY
 -- 	1)	Translate @pLoggingProcID to a name.
 	 EXECUTE	eLog.log_GetProcID 		
 					@pProcID 	=	@pLoggingProcID
-			      , @pProcName 	= 	@logProc 		OUTPUT ;
+			      , @pProcName 	= 	@logProc 		OUTPUT 
+				;
 
 
 -- 	2)	Format and insert into eLog.EventLog 
 	--	The COALESCE statements standardize input from calling procs where the input format may not be known. 
-	  INSERT	INTO eLog.EventLog
+	  INSERT	eLog.EventLog
 					(
-						MessageID, ErrorNumber, Severity, LoggingProc, FullMessage
-							, ErrorProc, LineNumber, UserName, AppName, HostName
+						MessageID, ErrorNumber, Severity, LoggingProc, FullMessage, ErrorProc
+							, LineNumber, UserName, AppName, HostName, ErrorData
 					)
 		
       SELECT	MessageID	=	@pMessageID
-			  , ErrNum      =	@pErrorNumber
+			  , ErrorNumber =	@pErrorNumber
 			  , Severity    =	COALESCE( @pSeverity, 16 )
 			  , LoggingProc	=	@logProc
 			  , FullMessage =	COALESCE( @pMessage, 'NO MESSAGE PROVIDED' )
@@ -103,7 +107,9 @@ BEGIN TRY
 			  , LineNumber	=	@pErrorLine
 			  , UserName    =	COALESCE( @pUserName, SYSTEM_USER )
 			  , AppName     =	@pAppName
-			  , HostName    =	@pHostName ;
+			  , HostName    =	@pHostName 
+			  , ErrorData	=	@pErrorData
+				;
 			
 	  SELECT @pLogID = SCOPE_IDENTITY() ; 
 
@@ -125,6 +131,8 @@ BEGIN TRY
 				) AS x( paramNum, paramValue ) 
    	   WHERE    x.paramValue IS NOT NULL ;
 	
+	RETURN 0 ;
+
 END TRY
 
 BEGIN CATCH
@@ -138,10 +146,10 @@ BEGIN CATCH
 								+ ERROR_MESSAGE() 
 								+ '". ' 
 								+ 'Original error was: ' 
-								+ @pMessage ;
+								+ @pMessage 
+				;
 	
 	RAISERROR( '%s', 16, 1, @msg ) ;
 
 END CATCH
 
-RETURN 0 ;

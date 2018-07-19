@@ -34,7 +34,7 @@
     <DbScopedConfigMaxDOP>2</DbScopedConfigMaxDOP>
     <DbScopedConfigParameterSniffing>On</DbScopedConfigParameterSniffing>
     <DbScopedConfigOptimizerHotfixes>Off</DbScopedConfigOptimizerHotfixes>
-    <DelayedDurability>DISABLED</DelayedDurability>
+    <DelayedDurability>FORCED</DelayedDurability>
     <AutoCreateStatisticsIncremental>False</AutoCreateStatisticsIncremental>
     <MemoryOptimizedElevateToSnapshot>False</MemoryOptimizedElevateToSnapshot>
     <Containment>None</Containment>
@@ -57,7 +57,7 @@
     <DateCorrelationOptimizationOn>False</DateCorrelationOptimizationOn>
     <Parameterization>FORCED</Parameterization>
     <AllowSnapshotIsolation>True</AllowSnapshotIsolation>
-    <ReadCommittedSnapshot>True</ReadCommittedSnapshot>
+    <ReadCommittedSnapshot>False</ReadCommittedSnapshot>
     <VardecimalStorageFormatOn>True</VardecimalStorageFormatOn>
     <SupplementalLoggingOn>False</SupplementalLoggingOn>
     <CompatibilityMode>130</CompatibilityMode>
@@ -81,7 +81,7 @@
     <AutoUpdateStatistics>True</AutoUpdateStatistics>
     <TornPageDetection>False</TornPageDetection>
     <DatabaseAccess>MULTI_USER</DatabaseAccess>
-    <Recovery>FULL</Recovery>
+    <Recovery>BULK_LOGGED</Recovery>
     <EnableFullTextSearch>True</EnableFullTextSearch>
     <DefaultFilegroup>PRIMARY</DefaultFilegroup>
     <GenerateCreateScript>True</GenerateCreateScript>

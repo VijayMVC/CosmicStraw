@@ -43,6 +43,9 @@ SET XACT_ABORT, NOCOUNT ON ;
 -- Translate the object name from incoming object_id
   SELECT	@pProcName	=	s.name + '.' + o.name
 	FROM	sys.objects AS o
-			INNER JOIN sys.schemas s 
-				ON o.schema_id = s.schema_id
-   WHERE	o.object_id = @pProcID ;
+
+			INNER JOIN sys.schemas AS s 
+					ON o.schema_id = s.schema_id
+   
+   WHERE	o.object_id = @pProcID 
+			;
