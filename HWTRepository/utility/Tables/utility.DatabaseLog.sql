@@ -10,5 +10,6 @@
 				  , XmlEvent		XML				NOT NULL
 				  , CONSTRAINT PK_utility_DatabaseLog
 						PRIMARY KEY NONCLUSTERED( DatabaseLogID ASC )
-				)
-;
+				)	ON [PRIMARY]
+				TEXTIMAGE_ON [PRIMARY]
+				;

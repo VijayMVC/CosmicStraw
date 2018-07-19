@@ -26,4 +26,4 @@ GO
 
 CREATE CLUSTERED INDEX 	
 	IX_eLog_EventLog_LogDate 
-		ON eLog.EventLog( LogDate ASC ) ; 
+		ON eLog.EventLog( LogDate DESC ) ; 

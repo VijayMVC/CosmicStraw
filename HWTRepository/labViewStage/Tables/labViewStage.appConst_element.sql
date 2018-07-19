@@ -1,4 +1,4 @@
-﻿CREATE TABLE	labViewStage.appConst_element
+﻿  CREATE 	TABLE labViewStage.appConst_element
 				(
 					ID          int             NOT NULL
 				  , HeaderID    int             NOT NULL
@@ -16,13 +16,14 @@
 				  , CONSTRAINT FK_labViewStage_appConst_element_header  
 						FOREIGN KEY( HeaderID ) 
 						REFERENCES labViewStage.header( ID )
-				)	ON	[HWTTables]
-				;
+				)	
+	  ON	[HWTTables]
+			;
 GO 
   
-CREATE INDEX 	IX_labViewStage_appConst_element_name 
-		  ON 	labViewStage.appConst_element
+  CREATE  	INDEX IX_labViewStage_appConst_element_name 
+				ON labViewStage.appConst_element
 					( HeaderID ASC, Name ASC, Type ASC, Units ASC ) 
-		WITH	( DATA_COMPRESSION = PAGE ) 
-		  ON	[HWTIndexes]
-				;
+	WITH	( DATA_COMPRESSION = PAGE ) 
+	  ON	[HWTIndexes]
+			;

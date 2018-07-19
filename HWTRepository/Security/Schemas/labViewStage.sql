@@ -8,6 +8,8 @@
 
 
 
+
+
 GO
 GRANT CONTROL
     ON SCHEMA::[labViewStage] TO [ElevatedUsers];

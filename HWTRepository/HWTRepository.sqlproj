@@ -160,6 +160,10 @@
     <Folder Include="xmlStage\Tables" />
     <Folder Include="xmlStage\Triggers" />
     <Folder Include="xmlStage\XMLSchemaCollections" />
+    <Folder Include="labViewStage\Stored Procedures\" />
+    <Folder Include="Service Broker\Contracts" />
+    <Folder Include="Service Broker\LegacyXML" />
+    <Folder Include="Service Broker\LabView" />
   </ItemGroup>
   <ItemGroup>
     <Build Include="Database Triggers\ddlDatabaseTriggerLog.sql" />
@@ -258,10 +262,6 @@
     <Build Include="hwt\Stored Procedures\hwt.usp_ScrubSearchInput.sql" />
     <Build Include="utility\Functions\utility.tvf_CountOccurrences.sql" />
     <Build Include="hwt\Stored Procedures\hwt.usp_GetAssetNumbers.sql" />
-    <Build Include="Service Broker\LegacyXML_Contract.sql" />
-    <Build Include="Service Broker\LegacyXML_MessageTypes.sql" />
-    <Build Include="Service Broker\LegacyXML_Queues.sql" />
-    <Build Include="Service Broker\LegacyXML_Services.sql" />
     <Build Include="xmlStage\Stored Procedures\xmlStage.usp_LegacyXML_ShredRequest.sql" />
     <Build Include="xmlStage\Stored Procedures\xmlStage.usp_LegacyXML_ShredResponse.sql" />
     <Build Include="hwt\Triggers\hwt.trg_Tag_delete.sql" />
@@ -272,6 +272,17 @@
     <Build Include="Security\Logins\Logins.sql" />
     <Build Include="hwt\Tables\hwt.VectorRequirement.sql" />
     <Build Include="Security\Roles\db_owner.sql" />
+    <Build Include="labViewStage\Stored Procedures\labViewStage.usp_SQLMessage_Response.sql" />
+    <Build Include="labViewStage\Stored Procedures\labViewStage.usp_SQLMessage_Request.sql" />
+    <Build Include="labViewStage\Tables\labViewStage.SQLMessage.sql" />
+    <Build Include="Service Broker\LegacyXML\LegacyXML_MessageTypes.sql" />
+    <Build Include="Service Broker\LegacyXML\LegacyXML_Queues.sql" />
+    <Build Include="Service Broker\LegacyXML\LegacyXML_Services.sql" />
+    <Build Include="Service Broker\LegacyXML\LegacyXML_Contract.sql" />
+    <Build Include="Service Broker\LabView\LabVIEW_SQLMessageTypes.sql" />
+    <Build Include="Service Broker\LabView\LabVIEW_SQLContract.sql" />
+    <Build Include="Service Broker\LabView\LabVIEW_SQLServices.sql" />
+    <Build Include="Service Broker\LabView\LabVIEW_SQLQueues.sql" />
   </ItemGroup>
   <ItemGroup>
     <None Include="hwt\Stored Procedures\notes" />
