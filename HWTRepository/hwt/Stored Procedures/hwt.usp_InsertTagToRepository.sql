@@ -1,11 +1,11 @@
-﻿CREATE PROCEDURE	hwt.usp_InsertTagToRepository
-	(
-        @pUserID		sysname			=	NULL
-	  , @pTagType		nvarchar(50)
-      , @pName          nvarchar(50)
-      , @pDescription   nvarchar(100)
-      , @pIsPermanent   int 			=   0
-    )
+﻿CREATE 	PROCEDURE hwt.usp_InsertTagToRepository
+			(
+				@pUserID		sysname			=	NULL
+			  , @pTagType		nvarchar(50)
+			  , @pName          nvarchar(50)
+			  , @pDescription   nvarchar(100)
+			  , @pIsPermanent   int 			=   0
+			)
 /*
 ***********************************************************************************************************************************
 
@@ -31,11 +31,33 @@
     Revision
     --------
     carsoc3     2018-02-01      alpha release
+	carsoc3		2018-08-31		enhanced error handling
 
 ***********************************************************************************************************************************
 */	
 AS
 SET NOCOUNT, XACT_ABORT ON ;
+
+ DECLARE	@p1					sql_variant
+		  , @p2					sql_variant
+		  , @p3					sql_variant
+		  , @p4					sql_variant
+		  , @p5					sql_variant
+		  , @p6					sql_variant
+
+		  , @pInputParameters	nvarchar(4000)
+			;
+
+  SELECT	@pInputParameters	=	(
+										SELECT	[usp_InsertTagToRepository.@pUserID]		=	@pUserID		
+											  , [usp_InsertTagToRepository.@pTagType]		=	@pTagType		
+											  , [usp_InsertTagToRepository.@pName]          =	@pName          
+											  , [usp_InsertTagToRepository.@pDescription]	=	@pDescription   
+											  , [usp_InsertTagToRepository.@pIsPermanent]	=	@pIsPermanent   
+
+												FOR JSON PATH, WITHOUT_ARRAY_WRAPPER, INCLUDE_NULL_VALUES
+									)
+			;
 
 BEGIN TRY
 
@@ -59,7 +81,10 @@ BEGIN CATCH
 
 	IF  ( @@TRANCOUNT > 0 ) ROLLBACK TRANSACTION ; 
 		
-	EXECUTE	eLog.log_CatchProcessing @pProcID = @@PROCID ; 
+	 EXECUTE	eLog.log_CatchProcessing
+					@pProcID 	= 	@@PROCID 
+				  , @p1			=	@pInputParameters
+				; 
 	 
 	RETURN 55555 ; 
 

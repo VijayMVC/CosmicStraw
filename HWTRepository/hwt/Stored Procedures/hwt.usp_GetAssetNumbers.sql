@@ -1,48 +1,49 @@
-﻿CREATE PROCEDURE hwt.usp_GetAssetNumbers
+﻿CREATE	PROCEDURE hwt.usp_GetAssetNumbers
 /*
 ***********************************************************************************************************************************
 
   Procedure:	hwt.usp_GetAssetNumbers
-   Abstract:  	returns all available equipment in the HWT Repository
-	
-	
-    Logic Summary
-    -------------
+   Abstract:	returns all available equipment in the HWT Repository
 
-    Parameters
-    ----------
-	 
-    Notes
-    -----
 
-    Revision
-    --------
-    carsoc3     2018-4-27		Production release 
-	
+	Logic Summary
+	-------------
+
+	Parameters
+	----------
+
+	Notes
+	-----
+
+	Revision
+	--------
+	carsoc3		2018-4-27		Production release
+	carsoc3		2018-08-31		enhanced error handling
+
 ***********************************************************************************************************************************
 */
 AS
 
-SET XACT_ABORT, NOCOUNT ON ; 
+SET XACT_ABORT, NOCOUNT ON ;
 
 BEGIN TRY
 
 
-  SELECT 	EquipmentID			
-		  , AssetNumber			=   Asset
-	FROM 	hwt.Equipment 
-ORDER BY 	AssetNumber ;
+  SELECT	EquipmentID
+		  , AssetNumber			=	Asset
+	FROM	hwt.Equipment
+ORDER BY	AssetNumber ;
 
-  RETURN 	0 ; 
+  RETURN	0 ;
 
 END TRY
 BEGIN CATCH
 
-	IF  ( @@TRANCOUNT > 0 ) 
-		ROLLBACK TRANSACTION ; 
-	
-	  EXECUTE	eLog.log_CatchProcessing	@pProcID = @@PROCID ; 
-	
-	RETURN 55555 ; 
+	IF	( @@TRANCOUNT > 0 )
+		ROLLBACK TRANSACTION ;
 
-END CATCH	
+	  EXECUTE	eLog.log_CatchProcessing	@pProcID = @@PROCID ;
+
+	RETURN 55555 ;
+
+END CATCH

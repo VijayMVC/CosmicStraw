@@ -13,7 +13,8 @@
 
     Revision
     --------
-    carsoc3     2018-04-27		Production release
+	carsoc3		2018-04-27		Production release
+	carsoc3		2018-08-31		enhanced error handling
 
 ***********************************************************************************************************************************
 */
@@ -46,9 +47,31 @@ BEGIN TRY
 END TRY
 
 BEGIN CATCH
+	 DECLARE	@pErrorData xml ;
 
-    IF  @@TRANCOUNT > 0 ROLLBACK TRANSACTION ;
-    
-	 EXECUTE	eLog.log_CatchProcessing @pProcID = @@PROCID ;
-	
+	  SELECT	@pErrorData =	(
+								  SELECT
+											(
+											  SELECT	*
+												FROM	inserted
+														FOR XML PATH( 'inserted' ), TYPE, ELEMENTS XSINIL
+											)
+										  , (
+											  SELECT	*
+												FROM	deleted
+														FOR XML PATH( 'deleted' ), TYPE, ELEMENTS XSINIL
+											)
+											FOR XML PATH( 'trg_Tag_update' ), TYPE
+								)
+				;
+
+	IF	( @@TRANCOUNT > 0 ) ROLLBACK TRANSACTION ;
+
+	 EXECUTE	eLog.log_CatchProcessing
+					@pProcID	=	@@PROCID
+				  , @pErrorData =	@pErrorData
+				;
+
 END CATCH
+
+

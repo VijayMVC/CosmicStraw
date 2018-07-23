@@ -1,8 +1,8 @@
-﻿CREATE PROCEDURE 	eLog.log_GetProcID
-	( 
-		@pProcID		int
-	  ,	@pProcName		nvarchar(257) 	OUTPUT
-	)
+﻿CREATE 	PROCEDURE eLog.log_GetProcID
+			( 
+				@pProcID		int
+			  ,	@pProcName		nvarchar(257) 	OUTPUT
+			)
 /*
 ***********************************************************************************************************************************
 

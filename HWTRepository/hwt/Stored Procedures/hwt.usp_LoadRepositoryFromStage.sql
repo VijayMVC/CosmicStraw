@@ -1,7 +1,7 @@
-﻿CREATE PROCEDURE	hwt.usp_LoadRepositoryFromStage
-	(
-        @pSourceTable as sysname 
-	)
+﻿CREATE 	PROCEDURE hwt.usp_LoadRepositoryFromStage
+			(
+				@pSourceTable as sysname 
+			)
 /*
 ***********************************************************************************************************************************
 
@@ -21,7 +21,9 @@
 
     Revision
     --------
-    carsoc3     2018-02-01      alpha release
+    carsoc3     2018-04-27		production release
+	carsoc3		2018-08-31		enhanced error handling	
+	
 
 ***********************************************************************************************************************************
 */

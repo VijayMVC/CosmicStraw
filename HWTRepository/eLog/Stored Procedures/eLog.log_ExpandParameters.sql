@@ -3,7 +3,7 @@ CREATE 	PROCEDURE eLog.log_ExpandParameters
 				@pMessageIO		nvarchar(2048)				OUTPUT
 			  ,	@pParamNum 		tinyint
 			  , @pVariantIn     sql_variant
-			  , @pStringOut		nvarchar(400) 	= 	NULL 	OUTPUT 
+			  , @pStringOut		nvarchar(4000) 	= 	NULL 	OUTPUT 
 			)
 /*
 ***********************************************************************************************************************************
@@ -29,7 +29,7 @@ CREATE 	PROCEDURE eLog.log_ExpandParameters
 											returns formatted message text with expanded parameters
 	@pParamNum 		tinyint					sequence from 1 to 6 ( proc support six parameters )
 	@pVariantIn     sql_variant				incoming parameter value
-	@pStringOut		nvarchar(400) 			return incoming parameter formatted as a string 
+	@pStringOut		nvarchar(4000) 			return incoming parameter formatted as a string 
 
     Notes
     -----
@@ -117,12 +117,12 @@ IF	( @pVariantIn IS NULL )
 									
 	IF	( @vBaseType LIKE '%binary' ) OR ( @vBaseType = 'timestamp' )
 	BEGIN 
-		  SELECT 	@pStringOut	=	CONVERT( nvarchar(400), CONVERT( varbinary(8000 ), @pVariantIn ), 1 ) ;
+		  SELECT 	@pStringOut	=	CONVERT( nvarchar(4000), CONVERT( varbinary(8000), @pVariantIn ), 1 ) ;
 			GOTO 	endOfProc ; 
 	END
 
 		
-	SELECT @pStringOut = CONVERT( nvarchar(400), @pVariantIn ) ; 
+	SELECT @pStringOut = CONVERT( nvarchar(4000), @pVariantIn ) ; 
 
 endOfProc:
 

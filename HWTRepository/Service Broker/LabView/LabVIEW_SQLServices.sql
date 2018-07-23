@@ -1,6 +1,6 @@
 ﻿  CREATE SERVICE	[//HWTRepository/LabVIEW/SQLSender]
    AUTHORIZATION	[dbo]
-        ON QUEUE 	[labViewStage].[SQLMessageResponsQueue]
+        ON QUEUE 	[labViewStage].[SQLMessageResponseQueue]
 						([//HWTRepository/LabVIEW/SQLContract])
 					;
 GO

@@ -24,6 +24,7 @@
     Revision
     --------
     carsoc3     2018-04-27		production release
+	carsoc3		2018-08-31		enhanced error handling	
 
 ***********************************************************************************************************************************
 */	
@@ -136,10 +137,30 @@ BEGIN TRY
 END TRY
 
 BEGIN CATCH
+	 DECLARE	@pErrorData	xml ; 
+
+      SELECT	@pErrorData	=	( 
+								  SELECT	
+											(
+											  SELECT	* 
+											    FROM	#inserted
+														FOR XML PATH( 'inserted' ), TYPE, ELEMENTS XSINIL
+											)
+										  , (
+											  SELECT	* 
+											    FROM	#changes
+														FOR XML PATH( 'changes' ), TYPE, ELEMENTS XSINIL
+											)
+											FOR XML PATH( 'usp_LoadLibraryFileFromStage' ), TYPE
+								)
+				;
 
 	IF  ( @@TRANCOUNT > 0 ) ROLLBACK TRANSACTION ; 
 		
-	EXECUTE	eLog.log_CatchProcessing @pProcID = @@PROCID ; 
+	 EXECUTE	eLog.log_CatchProcessing 
+					@pProcID 	=	@@PROCID 
+				  , @pErrorData	=	@pErrorData 
+				; 
 	 
 	RETURN 55555 ; 
 

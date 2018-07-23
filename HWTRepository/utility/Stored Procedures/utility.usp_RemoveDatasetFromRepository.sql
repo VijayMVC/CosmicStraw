@@ -1,7 +1,7 @@
-﻿CREATE PROCEDURE
-    utility.usp_RemoveDatasetFromRepository(
-        @pHeaderID  nvarchar(max)
-    )
+﻿CREATE	PROCEDURE utility.usp_RemoveDatasetFromRepository
+			(
+				@pHeaderID  nvarchar(max)
+			)
 --
 --  For a given set of headers, Dump the dataset from repository
 --  Input is pipe-delimited string of header IDs
