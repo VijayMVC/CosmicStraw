@@ -52,7 +52,8 @@ BEGIN TRY
 			  , KdrivePath        	=	REPLACE( REPLACE( REPLACE( i.KdrivePath, '&amp;', '&' ), '&lt;', '<' ), '&gt;', '>' )		
 			  , Comments          	=	REPLACE( REPLACE( REPLACE( i.Comments, '&amp;', '&' ), '&lt;', '<' ), '&gt;', '>' )			
 			  , ExternalFileInfo  	=	REPLACE( REPLACE( REPLACE( i.ExternalFileInfo, '&amp;', '&' ), '&lt;', '<' ), '&gt;', '>' )	
-			  , i.IsLegacyXML			
+			  , i.IsLegacyXML		
+			  , i.VectorCount
 			  , i.CreatedDate			
 			  , i.UpdatedDate			
 		INTO 	#inserted 
@@ -93,6 +94,7 @@ BEGIN TRY
 			  , Comments			= 	i.Comments			
 			  , ExternalFileInfo	= 	i.ExternalFileInfo	
 			  , IsLegacyXML			= 	i.IsLegacyXML
+			  , VectorCount			=	i.VectorCount
 			  , CreatedDate			=	i.CreatedDate
 			  , UpdatedDate			=	SYSDATETIME()
 	    FROM 	labViewStage.header AS hdr
@@ -105,12 +107,12 @@ BEGIN TRY
 					( 
 						ID, ResultFile, StartTime, FinishTime, TestDuration, ProjectName, FirmwareRev, HardwareRev
 							, PartSN, OperatorName, TestMode, TestStationID, TestName, TestConfigFile, TestCodePathName
-							, TestCodeRev, HWTSysCodeRev, KdrivePath, Comments, ExternalFileInfo, IsLegacyXML, CreatedDate
+							, TestCodeRev, HWTSysCodeRev, KdrivePath, Comments, ExternalFileInfo, IsLegacyXML, VectorCount, CreatedDate
 					)
 	  SELECT 	i.ID, i.ResultFile, i.StartTime, i.FinishTime, i.TestDuration, i.ProjectName
 				  , i.FirmwareRev, i.HardwareRev, i.PartSN, i.OperatorName, i.TestMode, i.TestStationID
 				  , i.TestName, i.TestConfigFile, i.TestCodePathName, i.TestCodeRev, i.HWTSysCodeRev		
-				  , i.KdrivePath, i.Comments, i.ExternalFileInfo, i.IsLegacyXML, i.CreatedDate
+				  , i.KdrivePath, i.Comments, i.ExternalFileInfo, i.IsLegacyXML, i.VectorCount, i.CreatedDate
 		FROM 	#inserted AS i
 				LEFT JOIN labViewStage.header AS hdr
 						ON hdr.ID = i.ID 

@@ -1,4 +1,5 @@
-﻿CREATE CONTRACT [//HWTRepository/LabVIEW/SQLContract]
-    AUTHORIZATION [dbo]
-    ([//HWTRepository/LabVIEW/SQLMessage] SENT BY INITIATOR, [//HWTRepository/LabVIEW/SQLMessageResponse] SENT BY TARGET);
-
+﻿  CREATE	CONTRACT [//HWTRepository/LabVIEW/SQLContract]
+				(
+					[//HWTRepository/LabVIEW/SQLMessage]			SENT BY INITIATOR
+				)
+			;

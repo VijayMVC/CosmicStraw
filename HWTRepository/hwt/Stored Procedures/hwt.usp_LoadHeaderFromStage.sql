@@ -63,6 +63,7 @@ BEGIN TRY
 			  , Comments			nvarchar(max)
 			  , ExternalFileInfo	nvarchar(max)
 			  , IsLegacyXML			int
+			  , VectorCount			int
 			  , CreatedDate			datetime
 			)
 			;
@@ -90,6 +91,7 @@ BEGIN TRY
 		  , Comments			nvarchar(max)
 		  , ExternalFileInfo	nvarchar(max)
 		  , IsLegacyXML			int
+		  , VectorCount			int
 		  , HWTChecksum			int
 		)
 		;
@@ -101,7 +103,7 @@ BEGIN TRY
 						ID, ResultFile, StartTime, FinishTime, TestDuration, ProjectName, FirmwareRev
 							, HardwareRev, PartSN, OperatorName, TestMode, TestStationID, TestName
 							, TestConfigFile, TestCodePathName, TestCodeRev, HWTSysCodeRev, KdrivePath
-							, Comments, ExternalFileInfo, IsLegacyXML, HWTChecksum
+							, Comments, ExternalFileInfo, IsLegacyXML, VectorCount, HWTChecksum
 					)
 	  SELECT	ID
 			  , ResultFile
@@ -124,6 +126,7 @@ BEGIN TRY
 			  , Comments
 			  , ExternalFileInfo
 			  , IsLegacyXML
+			  , VectorCount
 			  , HWTChecksum			=	BINARY_CHECKSUM
 										(
 											ResultFile
@@ -145,6 +148,7 @@ BEGIN TRY
 										  , KdrivePath
 										  , LEFT( Comments, 500 )
 										  , LEFT( ExternalFileInfo, 500 )
+										  , VectorCount
 										)
 		FROM	#inserted
 				;

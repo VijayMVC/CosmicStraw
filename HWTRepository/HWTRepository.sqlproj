@@ -164,6 +164,9 @@
     <Folder Include="Service Broker\Contracts" />
     <Folder Include="Service Broker\LegacyXML" />
     <Folder Include="Service Broker\LabView" />
+    <Folder Include="ErrorHandlerSource" />
+    <Folder Include="ErrorHandlerSource\sqleventlog" />
+    <Folder Include="Unused Scripts" />
   </ItemGroup>
   <ItemGroup>
     <Build Include="Database Triggers\ddlDatabaseTriggerLog.sql" />
@@ -171,7 +174,6 @@
     <Build Include="hwt\Stored Procedures\hwt.usp_DeleteTagsFromRepository.sql" />
     <Build Include="hwt\Stored Procedures\hwt.usp_GetDatasetXML.sql" />
     <Build Include="hwt\Stored Procedures\hwt.usp_GetResultsByTag.sql" />
-    <Build Include="hwt\Stored Procedures\hwt.usp_GetTags.sql" />
     <Build Include="hwt\Stored Procedures\hwt.usp_GetTagsByHeader.sql" />
     <Build Include="hwt\Stored Procedures\hwt.usp_GetTagsByTagType.sql" />
     <Build Include="hwt\Stored Procedures\hwt.usp_LoadAppConstFromStage.sql" />
@@ -272,8 +274,6 @@
     <Build Include="Security\Logins\Logins.sql" />
     <Build Include="hwt\Tables\hwt.VectorRequirement.sql" />
     <Build Include="Security\Roles\db_owner.sql" />
-    <Build Include="labViewStage\Stored Procedures\labViewStage.usp_SQLMessage_Response.sql" />
-    <Build Include="labViewStage\Stored Procedures\labViewStage.usp_SQLMessage_Request.sql" />
     <Build Include="labViewStage\Tables\labViewStage.SQLMessage.sql" />
     <Build Include="Service Broker\LegacyXML\LegacyXML_MessageTypes.sql" />
     <Build Include="Service Broker\LegacyXML\LegacyXML_Queues.sql" />
@@ -283,14 +283,41 @@
     <Build Include="Service Broker\LabView\LabVIEW_SQLContract.sql" />
     <Build Include="Service Broker\LabView\LabVIEW_SQLServices.sql" />
     <Build Include="Service Broker\LabView\LabVIEW_SQLQueues.sql" />
+    <None Include="ErrorHandlerSource\sqleventlog\add_cmdtext_sp.sql" />
+    <None Include="ErrorHandlerSource\sqleventlog\catchhandler_sp.sql" />
+    <None Include="ErrorHandlerSource\sqleventlog\cmd_catchhandler_assem.sql" />
+    <None Include="ErrorHandlerSource\sqleventlog\cmd_catchhandler_clr_sp.sql" />
+    <None Include="ErrorHandlerSource\sqleventlog\cmd_catchhandler_sp.sql" />
+    <None Include="ErrorHandlerSource\sqleventlog\expand_parameter_sp.sql" />
+    <None Include="ErrorHandlerSource\sqleventlog\expand_parameter_sp_2005.sql" />
+    <None Include="ErrorHandlerSource\sqleventlog\log_insert_sp.sql" />
+    <None Include="ErrorHandlerSource\sqleventlog\loopback_sp.sql" />
+    <None Include="ErrorHandlerSource\sqleventlog\loopback_svr.sql" />
+    <None Include="ErrorHandlerSource\sqleventlog\setup_cmd_catchhandler.sql" />
+    <None Include="ErrorHandlerSource\sqleventlog\slog_loopback_assem.sql" />
+    <None Include="ErrorHandlerSource\sqleventlog\slog_schema.sql" />
+    <None Include="ErrorHandlerSource\sqleventlog\sqleventlog_sp.sql" />
+    <None Include="ErrorHandlerSource\sqleventlog\sqleventlog_tbl.sql" />
+    <None Include="ErrorHandlerSource\sqleventlog\sqleventlog_tbl_2005.sql" />
+    <None Include="ErrorHandlerSource\sqleventlog\sqleventlogparameters_tbl.sql" />
+    <None Include="ErrorHandlerSource\sqleventlog\translate_procid_sp.sql" />
+    <None Include="ErrorHandlerSource\sqleventlog\usermessages_tbl.sql" />
+    <Build Include="labViewStage\Stored Procedures\labViewStage.usp_Process_SQLMessage.sql" />
+    <None Include="Unused Scripts\hwt.usp_GetTags.sql" />
+    <None Include="labViewStage\Stored Procedures\labViewStage.usp_TestSQLMessageSend.sql" />
+    <Build Include="labViewStage\Stored Procedures\labViewStage.usp_Process_SQLSender.sql" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="hwt\Stored Procedures\notes" />
     <None Include="Publish Scripts\HWTRepositoryD.local.publish.xml" />
     <None Include="Publish Scripts\HWTRepositoryD.publish.xml" />
     <None Include="Publish Scripts\HWTRepositoryDev.server.publish.xml" />
     <None Include="Publish Scripts\HWTRepositoryD.F1L3Q32.publish.xml" />
     <None Include="Publish Scripts\HWTRepository.Production.publish.xml" />
+    <None Include="ErrorHandlerSource\sqleventlog\build_cmd_catchhandler.bat" />
+    <None Include="ErrorHandlerSource\sqleventlog\build_sqleventlog.bat" />
+    <None Include="ErrorHandlerSource\sqleventlog\build_sqleventlog_2005.bat" />
+    <None Include="ErrorHandlerSource\sqleventlog\keypair.snk" />
+    <None Include="ErrorHandlerSource\sqleventlog\slog_loopback.dll" />
   </ItemGroup>
   <ItemGroup>
     <SqlCmdVariable Include="DataRoot">
@@ -323,7 +350,11 @@
     </SqlCmdVariable>
   </ItemGroup>
   <ItemGroup>
-    <ArtifactReference Include="$(DacPacRootPath)\Extensions\Microsoft\SQLDB\Extensions\SqlServer\130\SqlSchemas\master.dacpac">
+    <None Include="ErrorHandlerSource\sqleventlog\cmd_catchhandler.cs" />
+    <None Include="ErrorHandlerSource\sqleventlog\slog_loopback.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <ArtifactReference Include="C:\Program Files (x86)\Microsoft Visual Studio\2017\Professional\Common7\IDE\Extensions\Microsoft\SQLDB\Extensions\SqlServer\130\SqlSchemas\master.dacpac">
       <HintPath>$(DacPacRootPath)\Extensions\Microsoft\SQLDB\Extensions\SqlServer\130\SqlSchemas\master.dacpac</HintPath>
       <SuppressMissingDependenciesErrors>False</SuppressMissingDependenciesErrors>
       <DatabaseVariableLiteralValue>master</DatabaseVariableLiteralValue>

@@ -2,6 +2,7 @@
 				(
 					SQLMessageID 		int     		NOT NULL	IDENTITY
 				  , MessageProcessor    sysname			NOT NULL
+				  , MessageType			sysname			NOT NULL
 				  , MessageBody			nvarchar(max)	NOT NULL
 				  , MessageQueued		datetime2(7)	NOT NULL
 				  , ErrorCode			int				NOT NULL	DEFAULT 0 
