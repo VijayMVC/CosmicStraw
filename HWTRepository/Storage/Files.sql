@@ -3,8 +3,8 @@
 				(
 					NAME		=	[HWTRepository_Primary]
 				  , FILENAME	=	'$(DataRoot)\$(DatabaseName)_Primary.mdf'
-				  , SIZE		=	64MB
-				  , FILEGROWTH	=	64MB
+				  , SIZE		=	1GB
+				  , FILEGROWTH	=	256MB
 				) 
 	  TO 	FILEGROUP [PRIMARY] 
 			;
@@ -29,15 +29,15 @@
 				(
 					NAME		=	[HWTRepository_HWTTables1]
 				  , FILENAME	=	'$(DataRoot)\$(DatabaseName)_HWTTables1.mdf'
-				  , SIZE		=	128MB
-				  , FILEGROWTH	=	128MB
+				  , SIZE		=	256MB
+				  , FILEGROWTH	=	256MB
 				  , MAXSIZE		=	UNLIMITED
 				) 
 			  , (
 					NAME		=	[HWTRepository_HWTTables2]
 				  , FILENAME	=	'$(DataRoot)\$(DatabaseName)_HWTTables2.mdf'
-				  , SIZE		=	128MB
-				  , FILEGROWTH	=	128MB
+				  , SIZE		=	256MB
+				  , FILEGROWTH	=	256MB
 				  , MAXSIZE		=	UNLIMITED
 				) 
 
@@ -51,15 +51,15 @@
 				(
 					NAME		=	[HWTRepository_HWTIndexes1]
 				  , FILENAME	=	'$(DataRoot)\$(DatabaseName)_HWTIndexes1.mdf'
-				  , SIZE		=	128MB
-				  , FILEGROWTH	=	128MB
+				  , SIZE		=	256MB
+				  , FILEGROWTH	=	256MB
 				  , MAXSIZE		=	UNLIMITED
 				) 
 			  , (
 					NAME		=	[HWTRepository_HWTIndexes2]
 				  , FILENAME	=	'$(DataRoot)\$(DatabaseName)_HWTIndexes2.mdf'
-				  , SIZE		=	128MB
-				  , FILEGROWTH	=	128MB
+				  , SIZE		=	256MB
+				  , FILEGROWTH	=	256MB
 				  , MAXSIZE		=	UNLIMITED
 				  ) 
 
