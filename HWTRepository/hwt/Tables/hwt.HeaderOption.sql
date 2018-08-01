@@ -1,23 +1,24 @@
-﻿CREATE TABLE	hwt.HeaderOption
+﻿  CREATE	TABLE hwt.HeaderOption
 				(
-					HeaderID    int             NOT NULL
-				  , OptionID    int             NOT NULL
-				  , OptionN	    int             NOT NULL
+					HeaderID	int				NOT NULL
+				  , OptionID	int				NOT NULL
+				  , NodeOrder	int				NOT NULL
 				  , OptionValue	nvarchar(1000)	NOT NULL
-				  , UpdatedBy   sysname         NOT NULL
-				  , UpdatedDate datetime        NOT NULL
-				  
-				  , CONSTRAINT 	PK_hwt_HeaderOption 
-						PRIMARY KEY CLUSTERED( HeaderID ASC, OptionID ASC, OptionN ) 
+				  , UpdatedBy	sysname			NOT NULL
+				  , UpdatedDate datetime		NOT NULL
+
+				  , CONSTRAINT	PK_hwt_HeaderOption
+						PRIMARY KEY CLUSTERED( HeaderID ASC, OptionID ASC, NodeOrder ASC )
 						WITH( DATA_COMPRESSION = PAGE )
 						ON [HWTTables]
-						
-				  , CONSTRAINT 	FK_hwt_HeaderOption_Header 
-						FOREIGN KEY( HeaderID ) 
+
+				  , CONSTRAINT	FK_hwt_HeaderOption_Header
+						FOREIGN KEY( HeaderID )
 						REFERENCES hwt.Header( HeaderID )
-						
-				  , CONSTRAINT	FK_hwt_HeaderOption_Option 
-						FOREIGN KEY( OptionID ) 
+
+				  , CONSTRAINT	FK_hwt_HeaderOption_Option
+						FOREIGN KEY( OptionID )
 						REFERENCES hwt.[Option]( OptionID )
-				)	ON [HWTTables]
-				;
+				)
+			ON [HWTTables]
+			;

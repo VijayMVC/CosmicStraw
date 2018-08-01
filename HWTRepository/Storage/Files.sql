@@ -28,14 +28,14 @@
 	 ADD	FILE
 				(
 					NAME		=	[HWTRepository_HWTTables1]
-				  , FILENAME	=	'$(DataRoot)\$(DatabaseName)_HWTTables1.mdf'
+				  , FILENAME	=	'$(DataRoot)\$(DatabaseName)_HWTTables1.ndf'
 				  , SIZE		=	256MB
 				  , FILEGROWTH	=	256MB
 				  , MAXSIZE		=	UNLIMITED
 				) 
 			  , (
 					NAME		=	[HWTRepository_HWTTables2]
-				  , FILENAME	=	'$(DataRoot)\$(DatabaseName)_HWTTables2.mdf'
+				  , FILENAME	=	'$(DataRoot)\$(DatabaseName)_HWTTables2.ndf'
 				  , SIZE		=	256MB
 				  , FILEGROWTH	=	256MB
 				  , MAXSIZE		=	UNLIMITED
@@ -50,14 +50,14 @@
 	 ADD	FILE
 				(
 					NAME		=	[HWTRepository_HWTIndexes1]
-				  , FILENAME	=	'$(DataRoot)\$(DatabaseName)_HWTIndexes1.mdf'
+				  , FILENAME	=	'$(DataRoot)\$(DatabaseName)_HWTIndexes1.ndf'
 				  , SIZE		=	256MB
 				  , FILEGROWTH	=	256MB
 				  , MAXSIZE		=	UNLIMITED
 				) 
 			  , (
 					NAME		=	[HWTRepository_HWTIndexes2]
-				  , FILENAME	=	'$(DataRoot)\$(DatabaseName)_HWTIndexes2.mdf'
+				  , FILENAME	=	'$(DataRoot)\$(DatabaseName)_HWTIndexes2.ndf'
 				  , SIZE		=	256MB
 				  , FILEGROWTH	=	256MB
 				  , MAXSIZE		=	UNLIMITED

@@ -26,195 +26,196 @@
 ***********************************************************************************************************************************
 */
 AS
+RETURN 0 ; 
 
-SET XACT_ABORT, NOCOUNT ON ;
+--SET XACT_ABORT, NOCOUNT ON ;
 
-BEGIN TRY
+--BEGIN TRY
 
-	--	define temp storage tables
-	IF	( 1 = 0 )
-		CREATE TABLE	#inserted
-						(
-							ID			int
-						  , VectorID	int
-						  , Name		nvarchar(250)
-						  , Type		nvarchar(50)
-						  , Units		nvarchar(50)
-						  , Value		nvarchar(max)
-						  , CreatedDate datetime
-						)
-						;
+--	--	define temp storage tables
+--	IF	( 1 = 0 )
+--		CREATE TABLE	#inserted
+--						(
+--							ID			int
+--						  , VectorID	int
+--						  , Name		nvarchar(250)
+--						  , Type		nvarchar(50)
+--						  , Units		nvarchar(50)
+--						  , Value		nvarchar(max)
+--						  , CreatedDate datetime
+--						)
+--						;
 
-	CREATE TABLE	#changes
-					(
-						ID					int
-					  , VectorID			int
-					  , VectorResultN		int
-					  , Name				nvarchar(250)
-					  , Type				nvarchar(50)
-					  , Units				nvarchar(50)
-					  , ResultN				int
-					  , ResultValue			nvarchar(250)
-					  , OperatorName		nvarchar(50)
-					  , ResultID			int
-					)
-					;
-
-
---	1)	INSERT data into temp storage from trigger for non-array values
-	  INSERT	#changes
-					( ID, VectorID, Name, Type, Units, VectorResultN, ResultN, ResultValue, OperatorName )
-	  SELECT	i.ID
-			  , i.VectorID
-			  , i.Name
-			  , i.Type
-			  , i.Units
-			  , VectorResultN	=	existingCount.N + DENSE_RANK() OVER( PARTITION BY i.VectorID, i.Name, i.Type, i.Units ORDER BY i.ID )
-			  , ResultN			=	x.ItemNumber
-			  , ResultValue		=	x.Item
-			  , h.OperatorName
-		FROM	#inserted AS i
-				INNER JOIN labViewStage.vector AS v
-						ON v.ID = i.VectorID
-
-				INNER JOIN labViewStage.header AS h
-						ON h.ID = v.HeaderID
-
-				CROSS APPLY utility.ufn_SplitString( i.Value, ',' ) AS x
-
-				OUTER APPLY
-					(
-					  SELECT	COUNT(*)
-						FROM	labViewStage.result_element AS lvs
-					   WHERE	lvs.VectorID = i.VectorID
-									AND lvs.Name = i.Name
-									AND lvs.Type = i.Type
-									AND lvs.Units = i.Units
-					) AS existingCount(N)
-	   WHERE	ISJSON( i.Value ) = 0
-				;
-
---	2)	INSERT data into temp storage from trigger for array values
-	  INSERT	#changes
-					( ID, VectorID, Name, Type, Units, VectorResultN, ResultN, ResultValue, OperatorName )
-	  SELECT	i.ID
-			  , i.VectorID
-			  , i.Name
-			  , i.Type
-			  , i.Units
-			  , VectorResultN	=	existingCount.N + DENSE_RANK() OVER( PARTITION BY i.VectorID, i.Name, i.Type, i.Units ORDER BY i.ID )
-			  , ResultN			=	ISNULL( x.[key] + 1, 1 )
-			  , ResultValue		=	ISNULL( x.Value, '' )
-			  , h.OperatorName
-		FROM	#inserted AS i
-				INNER JOIN labViewStage.vector AS v
-						ON v.ID = i.VectorID
-
-				INNER JOIN labViewStage.header AS h
-						ON h.ID = v.HeaderID
-
-				OUTER APPLY OPENJSON( i.Value ) AS x
-
-				OUTER APPLY
-					(
-					  SELECT	COUNT(*)
-						FROM	labViewStage.result_element AS lvs
-					   WHERE	lvs.VectorID = i.VectorID
-									AND lvs.Name = i.Name
-									AND lvs.Type = i.Type
-									AND lvs.Units = i.Units
-					) AS existingCount(N)
-	   WHERE	ISJSON( i.Value ) = 1
-				;
+--	CREATE TABLE	#changes
+--					(
+--						ID					int
+--					  , VectorID			int
+--					  , VectorResultN		int
+--					  , Name				nvarchar(250)
+--					  , Type				nvarchar(50)
+--					  , Units				nvarchar(50)
+--					  , ResultN				int
+--					  , ResultValue			nvarchar(250)
+--					  , OperatorName		nvarchar(50)
+--					  , ResultID			int
+--					)
+--					;
 
 
---	3)	INSERT new Result data from temp storage into hwt.Result
-		WITH	cte AS
-				(
-				  SELECT	DISTINCT
-							Name		=	tmp.Name
-						  , DataType	=	tmp.Type
-						  , Units		=	tmp.Units
-					FROM	#changes AS tmp
+----	1)	INSERT data into temp storage from trigger for non-array values
+--	  INSERT	#changes
+--					( ID, VectorID, Name, Type, Units, VectorResultN, ResultN, ResultValue, OperatorName )
+--	  SELECT	i.ID
+--			  , i.VectorID
+--			  , i.Name
+--			  , i.Type
+--			  , i.Units
+--			  , VectorResultN	=	existingCount.N + DENSE_RANK() OVER( PARTITION BY i.VectorID, i.Name, i.Type, i.Units ORDER BY i.ID )
+--			  , ResultN			=	x.ItemNumber
+--			  , ResultValue		=	x.Item
+--			  , h.OperatorName
+--		FROM	#inserted AS i
+--				INNER JOIN labViewStage.vector AS v
+--						ON v.ID = i.VectorID
 
-				  EXCEPT
-				  SELECT	Name
-						  , DataType
-						  , Units
-					FROM	hwt.Result
-				)
+--				INNER JOIN labViewStage.header AS h
+--						ON h.ID = v.HeaderID
 
-	  INSERT	hwt.Result
-					( Name, DataType, Units, UpdatedBy, UpdatedDate )
-	  SELECT	DISTINCT
-				Name		=	cte.Name
-			  , DataType	=	cte.DataType
-			  , Units		=	cte.Units
-			  , UpdatedBy	=	tmp.OperatorName
-			  , UpdatedDate =	SYSDATETIME()
-		FROM	cte
-				INNER JOIN	#changes AS tmp
-						ON	tmp.Name = cte.Name
-								AND tmp.Type = cte.DataType
-								AND tmp.Units = cte.Units
-				;
+--				CROSS APPLY utility.ufn_SplitString( i.Value, ',' ) AS x
+
+--				OUTER APPLY
+--					(
+--					  SELECT	COUNT(*)
+--						FROM	labViewStage.result_element AS lvs
+--					   WHERE	lvs.VectorID = i.VectorID
+--									AND lvs.Name = i.Name
+--									AND lvs.Type = i.Type
+--									AND lvs.Units = i.Units
+--					) AS existingCount(N)
+--	   WHERE	ISJSON( i.Value ) = 0
+--				;
+
+----	2)	INSERT data into temp storage from trigger for array values
+--	  INSERT	#changes
+--					( ID, VectorID, Name, Type, Units, VectorResultN, ResultN, ResultValue, OperatorName )
+--	  SELECT	i.ID
+--			  , i.VectorID
+--			  , i.Name
+--			  , i.Type
+--			  , i.Units
+--			  , VectorResultN	=	existingCount.N + DENSE_RANK() OVER( PARTITION BY i.VectorID, i.Name, i.Type, i.Units ORDER BY i.ID )
+--			  , ResultN			=	ISNULL( x.[key] + 1, 1 )
+--			  , ResultValue		=	ISNULL( x.Value, '' )
+--			  , h.OperatorName
+--		FROM	#inserted AS i
+--				INNER JOIN labViewStage.vector AS v
+--						ON v.ID = i.VectorID
+
+--				INNER JOIN labViewStage.header AS h
+--						ON h.ID = v.HeaderID
+
+--				OUTER APPLY OPENJSON( i.Value ) AS x
+
+--				OUTER APPLY
+--					(
+--					  SELECT	COUNT(*)
+--						FROM	labViewStage.result_element AS lvs
+--					   WHERE	lvs.VectorID = i.VectorID
+--									AND lvs.Name = i.Name
+--									AND lvs.Type = i.Type
+--									AND lvs.Units = i.Units
+--					) AS existingCount(N)
+--	   WHERE	ISJSON( i.Value ) = 1
+--				;
 
 
---	4)	UPDATE ResultID back into temp storage
-	  UPDATE	tmp
-		 SET	ResultID  =	  r.ResultID
-		FROM	#changes AS tmp
-				INNER JOIN hwt.Result AS r
-						ON r.Name = tmp.Name
-							AND r.DataType = tmp.Type
-							AND r.Units = tmp.Units
-				;
+----	3)	INSERT new Result data from temp storage into hwt.Result
+--		WITH	cte AS
+--				(
+--				  SELECT	DISTINCT
+--							Name		=	tmp.Name
+--						  , DataType	=	tmp.Type
+--						  , Units		=	tmp.Units
+--					FROM	#changes AS tmp
+
+--				  EXCEPT
+--				  SELECT	Name
+--						  , DataType
+--						  , Units
+--					FROM	hwt.Result
+--				)
+
+--	  INSERT	hwt.Result
+--					( Name, DataType, Units, UpdatedBy, UpdatedDate )
+--	  SELECT	DISTINCT
+--				Name		=	cte.Name
+--			  , DataType	=	cte.DataType
+--			  , Units		=	cte.Units
+--			  , UpdatedBy	=	tmp.OperatorName
+--			  , UpdatedDate =	SYSDATETIME()
+--		FROM	cte
+--				INNER JOIN	#changes AS tmp
+--						ON	tmp.Name = cte.Name
+--								AND tmp.Type = cte.DataType
+--								AND tmp.Units = cte.Units
+--				;
 
 
---	5)	INSERT vector results from temp storage into hwt.VectorResult
-	  INSERT	hwt.VectorResult
-					( VectorID, ResultID, VectorResultN, ResultN, ResultValue, UpdatedBy, UpdatedDate )
-	  SELECT	VectorID
-			  , ResultID
-			  , VectorResultN
-			  , ResultN
-			  , ResultValue
-			  , UpdatedBy		=	OperatorName
-			  , UpdatedDate		=	SYSDATETIME()
-		FROM	#changes
-				;
+----	4)	UPDATE ResultID back into temp storage
+--	  UPDATE	tmp
+--		 SET	ResultID  =	  r.ResultID
+--		FROM	#changes AS tmp
+--				INNER JOIN hwt.Result AS r
+--						ON r.Name = tmp.Name
+--							AND r.DataType = tmp.Type
+--							AND r.Units = tmp.Units
+--				;
 
-	RETURN 0 ;
 
-END TRY
+----	5)	INSERT vector results from temp storage into hwt.VectorResult
+--	  INSERT	hwt.VectorResult
+--					( VectorID, ResultID, VectorResultN, ResultN, ResultValue, UpdatedBy, UpdatedDate )
+--	  SELECT	VectorID
+--			  , ResultID
+--			  , VectorResultN
+--			  , ResultN
+--			  , ResultValue
+--			  , UpdatedBy		=	OperatorName
+--			  , UpdatedDate		=	SYSDATETIME()
+--		FROM	#changes
+--				;
 
-BEGIN CATCH
-	 DECLARE	@pErrorData xml ;
+--	RETURN 0 ;
 
-	  SELECT	@pErrorData =	(
-								  SELECT
-											(
-											  SELECT	*
-												FROM	#inserted
-														FOR XML PATH( 'inserted' ), TYPE, ELEMENTS XSINIL
-											)
-										  , (
-											  SELECT	*
-												FROM	#changes
-														FOR XML PATH( 'changes' ), TYPE, ELEMENTS XSINIL
-											)
-											FOR XML PATH( 'usp_LoadVectorResultFromStage' ), TYPE
-								)
-				;
+--END TRY
 
-	IF	( @@TRANCOUNT > 0 ) ROLLBACK TRANSACTION ;
+--BEGIN CATCH
+--	 DECLARE	@pErrorData xml ;
 
-	 EXECUTE	eLog.log_CatchProcessing
-					@pProcID	=	@@PROCID
-				  , @pErrorData =	@pErrorData
-				;
+--	  SELECT	@pErrorData =	(
+--								  SELECT
+--											(
+--											  SELECT	*
+--												FROM	#inserted
+--														FOR XML PATH( 'inserted' ), TYPE, ELEMENTS XSINIL
+--											)
+--										  , (
+--											  SELECT	*
+--												FROM	#changes
+--														FOR XML PATH( 'changes' ), TYPE, ELEMENTS XSINIL
+--											)
+--											FOR XML PATH( 'usp_LoadVectorResultFromStage' ), TYPE
+--								)
+--				;
 
-	RETURN 55555 ;
+--	IF	( @@TRANCOUNT > 0 ) ROLLBACK TRANSACTION ;
 
-END CATCH
+--	 EXECUTE	eLog.log_CatchProcessing
+--					@pProcID	=	@@PROCID
+--				  , @pErrorData =	@pErrorData
+--				;
+
+--	RETURN 55555 ;
+
+--END CATCH
 

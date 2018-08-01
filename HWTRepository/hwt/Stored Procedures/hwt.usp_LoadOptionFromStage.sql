@@ -27,153 +27,154 @@
 ***********************************************************************************************************************************
 */
 AS
+RETURN 0 ; 
 
-SET XACT_ABORT, NOCOUNT ON ;
+--SET XACT_ABORT, NOCOUNT ON ;
 
-BEGIN TRY
+--BEGIN TRY
 
-	--	define temp storage tables
-	IF	( 1 = 0 )
-		CREATE TABLE	#inserted
-						(
-							ID			int
-						  , HeaderID	int
-						  , Name		nvarchar(100)
-						  , Type		nvarchar(50)
-						  , Units		nvarchar(50)
-						  , Value		nvarchar(1000)
-						  , CreatedDate datetime
-						)
-						;
+--	--	define temp storage tables
+--	IF	( 1 = 0 )
+--		CREATE TABLE	#inserted
+--						(
+--							ID			int
+--						  , HeaderID	int
+--						  , Name		nvarchar(100)
+--						  , Type		nvarchar(50)
+--						  , Units		nvarchar(50)
+--						  , Value		nvarchar(1000)
+--						  , CreatedDate datetime
+--						)
+--						;
 
-	CREATE TABLE	#changes
-					(
-						ID				int
-					  , HeaderID		int
-					  , Name			nvarchar(100)
-					  , Type			nvarchar(50)
-					  , Units			nvarchar(50)
-					  , Value			nvarchar(1000)
-					  , OperatorName	nvarchar(50)
-					  , OptionN			int
-					  , OptionID		int
-					)
-					;
+--	CREATE TABLE	#changes
+--					(
+--						ID				int
+--					  , HeaderID		int
+--					  , Name			nvarchar(100)
+--					  , Type			nvarchar(50)
+--					  , Units			nvarchar(50)
+--					  , Value			nvarchar(1000)
+--					  , OperatorName	nvarchar(50)
+--					  , OptionN			int
+--					  , OptionID		int
+--					)
+--					;
 
---	1)	INSERT data into temp storage from trigger
-	  INSERT	INTO #changes
-					( ID, HeaderID, Name, Type, Units, Value, OperatorName, OptionN )
-	  SELECT	i.ID
-			  , i.HeaderID
-			  , i.Name
-			  , i.Type
-			  , i.Units
-			  , i.Value
-			  , h.OperatorName
-			  , OptionN			=	existingCount.N + ROW_NUMBER() OVER( PARTITION BY i.HeaderID, i.Name, i.Type, i.Units ORDER BY i.ID )
-		FROM	#inserted AS i
-				INNER JOIN labViewStage.header AS h
-						ON h.ID = i.HeaderID
+----	1)	INSERT data into temp storage from trigger
+--	  INSERT	INTO #changes
+--					( ID, HeaderID, Name, Type, Units, Value, OperatorName, OptionN )
+--	  SELECT	i.ID
+--			  , i.HeaderID
+--			  , i.Name
+--			  , i.Type
+--			  , i.Units
+--			  , i.Value
+--			  , h.OperatorName
+--			  , OptionN			=	existingCount.N + ROW_NUMBER() OVER( PARTITION BY i.HeaderID, i.Name, i.Type, i.Units ORDER BY i.ID )
+--		FROM	#inserted AS i
+--				INNER JOIN labViewStage.header AS h
+--						ON h.ID = i.HeaderID
 
-				OUTER APPLY
-					(
-					  SELECT	COUNT(*)
-						FROM	labViewStage.option_element AS lvs
-					   WHERE	lvs.HeaderID = i.HeaderID
-									AND lvs.Name = i.Name
-									AND lvs.Type = i.Type
-									AND lvs.Units = i.Units
-					) AS existingCount(N)
-				;
-
-
---	2)	INSERT new Option data from temp storage into hwt.Option
-		WITH	cte AS
-					(
-					  SELECT	DISTINCT
-								Name		=	tmp.Name
-							  , DataType	=	tmp.Type
-							  , Units		=	tmp.Units
-						FROM	#changes AS tmp
-
-					  EXCEPT
-					  SELECT	Name
-							  , DataType
-							  , Units
-						FROM	hwt.[Option]
-					)
-
-	  INSERT	hwt.[Option]
-					( Name, DataType, Units, UpdatedBy, UpdatedDate )
-	  SELECT	DISTINCT
-				Name		=	cte.Name
-			  , DataType	=	cte.DataType
-			  , Units		=	cte.Units
-			  , UpdatedBy	=	tmp.OperatorName
-			  , UpdatedDate =	SYSDATETIME()
-		FROM	cte
-				INNER JOIN	#changes AS tmp
-						ON	tmp.Name = cte.Name
-								AND tmp.Type = cte.DataType
-								AND tmp.Units = cte.Units
-				;
-
---	3)	Apply AppConstID back into temp storage
-	  UPDATE	tmp
-		 SET	OptionID	=	o.OptionID
-		FROM	#changes AS tmp
-				INNER JOIN
-					hwt.[Option] AS o
-						ON o.Name = tmp.Name
-							AND o.DataType = tmp.Type
-							AND o.Units = tmp.Units
-				;
+--				OUTER APPLY
+--					(
+--					  SELECT	COUNT(*)
+--						FROM	labViewStage.option_element AS lvs
+--					   WHERE	lvs.HeaderID = i.HeaderID
+--									AND lvs.Name = i.Name
+--									AND lvs.Type = i.Type
+--									AND lvs.Units = i.Units
+--					) AS existingCount(N)
+--				;
 
 
---	4)	INSERT header AppConst data from temp storage into hwt.HeaderAppConst
-	  INSERT	hwt.HeaderOption
-					( HeaderID, OptionID, OptionN, OptionValue, UpdatedBy, UpdatedDate )
+----	2)	INSERT new Option data from temp storage into hwt.Option
+--		WITH	cte AS
+--					(
+--					  SELECT	DISTINCT
+--								Name		=	tmp.Name
+--							  , DataType	=	tmp.Type
+--							  , Units		=	tmp.Units
+--						FROM	#changes AS tmp
 
-	  SELECT	HeaderID
-			  , OptionID
-			  , OptionN
-			  , Value
-			  , OperatorName
-			  , SYSDATETIME()
-		FROM	#changes AS tmp
-				;
+--					  EXCEPT
+--					  SELECT	Name
+--							  , DataType
+--							  , Units
+--						FROM	hwt.[Option]
+--					)
+
+--	  INSERT	hwt.[Option]
+--					( Name, DataType, Units, UpdatedBy, UpdatedDate )
+--	  SELECT	DISTINCT
+--				Name		=	cte.Name
+--			  , DataType	=	cte.DataType
+--			  , Units		=	cte.Units
+--			  , UpdatedBy	=	tmp.OperatorName
+--			  , UpdatedDate =	SYSDATETIME()
+--		FROM	cte
+--				INNER JOIN	#changes AS tmp
+--						ON	tmp.Name = cte.Name
+--								AND tmp.Type = cte.DataType
+--								AND tmp.Units = cte.Units
+--				;
+
+----	3)	Apply AppConstID back into temp storage
+--	  UPDATE	tmp
+--		 SET	OptionID	=	o.OptionID
+--		FROM	#changes AS tmp
+--				INNER JOIN
+--					hwt.[Option] AS o
+--						ON o.Name = tmp.Name
+--							AND o.DataType = tmp.Type
+--							AND o.Units = tmp.Units
+--				;
 
 
-	RETURN 0 ;
+----	4)	INSERT header AppConst data from temp storage into hwt.HeaderAppConst
+--	  INSERT	hwt.HeaderOption
+--					( HeaderID, OptionID, OptionN, OptionValue, UpdatedBy, UpdatedDate )
 
-END TRY
+--	  SELECT	HeaderID
+--			  , OptionID
+--			  , OptionN
+--			  , Value
+--			  , OperatorName
+--			  , SYSDATETIME()
+--		FROM	#changes AS tmp
+--				;
 
-BEGIN CATCH
-	 DECLARE	@pErrorData xml ;
 
-	  SELECT	@pErrorData =	(
-								  SELECT
-											(
-											  SELECT	*
-												FROM	#inserted
-														FOR XML PATH( 'inserted' ), TYPE, ELEMENTS XSINIL
-											)
-										  , (
-											  SELECT	*
-												FROM	#changes
-														FOR XML PATH( 'changes' ), TYPE, ELEMENTS XSINIL
-											)
-											FOR XML PATH( 'usp_LoadOptionFromStage' ), TYPE
-								)
-				;
+--	RETURN 0 ;
 
-	IF	( @@TRANCOUNT > 0 ) ROLLBACK TRANSACTION ;
+--END TRY
 
-	 EXECUTE	eLog.log_CatchProcessing
-					@pProcID	=	@@PROCID
-				  , @pErrorData =	@pErrorData
-				;
+--BEGIN CATCH
+--	 DECLARE	@pErrorData xml ;
 
-	RETURN 55555 ;
+--	  SELECT	@pErrorData =	(
+--								  SELECT
+--											(
+--											  SELECT	*
+--												FROM	#inserted
+--														FOR XML PATH( 'inserted' ), TYPE, ELEMENTS XSINIL
+--											)
+--										  , (
+--											  SELECT	*
+--												FROM	#changes
+--														FOR XML PATH( 'changes' ), TYPE, ELEMENTS XSINIL
+--											)
+--											FOR XML PATH( 'usp_LoadOptionFromStage' ), TYPE
+--								)
+--				;
 
-END CATCH
+--	IF	( @@TRANCOUNT > 0 ) ROLLBACK TRANSACTION ;
+
+--	 EXECUTE	eLog.log_CatchProcessing
+--					@pProcID	=	@@PROCID
+--				  , @pErrorData =	@pErrorData
+--				;
+
+--	RETURN 55555 ;
+
+--END CATCH

@@ -17,10 +17,10 @@
 	Revision
 	--------
 	carsoc3		2018-04-27		Production release
-	carsoc3		2018-08-31		enhanced error handling
-trg_appConst_element
+	carsoc3		2018-08-31		disabled trigger ( changed project status to 'None' as well )
+
 ***********************************************************************************************************************************
-*/
+*/	
 AS
 
 SET XACT_ABORT, NOCOUNT ON ;
@@ -96,3 +96,7 @@ BEGIN CATCH
 				;
 
 END CATCH
+GO 
+
+DISABLE TRIGGER labViewStage.trg_option_element ON labViewStage.option_element ;  
+GO 

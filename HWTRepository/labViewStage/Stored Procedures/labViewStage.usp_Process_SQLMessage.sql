@@ -180,8 +180,10 @@ BEGIN TRY
 		
 				--	EXEC SQL formatted in SQLMessage message body
 				  SELECT	@SQLStatement	=	CONVERT( nvarchar(max), @binary_message ) ; 
-					EXEC	( @SQLStatement ) ;
-						
+				  
+				 EXECUTE 	( @SQLStatement ) ;
+				 
+				 EXECUTE	hwt.usp_LoadRepositoryFromStage ; 
 				
 					--	Check for any SQL return except deadlock 
 						--	1205 is rolled back and message goes back to queue

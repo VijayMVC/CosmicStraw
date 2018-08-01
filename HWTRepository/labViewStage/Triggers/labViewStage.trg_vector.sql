@@ -17,7 +17,7 @@
     Revision
     --------
 	carsoc3		2018-04-27		Production release
-	carsoc3		2018-08-31		enhanced error handling
+	carsoc3		2018-08-31		disabled trigger ( changed project status to 'None' as well )
 
 ***********************************************************************************************************************************
 */	
@@ -98,3 +98,7 @@ BEGIN CATCH
 				;
 
 END CATCH
+GO 
+
+DISABLE TRIGGER labViewStage.trg_vector ON labViewStage.vector ;  
+GO 

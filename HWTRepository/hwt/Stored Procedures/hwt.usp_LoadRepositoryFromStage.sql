@@ -1,29 +1,31 @@
-﻿CREATE 	PROCEDURE hwt.usp_LoadRepositoryFromStage
-			(
-				@pSourceTable as sysname 
-			)
+﻿CREATE	PROCEDURE hwt.usp_LoadRepositoryFromStage
 /*
 ***********************************************************************************************************************************
 
-    Procedure:  hwt.usp_LoadRepositoryFromStage
-    Abstract:   Detect stage data changes and load them into HWTRepository
+	Procedure:	hwt.usp_LoadRepositoryFromStage
+	Abstract:	Detect stage data changes and load them into HWTRepository
 
-    Logic Summary
-    -------------
-    1)  EXECUTE procedure to extract and apply changes depending on @pSourceTable
+	Logic Summary
+	-------------
+	1)	EXECUTE procedures sequentially to extract data from labViewStage schema and apply to hwt schema
+		--	scan labViewStage table for unpublished changes
+		--	invoke proc if unpublished changes are found
 
-    Parameters
-    ----------
-    @pSourceTable    sysname     This is the table name from which the trigger was fired
+	Parameters
+	----------
 
-    Notes
-    -----
+	Notes
+	-----
 
-    Revision
-    --------
-    carsoc3     2018-04-27		production release
-	carsoc3		2018-08-31		enhanced error handling	
-	
+	Revision
+	--------
+	carsoc3		2018-04-27		production release
+	carsoc3		2018-08-31		enhanced error handling
+								updates to support messaging architecture
+									--	removed @pSourceTable
+									--	invoked each proc sequentially
+
+
 
 ***********************************************************************************************************************************
 */
@@ -33,83 +35,54 @@ SET XACT_ABORT, NOCOUNT ON ;
 
 BEGIN TRY
 
-    DECLARE @isProcessed tinyint = 0 ;
 
---  1)  EXECUTE procedure to extract and apply changes depending on @pSourceTable
+--	1)	EXECUTE procedures sequentially to extract data from labViewStage schema and apply to hwt schema
 
-    IF 	( @pSourceTable = 'header' )
-    BEGIN
-        EXECUTE hwt.usp_LoadHeaderFromStage ;
-        SELECT @isProcessed = 1 ;
-    END
+	IF	EXISTS( SELECT 1 FROM labViewStage.header WHERE PublishDate IS NULL )
+		EXECUTE hwt.usp_LoadHeaderFromStage ;
 
-    IF ( @pSourceTable = 'equipment_element' )
-    BEGIN
-        EXECUTE hwt.usp_LoadEquipmentFromStage ;
-        SELECT @isProcessed = 1 ;
-    END
 
-    IF ( @pSourceTable = 'option_element' )
-    BEGIN
-        EXECUTE hwt.usp_LoadOptionFromStage ;
-        SELECT @isProcessed = 1 ;
-    END
+	IF	EXISTS( SELECT 1 FROM labViewStage.equipment_element WHERE PublishDate IS NULL )
+		EXECUTE hwt.usp_LoadEquipmentFromStage ;
 
-    IF ( @pSourceTable = 'appConst_element' )
-    BEGIN
-        EXECUTE hwt.usp_LoadAppConstFromStage ;
-        SELECT @isProcessed = 1 ;
-    END
 
-    IF ( @pSourceTable = 'libraryInfo_file' )
-    BEGIN
-        EXECUTE hwt.usp_LoadLibraryFileFromStage ;
-        SELECT @isProcessed = 1 ;
-    END
+	IF	EXISTS( SELECT 1 FROM labViewStage.option_element WHERE PublishDate IS NULL )
+		EXECUTE hwt.usp_LoadOptionFromStage ;
 
-    IF ( @pSourceTable = 'vector' )
-    BEGIN
-        EXECUTE hwt.usp_LoadVectorFromStage ;
-        SELECT @isProcessed = 1 ;
-    END
 
-    IF ( @pSourceTable = 'vector_element' )
-    BEGIN
-        EXECUTE hwt.usp_LoadVectorElementFromStage ;
-        SELECT @isProcessed = 1 ;
-    END
+	IF	EXISTS( SELECT 1 FROM labViewStage.appConst_element WHERE PublishDate IS NULL )
+		EXECUTE hwt.usp_LoadAppConstFromStage ;
 
-    IF ( @pSourceTable = 'result_element' )
-	BEGIN
-        EXECUTE hwt.usp_LoadVectorResultFromStage ;
-        SELECT @isProcessed = 1 ;
-    END
 
-    IF ( @pSourceTable =  'error_element' )
-    BEGIN
-        EXECUTE hwt.usp_LoadTestErrorFromStage ;
-        SELECT @isProcessed = 1 ;
-    END
+	IF	EXISTS( SELECT 1 FROM labViewStage.libraryInfo_file WHERE PublishDate IS NULL )
+		EXECUTE hwt.usp_LoadLibraryFileFromStage ;
 
-    IF  ( @isProcessed = 0 )
-    BEGIN
-		EXECUTE 		eLog.log_ProcessEventLog
-							@pProcID	=	@@PROCID
-						  , @pMessage	=	'Error:  Input data was not processed, Source table that failed was %1'
-						  , @p1			=	@pSourceTable ;
-		
-    END
 
-	RETURN 0 ; 
-	
+	IF	EXISTS( SELECT 1 FROM labViewStage.vector WHERE PublishDate IS NULL )
+		EXECUTE hwt.usp_LoadVectorFromStage ;
+
+
+	IF	EXISTS( SELECT 1 FROM labViewStage.vector_element WHERE PublishDate IS NULL )
+		EXECUTE hwt.usp_LoadVectorElementFromStage ;
+
+
+	IF	EXISTS( SELECT 1 FROM labViewStage.result_element WHERE PublishDate IS NULL )
+		EXECUTE hwt.usp_LoadVectorResultFromStage ;
+
+
+	IF	EXISTS( SELECT 1 FROM labViewStage.error_element WHERE PublishDate IS NULL )
+		EXECUTE hwt.usp_LoadTestErrorFromStage ;
+
+
+	RETURN 0 ;
+
 END TRY
-
 BEGIN CATCH
 
-	IF  ( @@TRANCOUNT > 0 ) ROLLBACK TRANSACTION ; 
-		
-	EXECUTE	eLog.log_CatchProcessing @pProcID = @@PROCID ; 
-	 
-	RETURN 55555 ; 
+	IF	( @@TRANCOUNT > 0 ) ROLLBACK TRANSACTION ;
+
+	EXECUTE	eLog.log_CatchProcessing @pProcID = @@PROCID ;
+
+	RETURN 55555 ;
 
 END CATCH
