@@ -7,10 +7,13 @@
 
 	Logic Summary
 	-------------
-	1)	INSERT data into temp storage from trigger
-	2)	INSERT new Option data from temp storage into hwt.Option
-	3)	UPDATE OptionID back into temp storage
-	4)	INSERT header Option data from temp storage into hwt.HeaderOption
+	1)	EXECUTE sp_getapplock to ensure single-threading for procedure
+	2)	INSERT option data from labViewStage into temp storage
+	3)	INSERT new Option data from temp storage into hwt.Option
+	4)	Apply OptionID back into temp storage
+	5)	INSERT header OptionID data from temp storage into hwt.HeaderOptionID
+	6)	UPDATE PublishDate on labViewStage.option_element
+	7)	EXECUTE sp_releaseapplock to release lock
 
 	Parameters
 	----------
@@ -18,163 +21,168 @@
 	Notes
 	-----
 
-
 	Revision
 	--------
 	carsoc3		2018-04-27		production release
 	carsoc3		2018-08-31		enhanced error handling
+								updated messaging architecture
+									--	extract all records not published
+									--	publish to hwt
+									--	update stage data with publish date
 
 ***********************************************************************************************************************************
 */
 AS
-RETURN 0 ; 
 
---SET XACT_ABORT, NOCOUNT ON ;
+SET XACT_ABORT, NOCOUNT ON ;
 
---BEGIN TRY
+BEGIN TRY
 
---	--	define temp storage tables
---	IF	( 1 = 0 )
---		CREATE TABLE	#inserted
---						(
---							ID			int
---						  , HeaderID	int
---						  , Name		nvarchar(100)
---						  , Type		nvarchar(50)
---						  , Units		nvarchar(50)
---						  , Value		nvarchar(1000)
---						  , CreatedDate datetime
---						)
---						;
+	 DECLARE	@ObjectID	int	=	OBJECT_ID( N'labViewStage.option_element' ) ;
 
---	CREATE TABLE	#changes
---					(
---						ID				int
---					  , HeaderID		int
---					  , Name			nvarchar(100)
---					  , Type			nvarchar(50)
---					  , Units			nvarchar(50)
---					  , Value			nvarchar(1000)
---					  , OperatorName	nvarchar(50)
---					  , OptionN			int
---					  , OptionID		int
---					)
---					;
+--	2)	INSERT data into temp storage from PublishAudit
+	CREATE TABLE	#changes
+					(
+						ID				int
+					  , HeaderID		int
+					  , Name			nvarchar(100)
+					  , Type			nvarchar(50)
+					  , Units			nvarchar(50)
+					  , Value			nvarchar(1000)
+					  , NodeOrder		int
+					  , OperatorName	nvarchar(50)
+					  , OptionID		int
+					)
+					;
 
-----	1)	INSERT data into temp storage from trigger
---	  INSERT	INTO #changes
---					( ID, HeaderID, Name, Type, Units, Value, OperatorName, OptionN )
---	  SELECT	i.ID
---			  , i.HeaderID
---			  , i.Name
---			  , i.Type
---			  , i.Units
---			  , i.Value
---			  , h.OperatorName
---			  , OptionN			=	existingCount.N + ROW_NUMBER() OVER( PARTITION BY i.HeaderID, i.Name, i.Type, i.Units ORDER BY i.ID )
---		FROM	#inserted AS i
---				INNER JOIN labViewStage.header AS h
---						ON h.ID = i.HeaderID
+	  INSERT	INTO #changes
+					( ID, HeaderID, Name, Type, Units, Value, NodeOrder, OperatorName )
+	  SELECT	i.ID
+			  , i.HeaderID
+			  , i.Name
+			  , i.Type
+			  , i.Units
+			  , i.Value
+			  , NodeOrder		=	ISNULL( NULLIF( i.NodeOrder, 0 ), i.ID )
+			  , h.OperatorName
+		FROM	labViewStage.option_element AS i
+				INNER JOIN	labViewStage.PublishAudit AS pa
+						ON	pa.ObjectID = @ObjectID
+								AND pa.RecordID = i.ID
 
---				OUTER APPLY
---					(
---					  SELECT	COUNT(*)
---						FROM	labViewStage.option_element AS lvs
---					   WHERE	lvs.HeaderID = i.HeaderID
---									AND lvs.Name = i.Name
---									AND lvs.Type = i.Type
---									AND lvs.Units = i.Units
---					) AS existingCount(N)
---				;
+				INNER JOIN labViewStage.header AS h
+						ON h.ID = i.HeaderID
+				;
 
 
-----	2)	INSERT new Option data from temp storage into hwt.Option
---		WITH	cte AS
---					(
---					  SELECT	DISTINCT
---								Name		=	tmp.Name
---							  , DataType	=	tmp.Type
---							  , Units		=	tmp.Units
---						FROM	#changes AS tmp
-
---					  EXCEPT
---					  SELECT	Name
---							  , DataType
---							  , Units
---						FROM	hwt.[Option]
---					)
-
---	  INSERT	hwt.[Option]
---					( Name, DataType, Units, UpdatedBy, UpdatedDate )
---	  SELECT	DISTINCT
---				Name		=	cte.Name
---			  , DataType	=	cte.DataType
---			  , Units		=	cte.Units
---			  , UpdatedBy	=	tmp.OperatorName
---			  , UpdatedDate =	SYSDATETIME()
---		FROM	cte
---				INNER JOIN	#changes AS tmp
---						ON	tmp.Name = cte.Name
---								AND tmp.Type = cte.DataType
---								AND tmp.Units = cte.Units
---				;
-
-----	3)	Apply AppConstID back into temp storage
---	  UPDATE	tmp
---		 SET	OptionID	=	o.OptionID
---		FROM	#changes AS tmp
---				INNER JOIN
---					hwt.[Option] AS o
---						ON o.Name = tmp.Name
---							AND o.DataType = tmp.Type
---							AND o.Units = tmp.Units
---				;
+	IF	( @@ROWCOUNT = 0 )
+		RETURN 0 ;
 
 
-----	4)	INSERT header AppConst data from temp storage into hwt.HeaderAppConst
---	  INSERT	hwt.HeaderOption
---					( HeaderID, OptionID, OptionN, OptionValue, UpdatedBy, UpdatedDate )
+--	3)	INSERT new Option data from temp storage into hwt.Option
+		--	cte is the set of Option data that does not already exist on hwt
+		--	newData is the set of data from cte with ID attached
+		WITH	cte AS
+					(
+					  SELECT	DISTINCT
+								Name		=	tmp.Name
+							  , DataType	=	tmp.Type
+							  , Units		=	tmp.Units
+						FROM	#changes AS tmp
 
---	  SELECT	HeaderID
---			  , OptionID
---			  , OptionN
---			  , Value
---			  , OperatorName
---			  , SYSDATETIME()
---		FROM	#changes AS tmp
---				;
+					  EXCEPT
+					  SELECT	Name
+							  , DataType
+							  , Units
+						FROM	hwt.[Option]
+					)
+
+			  , newData AS
+					(
+					  SELECT	DISTINCT
+								OptionID	=	MIN( ID ) OVER( PARTITION BY c.Name, c.Type, c.Units )
+							  , Name		=	cte.Name
+							  , DataType	=	cte.DataType
+							  , Units		=	cte.Units
+						FROM	#changes AS c
+								INNER JOIN cte
+										ON cte.Name = c.Name
+											AND cte.DataType = c.Type
+											AND cte.Units = c.Units
+					)
+
+	  INSERT	hwt.[Option]
+					( OptionID, Name, DataType, Units, UpdatedBy, UpdatedDate )
+	  SELECT	OptionID		=	newData.OptionID
+			  , Name			=	newData.Name
+			  , DataType		=	newData.DataType
+			  , Units			=	newData.Units
+			  , UpdatedBy		=	x.OperatorName
+			  , UpdatedDate		=	SYSDATETIME()
+		FROM	newData
+				CROSS APPLY
+					( SELECT OperatorName FROM #changes AS c WHERE c.ID = newData.OptionID ) AS x
+				;
+
+--	4)	Apply OptionID back into temp storage
+	  UPDATE	tmp
+		 SET	OptionID	=	o.OptionID
+		FROM	#changes AS tmp
+				INNER JOIN
+					hwt.[Option] AS o
+						ON o.Name = tmp.Name
+							AND o.DataType = tmp.Type
+							AND o.Units = tmp.Units
+				;
 
 
---	RETURN 0 ;
+--	5)	INSERT header OptionID data from temp storage into hwt.HeaderOptionID
+	  INSERT	hwt.HeaderOption
+					( HeaderID, OptionID, NodeOrder, OptionValue, UpdatedBy, UpdatedDate )
 
---END TRY
+	  SELECT	HeaderID
+			  , OptionID
+			  , NodeOrder
+			  , Value
+			  , OperatorName
+			  , SYSDATETIME()
+		FROM	#changes AS tmp
+				;
 
---BEGIN CATCH
---	 DECLARE	@pErrorData xml ;
 
---	  SELECT	@pErrorData =	(
---								  SELECT
---											(
---											  SELECT	*
---												FROM	#inserted
---														FOR XML PATH( 'inserted' ), TYPE, ELEMENTS XSINIL
---											)
---										  , (
---											  SELECT	*
---												FROM	#changes
---														FOR XML PATH( 'changes' ), TYPE, ELEMENTS XSINIL
---											)
---											FOR XML PATH( 'usp_LoadOptionFromStage' ), TYPE
---								)
---				;
+--	7)	DELETE processed records from labViewStage.PublishAudit
+	  DELETE	pa
+		FROM	labViewStage.PublishAudit AS pa
+				INNER JOIN	#changes AS tmp
+						ON	pa.ObjectID = @ObjectID
+							AND tmp.ID = pa.RecordID
+				;
 
---	IF	( @@TRANCOUNT > 0 ) ROLLBACK TRANSACTION ;
 
---	 EXECUTE	eLog.log_CatchProcessing
---					@pProcID	=	@@PROCID
---				  , @pErrorData =	@pErrorData
---				;
+	RETURN 0 ;
 
---	RETURN 55555 ;
+END TRY
 
---END CATCH
+BEGIN CATCH
+	 DECLARE	@pErrorData xml ;
+
+	  SELECT	@pErrorData =	(
+								  SELECT	(
+											  SELECT	*
+												FROM	#changes
+														FOR XML PATH( 'changes' ), TYPE, ELEMENTS XSINIL
+											)
+											FOR XML PATH( 'usp_LoadOptionFromStage' ), TYPE
+								)
+				;
+
+	IF	( @@TRANCOUNT > 0 ) ROLLBACK TRANSACTION ;
+
+	 EXECUTE	eLog.log_CatchProcessing
+					@pProcID	=	@@PROCID
+				  , @pErrorData =	@pErrorData
+				;
+
+	RETURN 55555 ;
+
+END CATCH

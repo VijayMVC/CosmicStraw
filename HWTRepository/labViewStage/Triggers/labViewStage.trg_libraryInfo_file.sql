@@ -1,74 +1,61 @@
 ﻿CREATE TRIGGER	labViewStage.trg_libraryInfo_file
 			ON	labViewStage.libraryInfo_file
-	INSTEAD OF	INSERT
+		 AFTER	INSERT
 /*
 ***********************************************************************************************************************************
 
 	Procedure:	hwt.trg_libraryInfo_file
-	Abstract:	Loads libraryInfo_file records into staging environment
+	Abstract:	Loads IDs from triggering INSERT into labViewStage.PublishAudit
 
 	Logic Summary
 	-------------
-	1)	Load trigger data into temp storage
-	2)	Load repository libraryInfo data from stage data
-	3)	INSERT updated trigger data from temp storage into labViewStage
+	1)	Format IDs from inserted into well-formed XML
+	2)	EXECUTE procedure to load data into labViewStage.PublishAudit
 
 
 	Revision
 	--------
 	carsoc3		2018-04-27		Production release
-	carsoc3		2018-08-31		disabled trigger ( changed project status to 'None' as well )
+	carsoc3		2018-08-31		labViewStage messaging architecture
+								--	changed trigger from INSTEAD OF to AFTER
+								--	call proc that loads labViewStage.PublishAudit
 
 ***********************************************************************************************************************************
-*/	
+*/
 AS
 
 SET XACT_ABORT, NOCOUNT ON ;
 
 BEGIN TRY
 
-	 DECLARE	@CurrentID int ;
+	 DECLARE	@ObjectID	int	=	OBJECT_ID( N'labViewStage.libraryInfo_file' )
+			  , @RecordID	xml
+				;
 
-	  SELECT	@CurrentID = ISNULL( MAX( ID ), 0 ) FROM labViewStage.libraryInfo_file ;
+	IF	NOT EXISTS( SELECT 1 FROM inserted )
+		RETURN ;
 
---	1)	Load trigger data into temp storage
-	  SELECT	i.ID
-			  , i.HeaderID
-			  , FileName	=	REPLACE( REPLACE( REPLACE( i.FileName, '&amp;', '&' ), '&lt;', '<' ), '&gt;', '>' )
-			  , FileRev		=	REPLACE( REPLACE( REPLACE( i.FileRev, '&amp;', '&' ), '&lt;', '<' ), '&gt;', '>' )
-			  , i.Status
-			  , i.HashCode
-			  , i.CreatedDate
-		INTO	#inserted
-		FROM	inserted AS i
+
+--	1)	Format IDs from inserted into well-formed XML
+	  SELECT	@RecordID =	(
+							  SELECT	(
+										  SELECT	RecordID	=	ID
+											FROM	inserted
+													FOR XML PATH( 'inserted' ), TYPE
+										)
+											FOR XML PATH( 'root' ), TYPE
+							)
 				;
 
 
-	  UPDATE	#inserted
-		 SET	@CurrentID = ID = @CurrentID + 1
-	   WHERE	ISNULL( ID, 0 ) = 0
+--	2)	EXECUTE procedure to load data into labViewStage.PublishAudit
+	 EXECUTE	labViewStage.usp_Load_PublishAudit
+					@pObjectID	=	@ObjectID
+				  , @pRecordID	=	@RecordID
 				;
 
---	2)	Load repository libraryInfo_file data from stage data
-	 EXECUTE	hwt.usp_LoadRepositoryFromStage
-					@pSourceTable = N'libraryInfo_file'
-				;
-
---	3)	INSERT trigger data into labViewStage
-	  INSERT	labViewStage.libraryInfo_file
-					( ID, HeaderID, FileName, FileRev, Status, HashCode, CreatedDate )
-	  SELECT	ID
-			  , HeaderID
-			  , FileName
-			  , FileRev
-			  , Status
-			  , HashCode
-			  , CreatedDate
-		FROM	#inserted
-				;
 
 END TRY
-
 BEGIN CATCH
 	 DECLARE	@pErrorData xml ;
 
@@ -77,12 +64,7 @@ BEGIN CATCH
 											(
 											  SELECT	*
 												FROM	inserted
-														FOR XML PATH( 'pre-process' ), TYPE, ELEMENTS XSINIL
-											)
-										  , (
-											  SELECT	*
-												FROM	#inserted
-														FOR XML PATH( 'post-process' ), TYPE, ELEMENTS XSINIL
+														FOR XML PATH( 'inserted' ), TYPE, ELEMENTS XSINIL
 											)
 											FOR XML PATH( 'trg_libraryInfo_file' ), TYPE
 								)
@@ -96,7 +78,3 @@ BEGIN CATCH
 				;
 
 END CATCH
-GO 
-
-DISABLE TRIGGER labViewStage.trg_libraryInfo_file ON labViewStage.libraryInfo_file ;  
-GO 

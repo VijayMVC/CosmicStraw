@@ -8,7 +8,6 @@
 				  , StartTime		nvarchar(50)
 				  , EndTime			nvarchar(50)
 				  , CreatedDate		datetime2(3)	NOT NULL	DEFAULT SYSDATETIME()
-				  , PublishDate		datetime2(3)
 
 				  , CONSTRAINT PK_labViewStage_vector
 						PRIMARY KEY CLUSTERED( ID )
@@ -23,9 +22,9 @@
 			;
 GO
 
-  CREATE	INDEX UX_labViewStage_vector_number
+  CREATE	UNIQUE INDEX UX_labViewStage_vector_header
 				ON labViewStage.vector
-					( HeaderID ASC, VectorNum ASC, Loop ASC, StartTime ASC )
+					( ID ASC, HeaderID ASC )
 	WITH	( DATA_COMPRESSION = PAGE )
 	  ON	[HWTIndexes]
 			;

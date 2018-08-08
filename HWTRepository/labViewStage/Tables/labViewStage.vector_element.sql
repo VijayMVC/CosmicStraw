@@ -8,7 +8,6 @@
 				  , Value			nvarchar(1000)
 				  , NodeOrder		int				NOT NULL	DEFAULT 0
 				  , CreatedDate		datetime2(3)	NOT NULL	DEFAULT SYSDATETIME()
-				  , PublishDate		datetime2(3)
 
 				  , CONSTRAINT PK_labViewStage_vector_element
 						PRIMARY KEY CLUSTERED( ID ASC )
@@ -21,3 +20,13 @@
 				)
 			ON [HWTTables]
 			;
+GO
+
+  CREATE	INDEX UX_labViewStage_vector_element_VectorID
+				ON labViewStage.vector_element
+					( ID ASC, VectorID ASC )
+	WITH	( DATA_COMPRESSION = PAGE ) 
+	  ON	[HWTIndexes]
+			; 
+			
+			

@@ -6,9 +6,8 @@
 				  , Type			nvarchar(50)
 				  , Units			nvarchar(50)
 				  , Value			nvarchar(max)
-				  , NodeOrder		int				NOT NULL 	DEFAULT 0
+				  , NodeOrder		int				NOT NULL	DEFAULT 0
 				  , CreatedDate		datetime2(3)	NOT NULL	DEFAULT SYSDATETIME()
-				  , PublishDate		datetime2(3)
 
 				  , CONSTRAINT PK_labViewStage_result_element
 						PRIMARY KEY CLUSTERED( ID )
@@ -24,9 +23,9 @@
 			;
 GO
 
-  CREATE	INDEX IX_labViewStage_result_element_vector
+  CREATE	UNIQUE INDEX UX_labViewStage_result_element_VectorID
 				ON labViewStage.result_element
-					( VectorID ASC, Name ASC, Type ASC, Units ASC )
-	WITH	( DATA_COMPRESSION = PAGE )
+					( ID ASC, VectorID ASC )
+	WITH	( DATA_COMPRESSION = PAGE ) 
 	  ON	[HWTIndexes]
-			;
+			; 

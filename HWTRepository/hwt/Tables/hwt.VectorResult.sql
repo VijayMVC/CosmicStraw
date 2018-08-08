@@ -4,7 +4,7 @@
 				  , ResultID			int				NOT NULL
 				  , NodeOrder			int				NOT NULL
 				  , ResultN				int				NOT NULL
-				  , ResultValue			nvarchar(250)
+				  , ResultValue			nvarchar(100)
 				  , UpdatedBy			sysname			NOT NULL
 				  , UpdatedDate			datetime		NOT NULL
 
@@ -12,7 +12,6 @@
 						PRIMARY KEY CLUSTERED( VectorID ASC, ResultID, NodeOrder ASC, ResultN ASC )
 						WITH( DATA_COMPRESSION = PAGE )
 						ON [HWTTables]
-
 
 				  , CONSTRAINT FK_hwt_VectorResult_Result
 						FOREIGN KEY( ResultID )

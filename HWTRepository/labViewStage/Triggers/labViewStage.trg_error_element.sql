@@ -1,70 +1,61 @@
 ﻿CREATE TRIGGER	labViewStage.trg_error_element
-			ON 	labViewStage.error_element
-	INSTEAD OF 	INSERT
+			ON	labViewStage.error_element
+		 AFTER	INSERT
 /*
 ***********************************************************************************************************************************
 
-    Procedure:  hwt.trg_error_element
-    Abstract:   Loads error_element records into staging environment
+	Procedure:	hwt.trg_error_element
+	Abstract:	Loads IDs from triggering INSERT into labViewStage.PublishAudit
 
-    Logic Summary
-    -------------
-    1)	Load trigger data into temp storage
-    2)	Load repository error data from stage data
-	3) 	INSERT updated trigger data from temp storage into labViewStage 	
+	Logic Summary
+	-------------
+	1)	Format IDs from inserted into well-formed XML
+	2)	EXECUTE procedure to load data into labViewStage.PublishAudit
 
-    
-    Revision
-    --------
+
+	Revision
+	--------
 	carsoc3		2018-04-27		Production release
-	carsoc3		2018-08-31		disabled trigger ( changed project status to 'None' as well )
+	carsoc3		2018-08-31		labViewStage messaging architecture
+								--	changed trigger from INSTEAD OF to AFTER
+								--	call proc that loads labViewStage.PublishAudit
 
 ***********************************************************************************************************************************
-*/	
+*/
 AS
 
 SET XACT_ABORT, NOCOUNT ON ;
 
 BEGIN TRY
 
-     DECLARE 	@CurrentID int ; 
-	
-	  SELECT 	@CurrentID = ISNULL( MAX( ID ), 0 ) FROM labViewStage.error_element ; 
-
---	1)	Load trigger data into temp storage
-	  SELECT 	i.ID          
-			  , i.VectorID
-			  , ErrorCode		=	REPLACE( REPLACE( REPLACE( i.ErrorCode, '&amp;', '&' ), '&lt;', '<' ), '&gt;', '>' )
-			  , ErrorText       =	REPLACE( REPLACE( REPLACE( i.ErrorText, '&amp;', '&' ), '&lt;', '<' ), '&gt;', '>' )
-			  , i.CreatedDate
-		INTO 	#inserted 
-		FROM 	inserted AS i
+	 DECLARE	@ObjectID	int	=	OBJECT_ID( N'labViewStage.error_element' )
+			  , @RecordID	xml
 				;
 
-				
-	  UPDATE 	#inserted 
-	     SET 	@CurrentID = ID = @CurrentID + 1
-	   WHERE 	ISNULL( ID, 0 ) = 0 
-				; 
-				
---	2)	Load repository error data from stage data
-     EXECUTE 	hwt.usp_LoadRepositoryFromStage 
-					@pSourceTable = N'error_element' 
+	IF	NOT EXISTS( SELECT 1 FROM inserted )
+		RETURN ;
+
+
+--	1)	Format IDs from inserted into well-formed XML
+	  SELECT	@RecordID =	(
+							  SELECT	(
+										  SELECT	RecordID	=	ID
+											FROM	inserted
+													FOR XML PATH( 'inserted' ), TYPE
+										)
+											FOR XML PATH( 'root' ), TYPE
+							)
 				;
-	
---	3) 	INSERT trigger data into labViewStage 	
-	  INSERT	labViewStage.error_element
-					( ID, VectorID, ErrorCode, ErrorText, CreatedDate ) 
-	  SELECT 	ID          
-			  , VectorID
-			  , ErrorCode
-			  , ErrorText
-			  , CreatedDate
-		FROM 	#inserted 
-				; 
-					
+
+
+--	2)	EXECUTE procedure to load data into labViewStage.PublishAudit
+	 EXECUTE	labViewStage.usp_Load_PublishAudit
+					@pObjectID	=	@ObjectID
+				  , @pRecordID	=	@RecordID
+				;
+
+
 END TRY
-
 BEGIN CATCH
 	 DECLARE	@pErrorData xml ;
 
@@ -73,12 +64,7 @@ BEGIN CATCH
 											(
 											  SELECT	*
 												FROM	inserted
-														FOR XML PATH( 'pre-process' ), TYPE, ELEMENTS XSINIL
-											)
-										  , (
-											  SELECT	*
-												FROM	#inserted 
-														FOR XML PATH( 'post-process' ), TYPE, ELEMENTS XSINIL
+														FOR XML PATH( 'inserted' ), TYPE, ELEMENTS XSINIL
 											)
 											FOR XML PATH( 'trg_error_element' ), TYPE
 								)
@@ -92,7 +78,3 @@ BEGIN CATCH
 				;
 
 END CATCH
-GO 
-
-DISABLE TRIGGER labViewStage.trg_error_element ON labViewStage.error_element ;  
-GO 

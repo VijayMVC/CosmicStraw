@@ -1,18 +1,18 @@
 ﻿CREATE	PROCEDURE hwt.usp_LoadHeaderFromStage
 /*
 ***********************************************************************************************************************************
+
 	Procedure:	hwt.usp_LoadHeaderFromStage
 	Abstract:	Load changed header data from stage to hwt.Header
 
 	Logic Summary
 	-------------
-	1)	SELECT data into temp storage from labViewStage
-	2)	INSERT tags for all headers into temp storage
-	3)	INSERT tags for legacy XML data into temp storage
-	4)	MERGE header changes from temp storage into hwt.Header
+	1)	UPDATE data changes from temp storage into hwt.Header
+	2)	INSERT	new headers from temp storage into hwt.Header
+	3)	INSERT tags for all headers into temp storage
+	4)	INSERT tags for legacy XML data into temp storage
 	5)	INSERT tags from temp storage into hwt.Tag
-	6)	MERGE new header tag data into hwt.HeaderTag
-	7)	UPDATE PublishDate on labViewStage.header
+	6)	Assign new tags to datasets by iterating over temp storage
 
 
 	Parameters
@@ -26,10 +26,9 @@
 	Revision
 	--------
 	carsoc3		2018-04-27		production release
-	carsoc3		2018-08-31		updated messaging architecture
-									--	extract all records not published
-									--	publish to hwt
-									--	update stage data with publish date
+	carsoc3		2018-08-31		labViewStage messaging architecture
+								--	extract data from temp storage
+								--	publish to hwt
 
 ***********************************************************************************************************************************
 */
@@ -39,7 +38,8 @@ SET XACT_ABORT, NOCOUNT ON ;
 
 BEGIN TRY
 
-	  CREATE	TABLE #changes
+	IF	( 1 = 0 )
+		CREATE	TABLE #inserted
 					(
 						ID					int
 					  , ResultFile			nvarchar(1000)
@@ -63,46 +63,66 @@ BEGIN TRY
 					  , ExternalFileInfo	nvarchar(max)
 					  , IsLegacyXML			int
 					  , VectorCount			int
+					  , CreatedDate			datetime2(3)
+					  , UpdatedDate			datetime2(3)
 					)
 				;
 
 
---	1)	SELECT data into temp storage from labViewStage
-	  INSERT	#changes
+--	1)	UPDATE data changes from temp storage into hwt.Header
+	  UPDATE	hwtData
+		 SET	hwtData.ResultFileName		=	LEFT( i.ResultFile, 250 )
+			  , hwtData.StartTime			=	CONVERT( datetime, i.StartTime, 109 )
+			  , hwtData.FinishTime			=	NULLIF( CONVERT( datetime, i.FinishTime, 109 ), '1900-01-01' )
+			  , hwtData.Duration			=	i.TestDuration
+			  , hwtData.TestStationName		=	i.TestStationID
+			  , hwtData.TestName			=	i.TestName
+			  , hwtData.TestConfigFile		=	i.TestConfigFile
+			  , hwtData.TestCodePath		=	i.TestCodePathName
+			  , hwtData.TestCodeRevision	=	i.TestCodeRev
+			  , hwtData.HWTSysCodeRevision	=	i.HWTSysCodeRev
+			  , hwtData.KdrivePath			=	i.KdrivePath
+			  , hwtData.Comments			=	i.Comments
+			  , hwtData.ExternalFileInfo	=	i.ExternalFileInfo
+			  , hwtData.UpdatedBy			=	i.OperatorName
+			  , hwtData.UpdatedDate			=	SYSDATETIME()
+		FROM	hwt.Header AS hwtData
+				INNER JOIN	#inserted AS i
+						ON	i.ID = hwtData.HeaderID
+				;
+
+
+--	2)	INSERT	new headers from temp storage into hwt.Header
+	  INSERT	hwt.Header
 					(
-						ID, ResultFile, StartTime, FinishTime, TestDuration, ProjectName, FirmwareRev
-							, HardwareRev, PartSN, OperatorName, TestMode, TestStationID, TestName
-							, TestConfigFile, TestCodePathName, TestCodeRev, HWTSysCodeRev, KdrivePath
-							, Comments, ExternalFileInfo, IsLegacyXML, VectorCount
+					  HeaderID, ResultFileName, StartTime, FinishTime, Duration, TestStationName
+						, TestName, TestConfigFile, TestCodePath, TestCodeRevision, HWTSysCodeRevision
+						, KdrivePath, Comments, ExternalFileInfo, UpdatedBy, UpdatedDate
 					)
-	  SELECT	ID
-			  , ResultFile
-			  , StartTime
-			  , FinishTime
-			  , TestDuration
-			  , ProjectName			=	REPLACE( REPLACE( REPLACE( ProjectName, '&amp;', '&' ), '&lt;', '<' ), '&gt;', '>' )
-			  , FirmwareRev			=	REPLACE( REPLACE( REPLACE( FirmwareRev, '&amp;', '&' ), '&lt;', '<' ), '&gt;', '>' )
-			  , HardwareRev			=	REPLACE( REPLACE( REPLACE( HardwareRev, '&amp;', '&' ), '&lt;', '<' ), '&gt;', '>' )
-			  , PartSN				=	REPLACE( REPLACE( REPLACE( PartSN, '&amp;', '&' ), '&lt;', '<' ), '&gt;', '>' )
-			  , OperatorName		=	REPLACE( REPLACE( REPLACE( OperatorName, '&amp;', '&' ), '&lt;', '<' ), '&gt;', '>' )
-			  , TestMode
-			  , TestStationID		=	REPLACE( REPLACE( REPLACE( TestStationID, '&amp;', '&' ), '&lt;', '<' ), '&gt;', '>' )
-			  , TestName			=	REPLACE( REPLACE( REPLACE( TestName, '&amp;', '&' ), '&lt;', '<' ), '&gt;', '>' )
-			  , TestConfigFile		=	REPLACE( REPLACE( REPLACE( TestConfigFile, '&amp;', '&' ), '&lt;', '<' ), '&gt;', '>' )
-			  , TestCodePathName	=	REPLACE( REPLACE( REPLACE( TestCodePathName, '&amp;', '&' ), '&lt;', '<' ), '&gt;', '>' )
-			  , TestCodeRev
-			  , HWTSysCodeRev
-			  , KdrivePath			=	REPLACE( REPLACE( REPLACE( KdrivePath, '&amp;', '&' ), '&lt;', '<' ), '&gt;', '>' )
-			  , Comments			=	REPLACE( REPLACE( REPLACE( Comments, '&amp;', '&' ), '&lt;', '<' ), '&gt;', '>' )
-			  , ExternalFileInfo	=	REPLACE( REPLACE( REPLACE( ExternalFileInfo, '&amp;', '&' ), '&lt;', '<' ), '&gt;', '>' )
-			  , IsLegacyXML
-			  , VectorCount
-		FROM	labViewStage.header
-	   WHERE	PublishDate IS NULL
+
+	  SELECT	HeaderID			=	i.ID
+			  , ResultFileName		=	LEFT( i.ResultFile, 250 )
+			  , StartTime			=	CONVERT( datetime, i.StartTime, 109 )
+			  , FinishTime			=	NULLIF( CONVERT( datetime, i.FinishTime, 109 ), '1900-01-01' )
+			  , Duration			=	i.TestDuration
+			  , TestStationName		=	i.TestStationID
+			  , TestName			=	i.TestName
+			  , TestConfigFile		=	i.TestConfigFile
+			  , TestCodePath		=	i.TestCodePathName
+			  , TestCodeRevision	=	i.TestCodeRev
+			  , HWTSysCodeRevision	=	i.HWTSysCodeRev
+			  , KdrivePath			=	i.KdrivePath
+			  , Comments			=	i.Comments
+			  , ExternalFileInfo	=	i.ExternalFileInfo
+			  , UpdatedBy			=	i.OperatorName
+			  , UpdatedDate			=	SYSDATETIME()
+		FROM	#inserted AS i
+	   WHERE	NOT EXISTS( SELECT 1 FROM hwt.Header AS h WHERE h.HeaderID = i.ID )
 				;
 
 
---	2)	INSERT tags for all headers into temp storage
+--	3)	INSERT tags for all headers into temp storage
+		--	TagTypes: OperatorName, FirmwareRevision, DeviceSN, TestMode
 	DROP TABLE IF EXISTS #tags ;
 
 	  CREATE	TABLE #tags
@@ -118,159 +138,90 @@ BEGIN TRY
 
 	  INSERT	#tags
 					( HeaderID, TagTypeID, Name, Description, UpdatedBy, TagID )
-	--	TagType: OperatorName
-	  SELECT	HeaderID	=	tmp.ID
+	  SELECT	HeaderID	=	i.ID
 			  , TagTypeID	=	tType.TagTypeID
-			  , Name		=	tmp.OperatorName
+			  , Name		=	i.OperatorName
 			  , Description =	'Operator extracted from header'
-			  , UpdatedBy	=	tmp.OperatorName
+			  , UpdatedBy	=	i.OperatorName
 			  , TagID		=	CONVERT( int, NULL )
-		FROM	#changes AS tmp
+		FROM	#inserted AS i
 				CROSS JOIN hwt.TagType AS tType
-
 	   WHERE	tType.Name = 'Operator'
-					AND ISNULL( tmp.OperatorName, '' ) != ''
+					AND ISNULL( i.OperatorName, '' ) != ''
 
 	   UNION
-	--	TagType: FirmwareRevision
-	  SELECT	HeaderID	=	tmp.ID
+	  SELECT	HeaderID	=	i.ID
 			  , TagTypeID	=	tType.TagTypeID
-			  , Name		=	tmp.FirmwareRev
+			  , Name		=	i.FirmwareRev
 			  , Description =	N'Firmware Rev extracted from header'
-			  , UpdatedBy	=	tmp.OperatorName
+			  , UpdatedBy	=	i.OperatorName
 			  , TagID		=	CONVERT( int, NULL )
-		FROM	#changes AS tmp
+		FROM	#inserted AS i
 				CROSS JOIN	hwt.TagType AS tType
-
 	   WHERE	tType.Name = N'FWRevision'
-					AND ISNULL( tmp.FirmwareRev, '' ) != ''
+					AND ISNULL( i.FirmwareRev, '' ) != ''
 
 	   UNION
-	--	TagType: DeviceSN
-	  SELECT	HeaderID	=	tmp.ID
+	  SELECT	HeaderID	=	i.ID
 			  , TagTypeID	=	tType.TagTypeID
 			  , Name		=	RTRIM( LTRIM( x.Item ) )
 			  , Description =	N'Device SN extracted from header'
-			  , UpdatedBy	=	tmp.OperatorName
+			  , UpdatedBy	=	i.OperatorName
 			  , TagID		=	CONVERT( int, NULL )
-		FROM	#changes AS tmp
+		FROM	#inserted AS i
 				CROSS JOIN	hwt.TagType AS tType
 
 				CROSS APPLY utility.ufn_SplitString
-					( tmp.PartSN, ',' ) AS x
-
+					( i.PartSN, ',' ) AS x
 	   WHERE	tType.Name = N'DeviceSN'
 					AND ISNULL( RTRIM( LTRIM( x.Item ) ), '' ) != ''
 
 	   UNION
-	--	TagType: TestMode
-	  SELECT	HeaderID	=	tmp.ID
+	  SELECT	HeaderID	=	i.ID
 			  , TagTypeID	=	tType.TagTypeID
-			  , Name		=	tmp.TestMode
+			  , Name		=	i.TestMode
 			  , Description =	N'Test Mode extracted from header'
-			  , UpdatedBy	=	tmp.OperatorName
+			  , UpdatedBy	=	i.OperatorName
 			  , TagID		=	CONVERT( int, NULL )
-		FROM	#changes AS tmp
+		FROM	#inserted AS i
 				CROSS JOIN hwt.TagType AS tType
-
 	   WHERE	tType.Name = N'TestMode'
-					AND ISNULL( tmp.TestMode, '' ) != ''
+					AND ISNULL( i.TestMode, '' ) != ''
 				;
 
 
---	3)	INSERT tags for legacy XML data into temp storage
-	  INSERT	#tags
-					( HeaderID, TagTypeID, Name, Description, UpdatedBy, TagID )
-	--	TagType: Project
-	  SELECT	HeaderID	=	tmp.ID
-			  , TagTypeID	=	tType.TagTypeID
-			  , Name		=	tmp.ProjectName
-			  , Description =	N'Project extracted from legacy XML'
-			  , UpdatedBy	=	tmp.OperatorName
-			  , TagID		=	CONVERT( int, NULL )
-		FROM	#changes AS tmp
-				CROSS JOIN hwt.TagType AS tType
+--	4)	INSERT tags for legacy XML data into temp storage
+		--	TagTypes: Project, HW Increment
+	IF	EXISTS( SELECT 1 FROM #inserted WHERE IsLegacyXML = 1 )
+		BEGIN
+			  INSERT	#tags
+							( HeaderID, TagTypeID, Name, Description, UpdatedBy, TagID )
+			  SELECT	HeaderID	=	i.ID
+					  , TagTypeID	=	tType.TagTypeID
+					  , Name		=	i.ProjectName
+					  , Description =	N'Project extracted from legacy XML'
+					  , UpdatedBy	=	i.OperatorName
+					  , TagID		=	CONVERT( int, NULL )
+				FROM	#inserted AS i
+						CROSS JOIN hwt.TagType AS tType
+			   WHERE	tType.Name = 'Project'
+							AND ISNULL( i.ProjectName, '' ) != ''
+							AND i.IsLegacyXML = 1
 
-	   WHERE	tType.Name = 'Project'
-					AND ISNULL( tmp.ProjectName, '' ) != ''
-					AND tmp.IsLegacyXML = 1
-
-	   UNION
-	--	TagType: HW Increment
-	  SELECT	HeaderID	=	tmp.ID
-			  , TagTypeID	=	tType.TagTypeID
-			  , Name		=	tmp.HardwareRev
-			  , Description =	N'Hardware Increment extracted from legacy XML'
-			  , UpdatedBy	=	tmp.OperatorName
-			  , TagID		=	CONVERT( int, NULL )
-		FROM	#changes AS tmp
-				CROSS JOIN hwt.TagType AS tType
-
-	   WHERE	tType.Name = N'HWIncrement'
-					AND ISNULL( tmp.HardwareRev, '' ) != ''
-					AND tmp.IsLegacyXML = 1
-				;
-
-
---	4)	MERGE header changes from temp storage into hwt.Header
-		WITH	cte AS
-					(
-					  SELECT	HeaderID			=	tmp.ID
-							  , ResultFileName		=	LEFT( tmp.ResultFile, 250 )
-							  , StartTime			=	CONVERT( datetime, tmp.StartTime, 109 )
-							  , FinishTime			=	NULLIF( CONVERT( datetime, tmp.FinishTime, 109 ), '1900-01-01' )
-							  , Duration			=	tmp.TestDuration
-							  , TestStationID		=	tmp.TestStationID
-							  , TestName			=	tmp.TestName
-							  , TestConfigFile		=	tmp.TestConfigFile
-							  , TestCodePathName	=	tmp.TestCodePathName
-							  , TestCodeRevision	=	tmp.TestCodeRev
-							  , HWTSysCodeRevision	=	tmp.HWTSysCodeRev
-							  , KdrivePath			=	tmp.KdrivePath
-							  , Comments			=	tmp.Comments
-							  , ExternalFileInfo	=	tmp.ExternalFileInfo
-							  , OperatorName		=	tmp.OperatorName
-						FROM	#changes AS tmp
-					)
-	   MERGE	INTO hwt.Header AS tgt
-				USING cte AS src
-					ON src.HeaderID = tgt.HeaderID
-		WHEN	MATCHED
-				THEN  UPDATE
-							SET tgt.ResultFileName		=	src.ResultFileName
-							  , tgt.StartTime			=	src.StartTime
-							  , tgt.FinishTime			=	src.FinishTime
-							  , tgt.Duration			=	src.Duration
-							  , tgt.TestStationName		=	src.TestStationID
-							  , tgt.TestName			=	src.TestName
-							  , tgt.TestConfigFile		=	src.TestConfigFile
-							  , tgt.TestCodePath		=	src.TestCodePathName
-							  , tgt.TestCodeRevision	=	src.TestCodeRevision
-							  , tgt.HWTSysCodeRevision	=	src.HWTSysCodeRevision
-							  , tgt.KdrivePath			=	src.KdrivePath
-							  , tgt.Comments			=	src.Comments
-							  , tgt.ExternalFileInfo	=	src.ExternalFileInfo
-							  , tgt.UpdatedBy			=	src.OperatorName
-							  , tgt.UpdatedDate			=	SYSDATETIME()
-
-		WHEN	NOT MATCHED BY TARGET
-				THEN  INSERT
-							(
-								HeaderID, ResultFileName, StartTime
-								  , FinishTime, Duration, TestStationName
-								  , TestName, TestConfigFile, TestCodePath
-								  , TestCodeRevision, HWTSysCodeRevision, KdrivePath
-								  , Comments, ExternalFileInfo, UpdatedBy, UpdatedDate
-							)
-					  VALUES
-							(
-								src.HeaderID, src.ResultFileName, src.StartTime
-								  , src.FinishTime, src.Duration, src.TestStationID
-								  , src.TestName, src.TestConfigFile, src.TestCodePathName
-								  , src.TestCodeRevision, src.HWTSysCodeRevision, src.KdrivePath
-								  , src.Comments, src.ExternalFileInfo, src.OperatorName, SYSDATETIME()
-							)
-				;
+			   UNION
+			  SELECT	HeaderID	=	i.ID
+					  , TagTypeID	=	tType.TagTypeID
+					  , Name		=	i.HardwareRev
+					  , Description =	N'Hardware Increment extracted from legacy XML'
+					  , UpdatedBy	=	i.OperatorName
+					  , TagID		=	CONVERT( int, NULL )
+				FROM	#inserted AS i
+						CROSS JOIN hwt.TagType AS tType
+			   WHERE	tType.Name = N'HWIncrement'
+							AND ISNULL( i.HardwareRev, '' ) != ''
+							AND i.IsLegacyXML = 1
+						;
+		END
 
 
 --	5)	INSERT tags from temp storage into hwt.Tag
@@ -281,14 +232,23 @@ BEGIN TRY
 			  , Name
 			  , Description
 			  , IsDeleted		=	0
-			  , UpdatedBy
+			  , UpdatedBy		=	x.UpdatedBy
 			  , UpdatedDate		=	SYSDATETIME()
 		FROM	#tags AS tmp
+				OUTER APPLY
+					(
+						  SELECT	TOP 1
+									UpdatedBy
+							FROM	#tags AS t
+						   WHERE	t.TagTypeID = tmp.TagTypeID
+										AND t.Name = tmp.Name
+						ORDER BY	HeaderID
+					) as x
 	   WHERE	NOT EXISTS
 					(
 					  SELECT	1
 						FROM	hwt.Tag AS tag
-						WHERE	tag.TagTypeID = tmp.TagTypeID
+					   WHERE	tag.TagTypeID = tmp.TagTypeID
 									AND tag.Name = tmp.Name
 					)
 				;
@@ -304,71 +264,67 @@ BEGIN TRY
 				;
 
 
---	6)	MERGE new header tag data into hwt.HeaderTag
+--	6)	Assign new tags to datasets by iterating over temp storage
 	DECLARE		@HeaderID		int
-			  , @UpdatedBy	sysname
+			  , @UpdatedBy		sysname
 			  , @TagID			nvarchar(max)
 				;
 
 
 	WHILE EXISTS ( SELECT 1 FROM #tags )
-	BEGIN
+		BEGIN
 
-	  SELECT	TOP 1
-				@HeaderID		=	HeaderID
-			  , @UpdatedBy	=	UpdatedBy
-		FROM	#tags
-				;
+		  SELECT	TOP 1
+					@HeaderID	=	HeaderID
+				  , @UpdatedBy	=	UpdatedBy
+			FROM	#tags
+					;
 
-	  SELECT	@TagID		=	STUFF
-									(
+		  SELECT	@TagID		=	STUFF
 										(
-										  SELECT	N'|' + CONVERT( nvarchar(20), t.TagID )
-											FROM	#tags AS t
-										   WHERE	t.HeaderID = @HeaderID
-													FOR XML PATH (''), TYPE
-										).value('.', 'nvarchar(max)'), 1, 1, ''
-									)
-				;
+											(
+											  SELECT	N'|' + CONVERT( nvarchar(20), t.TagID )
+												FROM	#tags AS t
+											   WHERE	t.HeaderID = @HeaderID
+														FOR XML PATH (''), TYPE
+											).value('.', 'nvarchar(max)'), 1, 1, ''
+										)
+					;
 
-	 EXECUTE	hwt.usp_AssignTagsToDatasets
-					@pUserID	= @UpdatedBy
-				  , @pHeaderID	= @HeaderID
-				  , @pTagID		= @TagID
-				  , @pNotes		= 'Tag assigned during header load.'
-				;
+		 EXECUTE	hwt.usp_AssignTagsToDatasets
+						@pUserID	= @UpdatedBy
+					  , @pHeaderID	= @HeaderID
+					  , @pTagID		= @TagID
+					  , @pNotes		= 'Tag assigned during header load.'
+					;
 
-	  DELETE	#tags
-	   WHERE	HeaderID = @HeaderID
-				;
+		  DELETE	#tags
+		   WHERE	HeaderID = @HeaderID
+					;
 
-	END
-
-	
---	7)	UPDATE PublishDate on labViewStage.header
-	  UPDATE	header
-		 SET	PublishDate		=	SYSDATETIME()
-		FROM	labViewStage.header
-	   WHERE	EXISTS ( SELECT 1 FROM #changes AS c WHERE c.ID = header.ID )
-				;
+		END
 
 
-RETURN 0 ;
+	RETURN 0 ;
 
 END TRY
+
 BEGIN CATCH
 
 	 DECLARE	@pErrorData xml ;
 
-	  SELECT	@pErrorData =	(
-								  SELECT	(
-											  SELECT	*
-												FROM	#changes
-														FOR XML PATH( 'changes' ), TYPE, ELEMENTS XSINIL
-											)
-											FOR XML PATH( 'usp_LoadHeaderFromStage' ), TYPE
-								)
-				;
+	IF	( OBJECT_ID( 'tempdb..#inserted' ) IS NOT NULL )
+		BEGIN
+		  SELECT	@pErrorData =	(
+									  SELECT	(
+												  SELECT	*
+													FROM	#inserted
+															FOR XML PATH( 'inserted_from_trigger' ), TYPE, ELEMENTS XSINIL
+												)
+												FOR XML PATH( 'usp_LoadHeaderFromStage' ), TYPE
+									)
+					;
+		END
 
 	IF	( @@TRANCOUNT > 0 ) ROLLBACK TRANSACTION ;
 

@@ -6,9 +6,8 @@
 				  , Asset				nvarchar(50)
 				  , CalibrationDueDate	nvarchar(50)
 				  , CostCenter			nvarchar(50)
-				  , NodeOrder			int				NOT NULL 	DEFAULT 0
+				  , NodeOrder			int				NOT NULL	DEFAULT 0
 				  , CreatedDate			datetime2(3)	NOT NULL	DEFAULT SYSDATETIME()
-				  , PublishDate			datetime2(3)
 
 				  , CONSTRAINT PK_labViewStage_equipment_element
 						PRIMARY KEY CLUSTERED( ID ASC )
@@ -24,9 +23,9 @@
 			;
 GO
 
-  CREATE	INDEX IX_labViewStage_equipment_element_name
+  CREATE	INDEX IX_labViewStage_equipment_element_HeaderID
 				ON labViewStage.equipment_element
-					( HeaderID ASC, Asset ASC, Description ASC, CostCenter ASC )
-	WITH	( DATA_COMPRESSION = PAGE )
+					( HeaderID ASC )
+	WITH	( DATA_COMPRESSION = PAGE ) 
 	  ON	[HWTIndexes]
-			;
+			; 

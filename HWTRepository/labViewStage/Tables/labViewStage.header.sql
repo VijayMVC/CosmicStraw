@@ -23,7 +23,6 @@
 				  , IsLegacyXML			int							DEFAULT 0
 				  , VectorCount			int							DEFAULT 0
 				  , CreatedDate			datetime2(3)	NOT NULL	DEFAULT SYSDATETIME()
-				  , PublishDate			datetime2(3)
 				  , UpdatedDate			datetime2(3)
 
 				  , CONSTRAINT PK_labViewStage_header
@@ -35,3 +34,13 @@
 			ON	[HWTTables]
 			TEXTIMAGE_ON [HWTTables]
 			;
+GO
+
+  CREATE	INDEX IX_labViewStage_header_OperatorName
+				ON labViewStage.header
+					( OperatorName ASC )
+	WITH	( DATA_COMPRESSION = PAGE )
+	  ON	[HWTIndexes]
+			;
+
+

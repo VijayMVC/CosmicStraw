@@ -6,9 +6,8 @@
 				  , FileRev			nvarchar(50)
 				  , Status			nvarchar(50)
 				  , HashCode		nvarchar(100)
-				  , NodeOrder		int				NOT NULL 	DEFAULT 0
+				  , NodeOrder		int				NOT NULL	DEFAULT 0
 				  , CreatedDate		datetime2(3)	NOT NULL	DEFAULT SYSDATETIME()
-				  , PublishDate		datetime2(3)
 
 				  , CONSTRAINT PK_labViewStage_libraryInfo_file
 						PRIMARY KEY CLUSTERED( ID ASC )

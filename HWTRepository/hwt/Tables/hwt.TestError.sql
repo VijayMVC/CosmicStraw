@@ -1,11 +1,12 @@
 ﻿  CREATE	TABLE hwt.TestError
 				(
-					TestErrorID int				NOT NULL
-				  , VectorID	int				NOT NULL
-				  , ErrorCode	int				NOT NULL
-				  , ErrorText	nvarchar(max)	NOT NULL
-				  , UpdatedBy	sysname			NOT NULL
-				  , UpdatedDate datetime		NOT NULL
+					TestErrorID 			int				NOT NULL
+				  , VectorID				int				NOT NULL
+				  , ErrorCode				int				NOT NULL
+				  , ErrorText				nvarchar(max)	NOT NULL
+				  , ErrorSequenceNumber		int				NOT NULL
+				  , UpdatedBy				sysname			NOT NULL
+				  , UpdatedDate 			datetime		NOT NULL
 
 				  , CONSTRAINT	PK_hwt_TestError
 						PRIMARY KEY CLUSTERED( TestErrorID ASC )

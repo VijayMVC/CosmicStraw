@@ -29,7 +29,7 @@
     <QueryStoreStatsInterval>60</QueryStoreStatsInterval>
     <QueryStoreMaxPlansPerQuery>200</QueryStoreMaxPlansPerQuery>
     <QueryStoreStaleQueryThreshold>367</QueryStoreStaleQueryThreshold>
-    <QueryStoreMaxStorageSize>100</QueryStoreMaxStorageSize>
+    <QueryStoreMaxStorageSize>1000</QueryStoreMaxStorageSize>
     <DbScopedConfigLegacyCardinalityEstimation>Off</DbScopedConfigLegacyCardinalityEstimation>
     <DbScopedConfigMaxDOP>2</DbScopedConfigMaxDOP>
     <DbScopedConfigParameterSniffing>On</DbScopedConfigParameterSniffing>
@@ -161,7 +161,6 @@
     <Folder Include="xmlStage\Triggers" />
     <Folder Include="xmlStage\XMLSchemaCollections" />
     <Folder Include="labViewStage\Stored Procedures\" />
-    <Folder Include="Service Broker\Contracts" />
     <Folder Include="Service Broker\LegacyXML" />
     <Folder Include="Service Broker\LabView" />
     <Folder Include="ErrorHandlerSource" />
@@ -216,15 +215,15 @@
     <Build Include="labViewStage\Tables\labViewStage.result_element.sql" />
     <Build Include="labViewStage\Tables\labViewStage.vector.sql" />
     <Build Include="labViewStage\Tables\labViewStage.vector_element.sql" />
-    <None Include="labViewStage\Triggers\labViewStage.trg_appConst_element.sql" />
-    <None Include="labViewStage\Triggers\labViewStage.trg_equipment_element.sql" />
-    <None Include="labViewStage\Triggers\labViewStage.trg_error_element.sql" />
+    <Build Include="labViewStage\Triggers\labViewStage.trg_appConst_element.sql" />
+    <Build Include="labViewStage\Triggers\labViewStage.trg_equipment_element.sql" />
+    <Build Include="labViewStage\Triggers\labViewStage.trg_error_element.sql" />
     <Build Include="labViewStage\Triggers\labViewStage.trg_header.sql" />
-    <None Include="labViewStage\Triggers\labViewStage.trg_libraryInfo_file.sql" />
-    <None Include="labViewStage\Triggers\labViewStage.trg_option_element.sql" />
-    <None Include="labViewStage\Triggers\labViewStage.trg_result_element.sql" />
-    <None Include="labViewStage\Triggers\labViewStage.trg_vector.sql" />
-    <None Include="labViewStage\Triggers\labViewStage.trg_vector_element.sql" />
+    <Build Include="labViewStage\Triggers\labViewStage.trg_libraryInfo_file.sql" />
+    <Build Include="labViewStage\Triggers\labViewStage.trg_option_element.sql" />
+    <Build Include="labViewStage\Triggers\labViewStage.trg_result_element.sql" />
+    <Build Include="labViewStage\Triggers\labViewStage.trg_vector.sql" />
+    <Build Include="labViewStage\Triggers\labViewStage.trg_vector_element.sql" />
     <Build Include="Security\Schemas\hwt.sql" />
     <Build Include="Security\Schemas\labViewStage.sql" />
     <Build Include="Security\Schemas\utility.sql" />
@@ -306,6 +305,9 @@
     <None Include="Unused Scripts\hwt.usp_GetTags.sql" />
     <None Include="labViewStage\Stored Procedures\labViewStage.usp_TestSQLMessageSend.sql" />
     <Build Include="labViewStage\Stored Procedures\labViewStage.usp_Process_SQLSender.sql" />
+    <Build Include="labViewStage\Tables\labViewStage.PublishAudit.sql" />
+    <Build Include="labViewStage\Stored Procedures\labViewStage.usp_Load_PublishAudit.sql" />
+    <Build Include="labViewStage\Stored Procedures\labViewStage.usp_RestartSQLMessageQueue.sql" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Publish Scripts\HWTRepositoryD.local.publish.xml" />
