@@ -363,8 +363,25 @@ BEGIN TRY
 															  SELECT	(
 																		  SELECT	[test_error/@code]	=	e.ErrorCode
 																				  , test_error			=	e.ErrorText
-																			FROM	hwt.TestError AS e
+																			FROM	hwt.VectorError AS e
 																		   WHERE	e.VectorID = v.VectorID
+																						AND e.ErrorType = 1 
+																					FOR XML PATH( '' ), TYPE
+																		)
+																	  , (
+																		  SELECT	[data_error/@num]	=	e.ErrorCode
+																				  , data_error			=	e.ErrorText
+																			FROM	hwt.VectorError AS e
+																		   WHERE	e.VectorID = v.VectorID
+																						AND e.ErrorType = 2 
+																					FOR XML PATH( '' ), TYPE
+																		)
+																	  , (
+																		  SELECT	[input_param_error/@num]	=	e.ErrorCode
+																				  , input_param_error			=	e.ErrorText
+																			FROM	hwt.VectorError AS e
+																		   WHERE	e.VectorID = v.VectorID
+																						AND e.ErrorType = 3
 																					FOR XML PATH( '' ), TYPE
 																		)
 															)	AS error_element( xmlData )

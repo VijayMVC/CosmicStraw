@@ -181,7 +181,7 @@
     <Build Include="hwt\Stored Procedures\hwt.usp_LoadLibraryFileFromStage.sql" />
     <Build Include="hwt\Stored Procedures\hwt.usp_LoadOptionFromStage.sql" />
     <Build Include="hwt\Stored Procedures\hwt.usp_LoadRepositoryFromStage.sql" />
-    <Build Include="hwt\Stored Procedures\hwt.usp_LoadTestErrorFromStage.sql" />
+    <Build Include="hwt\Stored Procedures\hwt.usp_LoadVectorErrorFromStage.sql" />
     <Build Include="hwt\Stored Procedures\hwt.usp_LoadVectorElementFromStage.sql" />
     <Build Include="hwt\Stored Procedures\hwt.usp_LoadVectorFromStage.sql" />
     <Build Include="hwt\Stored Procedures\hwt.usp_LoadVectorResultFromStage.sql" />
@@ -200,7 +200,7 @@
     <Build Include="hwt\Tables\hwt.Result.sql" />
     <Build Include="hwt\Tables\hwt.Tag.sql" />
     <Build Include="hwt\Tables\hwt.TagType.sql" />
-    <Build Include="hwt\Tables\hwt.TestError.sql" />
+    <Build Include="hwt\Tables\hwt.VectorError.sql" />
     <Build Include="hwt\Tables\hwt.Vector.sql" />
     <Build Include="hwt\Tables\hwt.VectorElement.sql" />
     <Build Include="hwt\Tables\hwt.VectorResult.sql" />

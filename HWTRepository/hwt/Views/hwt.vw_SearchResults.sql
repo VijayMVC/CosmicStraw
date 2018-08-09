@@ -244,7 +244,7 @@ AS
       SELECT	DISTINCT 
 				IsError	=	1 
 		FROM	hwt.Vector AS v 
-				INNER JOIN hwt.TestError AS e 
+				INNER JOIN hwt.VectorError AS e 
 						ON e.VectorID = v.VectorID 
 	   WHERE 	v.HeaderID = h.HeaderID 
 	) AS e	
@@ -266,7 +266,7 @@ AS
 									(	
 									  SELECT 	DISTINCT 
 												',' + te.ErrorText
-										FROM 	hwt.TestError AS te 
+										FROM 	hwt.VectorError AS te 
 												INNER JOIN hwt.Vector AS v
 														ON v.VectorID = te.VectorID 
 									   WHERE 	v.HeaderID = h.HeaderID 

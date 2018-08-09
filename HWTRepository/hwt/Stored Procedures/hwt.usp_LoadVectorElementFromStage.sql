@@ -70,11 +70,11 @@ BEGIN TRY
 						ON	pa.ObjectID = @ObjectID
 								AND pa.RecordID = i.ID
 
-				INNER JOIN labViewStage.vector AS v
-						ON v.ID = i.VectorID
-
-				INNER JOIN labViewStage.header AS h
-						ON v.HeaderID = h.ID
+				INNER JOIN 	labViewStage.vector AS v
+						ON 	v.ID = i.VectorID
+	
+				INNER JOIN 	labViewStage.header AS h
+						ON 	h.ID = v.HeaderID 
 				;
 
 	IF	( @@ROWCOUNT = 0 )

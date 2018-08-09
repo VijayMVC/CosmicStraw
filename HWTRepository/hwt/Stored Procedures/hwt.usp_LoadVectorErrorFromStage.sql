@@ -1,14 +1,14 @@
-﻿CREATE	PROCEDURE hwt.usp_LoadTestErrorFromStage
+﻿CREATE	PROCEDURE hwt.usp_LoadVectorErrorFromStage
 /*
 ***********************************************************************************************************************************
 
-	Procedure:	hwt.usp_LoadTestErrorFromStage
-	Abstract:	Load error from test to hwt.TestError and hwt.HeaderOption
+	Procedure:	hwt.usp_LoadVectorErrorFromStage
+	Abstract:	Load error from test to hwt.VectorError and hwt.HeaderOption
 
 	Logic Summary
 	-------------
 	1)	EXECUTE sp_getapplock to ensure single-threading for procedure
-	2)	INSERT error data from labViewStage into hwt.TestError
+	2)	INSERT error data from labViewStage into hwt.VectorError
 	3)	UPDATE PublishDate on labViewStage.error_element
 	4)	EXECUTE sp_releaseapplock to release lock
 
@@ -39,15 +39,16 @@ BEGIN TRY
 
 	 DECLARE	@ObjectID	int	=	OBJECT_ID( N'labViewStage.error_element' ) ;
 
---	2)	INSERT error data from labViewStage into hwt.TestError
-	  INSERT	hwt.TestError
-					( TestErrorID, VectorID, ErrorCode, ErrorText, ErrorSequenceNumber, UpdatedBy, UpdatedDate )
+--	2)	INSERT error data from labViewStage into hwt.VectorError
+	  INSERT	hwt.VectorError
+					( VectorErrorID, VectorID, ErrorType, ErrorCode, ErrorText, ErrorSequenceNumber, UpdatedBy, UpdatedDate )
 
-	  OUTPUT	inserted.TestErrorID
+	  OUTPUT	inserted.VectorErrorID
 				INTO @updates( ID )
 
 	  SELECT	i.ID
 			  , i.VectorID
+			  , i.ErrorType
 			  , i.ErrorCode
 			  , i.ErrorText
 			  , ErrorSequenceNumber	=	ISNULL( NULLIF( i.NodeOrder, 0 ), i.ID )
@@ -96,7 +97,7 @@ BEGIN CATCH
 																		AND pa.RecordID = lvs.ID
 														FOR XML PATH( 'inserted' ), TYPE, ELEMENTS XSINIL
 											)
-											FOR XML PATH( 'usp_LoadTestErrorFromStage' ), TYPE
+											FOR XML PATH( 'usp_LoadVectorErrorFromStage' ), TYPE
 								)
 				;
 

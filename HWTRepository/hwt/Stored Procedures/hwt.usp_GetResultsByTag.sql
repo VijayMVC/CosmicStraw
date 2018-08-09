@@ -227,7 +227,7 @@ BEGIN TRY
 				INNER JOIN hwt.Vector AS v
 					ON v.HeaderID = tmp.HeaderID
 
-				INNER JOIN hwt.TestError AS e
+				INNER JOIN hwt.VectorError AS e
 					ON e.VectorID = v.VectorID
 	   WHERE	@pIncludeErrors = 0
 				;
@@ -422,7 +422,7 @@ BEGIN TRY
 				FROM	#HeaderIDs AS tmp
 						INNER JOIN hwt.Vector AS v
 								ON v.HeaderID = tmp.HeaderID
-						INNER JOIN hwt.TestError AS e
+						INNER JOIN hwt.VectorError AS e
 								ON e.VectorID = v.VectorID
 						INNER JOIN #SearchTerms AS t
 								ON e.ErrorCode LIKE t.SearchItem

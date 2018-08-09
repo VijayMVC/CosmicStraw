@@ -77,7 +77,7 @@ END
 
 --	DELETE Test Errors
   DELETE	tmp
-	FROM	hwt.TestError AS tmp
+	FROM	hwt.VectorError AS tmp
    WHERE	EXISTS
 				(
 				  SELECT	1

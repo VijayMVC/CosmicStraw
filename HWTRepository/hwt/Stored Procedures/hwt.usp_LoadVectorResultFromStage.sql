@@ -40,7 +40,7 @@ SET XACT_ABORT, NOCOUNT ON ;
 
 BEGIN TRY
 
-	 DECLARE 	@ObjectID	int	=	OBJECT_ID( N'labViewStage.result_element' ) ;
+	 DECLARE	@ObjectID	int	=	OBJECT_ID( N'labViewStage.result_element' ) ;
 
 --	2)	INSERT data into temp storage from PublishAudit
 	  CREATE TABLE	#changes
@@ -68,16 +68,16 @@ BEGIN TRY
 			  , NodeOrder		=	ISNULL( NULLIF( i.NodeOrder, 0 ), i.ID )
 			  , h.OperatorName
 		FROM	labViewStage.result_element AS i
-				INNER JOIN 	labViewStage.PublishAudit AS pa
-						ON 	pa.ObjectID = @ObjectID 
+				INNER JOIN	labViewStage.PublishAudit AS pa
+						ON	pa.ObjectID = @ObjectID
 								AND pa.RecordID = i.ID
 
-				INNER JOIN 	labViewStage.vector AS v
-						ON 	v.ID = i.VectorID
-	
-				INNER JOIN 	labViewStage.header AS h
-						ON 	h.ID = v.HeaderID
-				; 
+				INNER JOIN	labViewStage.vector AS v
+						ON	v.ID = i.VectorID
+
+				INNER JOIN	labViewStage.header AS h
+						ON	h.ID = v.HeaderID
+				;
 
 	IF	( @@ROWCOUNT = 0 )
 		RETURN 0 ;
@@ -143,43 +143,43 @@ BEGIN TRY
 		--	for #changes.Value records containing non-JSON data
 	  INSERT	hwt.VectorResult
 					( VectorID, ResultID, NodeOrder, ResultN, ResultValue, UpdatedBy, UpdatedDate )
-	  SELECT	VectorID		=	tmp.VectorID	
-			  , ResultID        =	tmp.ResultID    	
-			  , NodeOrder       =	tmp.NodeOrder   	
-			  , ResultN         =	ISNULL( x.ItemNumber, 1 )
-			  , ResultValue     =	CONVERT( nvarchar(100), ISNULL( x.Item, N'' ) )
+	  SELECT	VectorID		=	tmp.VectorID
+			  , ResultID		=	tmp.ResultID
+			  , NodeOrder		=	tmp.NodeOrder
+			  , ResultN			=	1
+			  , ResultValue		=	CONVERT( nvarchar(100), LEFT( tmp.Value, 100 ) )
 			  , UpdatedBy		=	OperatorName
 			  , UpdatedDate		=	SYSDATETIME()
 		FROM	#changes AS tmp
-				CROSS APPLY utility.ufn_SplitString( tmp.Value, ',' ) AS x
-	   
-	   WHERE	ISJSON( tmp.Value ) = 0 
+
+	   WHERE	LEFT( tmp.Type, 5 ) != N'ARRAY'
 				;
 
 		--	for #changes.Value records containing JSON data
 	  INSERT	hwt.VectorResult
 					( VectorID, ResultID, NodeOrder, ResultN, ResultValue, UpdatedBy, UpdatedDate )
-	  SELECT	VectorID		=	tmp.VectorID	
-			  , ResultID        =	tmp.ResultID    	
-			  , NodeOrder       =	tmp.NodeOrder   	
-			  , ResultN         =	ISNULL( x.[Key] + 1, 1 )
-			  , ResultValue     =	CONVERT( nvarchar(100), ISNULL( x.Value, N'' ) )
+	  SELECT	VectorID		=	tmp.VectorID
+			  , ResultID		=	tmp.ResultID
+			  , NodeOrder		=	tmp.NodeOrder
+			  , ResultN			=	ISNULL( x.[Key] + 1, 1 )
+			  , ResultValue		=	LEFT( ISNULL( x.Value, N'' ), 100 )
 			  , UpdatedBy		=	OperatorName
 			  , UpdatedDate		=	SYSDATETIME()
 		FROM	#changes AS tmp
 				CROSS APPLY OPENJSON( tmp.Value ) AS x
 
-	   WHERE	ISJSON( tmp.Value ) = 1
-				;		
-				
-				
+	   WHERE	LEFT( tmp.Type, 5 ) = N'ARRAY'
+					AND ISJSON( tmp.Value ) = 1
+				;
+
+
 --	7)	DELETE processed records from labViewStage.PublishAudit
-	  DELETE 	pa 
-	    FROM 	labViewStage.PublishAudit AS pa 
-				INNER JOIN 	#changes AS tmp 
-						ON	pa.ObjectID = @ObjectID 
-								AND pa.RecordID = tmp.ID 
-				; 
+	  DELETE	pa
+		FROM	labViewStage.PublishAudit AS pa
+				INNER JOIN	#changes AS tmp
+						ON	pa.ObjectID = @ObjectID
+								AND pa.RecordID = tmp.ID
+				;
 
 
 	RETURN 0 ;
@@ -198,7 +198,7 @@ BEGIN CATCH
 											FOR XML PATH( 'usp_LoadVectorResultFromStage' ), TYPE
 								)
 				;
-				
+
 	IF	( @@TRANCOUNT > 0 ) ROLLBACK TRANSACTION ;
 
 	 EXECUTE	eLog.log_CatchProcessing

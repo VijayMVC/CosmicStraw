@@ -72,7 +72,7 @@ BEGIN TRY
 
 	EXECUTE hwt.usp_LoadVectorResultFromStage ;
 
-	EXECUTE hwt.usp_LoadTestErrorFromStage ;
+	EXECUTE hwt.usp_LoadVectorErrorFromStage ;
 
 
 --	3)	EXECUTE sp_releaseapplock to release lock
