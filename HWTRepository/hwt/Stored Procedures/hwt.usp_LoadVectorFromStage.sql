@@ -93,8 +93,8 @@ BEGIN TRY
 			  , HeaderID		=	tmp.HeaderID
 			  , VectorNumber	=	tmp.VectorNum
 			  , LoopNumber		=	tmp.Loop
-			  , StartTime		=	CONVERT( datetime, tmp.StartTime )
-			  , EndTime			=	NULLIF( CONVERT( datetime, tmp.EndTime ), '1900-01-01' )
+			  , StartTime		=	CONVERT( datetime2(3), tmp.StartTime )
+			  , EndTime			=	NULLIF( CONVERT( datetime2(3), tmp.EndTime ), '1900-01-01' )
 			  , UpdatedBy		=	tmp.OperatorName
 			  , UpdatedDate		=	SYSDATETIME()
 		FROM	#changes AS tmp
@@ -171,7 +171,7 @@ BEGIN TRY
 			  , TagID		=	TagID
 			  , NodeOrder	=	NodeOrder
 			  , UpdatedBy	=	UpdatedBy
-			  , UpdatedDate =	GETDATE()
+			  , UpdatedDate =	SYSDATETIME()
 		FROM	#tags
 				;
 

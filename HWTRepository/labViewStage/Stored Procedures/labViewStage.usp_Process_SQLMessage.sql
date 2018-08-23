@@ -200,8 +200,10 @@ BEGIN TRY
 					END
 
 
-				  SELECT	@SQLStatement = CONVERT( nvarchar(max), @binary_message ) ;
-
+				  SELECT	@SQLStatement 	= 	CONVERT( nvarchar(max), @binary_message ) ;
+				  
+				  SELECT	@SQLStatement	=	REPLACE( REPLACE( REPLACE( REPLACE( REPLACE( @SQLStatement, '&apos;', '''' ), '&lt;', '<' ), '&gt;', '>' ), '&quot;', '"' ), '&amp;', '&' )
+				  
 				 EXECUTE	( @SQLStatement ) ;
 
 				 EXECUTE	hwt.usp_LoadRepositoryFromStage ;
@@ -275,7 +277,7 @@ BEGIN TRY
 						  , MessageType				=	@message_type_name
 						  , ConversationHandle		=	@conversation_handle
 						  , MessageSequenceNumber	=	@message_sequence_number
-						  , MessageBody				=	convert( nvarchar(max), @binary_message )
+						  , MessageBody				=	N''
 						  , MessageQueued			=	@message_enqueue_time
 						  , ErrorCode				=	ISNULL( @error_number, 0 )
 						  , ErrorMessage			=	@error_message

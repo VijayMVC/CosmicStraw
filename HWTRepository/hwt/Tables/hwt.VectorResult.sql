@@ -1,15 +1,16 @@
 ﻿  CREATE	TABLE hwt.VectorResult
 				(
-					VectorID			int				NOT NULL
+					VectorResultID		int				NOT NULL	IDENTITY
+				  , VectorID			int				NOT NULL
 				  , ResultID			int				NOT NULL
 				  , NodeOrder			int				NOT NULL
-				  , ResultN				int				NOT NULL
-				  , ResultValue			nvarchar(100)
+				  , IsArray 			bit				NOT NULL	DEFAULT 0
+				  , IsExtended			bit				NOT NULL	DEFAULT 0
 				  , UpdatedBy			sysname			NOT NULL
-				  , UpdatedDate			datetime		NOT NULL
+				  , UpdatedDate			datetime2(3)	NOT NULL
 
 				  , CONSTRAINT PK_hwt_VectorResult
-						PRIMARY KEY CLUSTERED( VectorID ASC, ResultID, NodeOrder ASC, ResultN ASC )
+						PRIMARY KEY CLUSTERED( VectorResultID ASC )
 						WITH( DATA_COMPRESSION = PAGE )
 						ON [HWTTables]
 
@@ -25,9 +26,10 @@
 			;
 GO
 
-  CREATE	INDEX IX_hwt_VectorResult_VectorIDResultID
+  CREATE	UNIQUE INDEX UX_hwt_VectorResult_Key
 	  ON	hwt.VectorResult
 				( VectorID ASC, ResultID ASC, NodeOrder ASC )
+			INCLUDE( IsArray, IsExtended )
 	WITH	( DATA_COMPRESSION = PAGE )
 	  ON	[HWTIndexes]
 			;

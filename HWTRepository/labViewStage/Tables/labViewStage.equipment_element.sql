@@ -2,8 +2,8 @@
 				(
 					ID					int				NOT NULL	IDENTITY
 				  , HeaderID			int				NOT NULL
-				  , Description			nvarchar(100)
 				  , Asset				nvarchar(50)
+				  , Description			nvarchar(250)
 				  , CalibrationDueDate	nvarchar(50)
 				  , CostCenter			nvarchar(50)
 				  , NodeOrder			int				NOT NULL	DEFAULT 0
@@ -28,4 +28,12 @@ GO
 					( HeaderID ASC )
 	WITH	( DATA_COMPRESSION = PAGE ) 
 	  ON	[HWTIndexes]
-			; 
+			;
+GO
+
+  CREATE	INDEX IX_labViewStage_equipment_element_Asset
+				ON labViewStage.equipment_element
+					( Asset ASC, Description ASC, CostCenter ASC )
+	WITH	( DATA_COMPRESSION = PAGE )
+	  ON	[HWTIndexes]
+			;

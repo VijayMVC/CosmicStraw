@@ -1,11 +1,11 @@
 ﻿  CREATE	TABLE hwt.[Option]
 				(
-					OptionID	int				NOT NULL
-				  , Name		nvarchar(100)	NOT NULL
+					OptionID	int				NOT NULL	IDENTITY
+				  , Name		nvarchar(250)	NOT NULL
 				  , DataType	nvarchar(50)	NOT NULL
-				  , Units		nvarchar(50)	NOT NULL
+				  , Units		nvarchar(250)	NOT NULL
 				  , UpdatedBy	sysname			NOT NULL
-				  , UpdatedDate datetime		NOT NULL
+				  , UpdatedDate datetime2(3)	NOT NULL
 
 				  , CONSTRAINT PK_hwt_Option
 						PRIMARY KEY CLUSTERED( OptionID ASC )

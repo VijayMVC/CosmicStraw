@@ -7,14 +7,13 @@
 
 	Logic Summary
 	-------------
-	1)	EXECUTE sp_getapplock to ensure single-threading for procedure
-	2)	INSERT data into temp storage from trigger
-	3)	UPDATE NodeOrder in temp storage
-	4)	INSERT new Result data from temp storage into hwt.Result
-	5)	UPDATE ResultID back into temp storage
-	6)	INSERT vector results from temp storage into hwt.VectorResult
-	7)	UPDATE PublishDate on labViewStage.result_element
-	8)	EXECUTE sp_releaseapplock to release lock
+	1)	INSERT new Result data from temp storage into hwt
+	2)	INSERT new VectorResult data from temp storage into hwt
+	3)	INSERT data into temp storage from PublishAudit
+	4)	INSERT non-JSON values data FROM temp storage
+	5)	INSERT JSON values data FROM temp storage
+	6)	UPDATE hwt.VectorResult with overflow data 
+	7)	DELETE processed records from labViewStage.PublishAudit
 
 
 	Parameters
@@ -41,8 +40,82 @@ SET XACT_ABORT, NOCOUNT ON ;
 BEGIN TRY
 
 	 DECLARE	@ObjectID	int	=	OBJECT_ID( N'labViewStage.result_element' ) ;
+	 
+	 DECLARE	@Records 	TABLE	( RecordID int ) ; 
 
---	2)	INSERT data into temp storage from PublishAudit
+--	1)	DELETE processed records from labViewStage.PublishAudit
+	  DELETE	labViewStage.PublishAudit
+	  OUTPUT 	deleted.RecordID 
+	    INTO	@Records( RecordID ) 
+	   WHERE	ObjectID = @ObjectID
+				;
+	 
+	 
+--	2)	INSERT new Result data from temp storage into hwt
+	  INSERT	hwt.Result
+					( Name, DataType, Units, UpdatedBy, UpdatedDate )
+	  SELECT	DISTINCT
+				Name		=	lvs.Name
+			  , DataType	=	lvs.Type
+			  , Units		=	lvs.Units
+			  , UpdatedBy	=	FIRST_VALUE( h.OperatorName ) OVER( PARTITION BY lvs.Name, lvs.Type, lvs.Units ORDER BY lvs.ID )
+			  , UpdatedDate	=	SYSDATETIME()
+		FROM	labViewStage.result_element AS lvs
+				INNER JOIN	@Records 
+						ON	RecordID = lvs.ID
+
+				INNER JOIN 	labViewStage.vector AS v 
+						ON	v.ID = lvs.VectorID
+							
+				INNER JOIN	labViewStage.header AS h
+						ON	h.ID = v.HeaderID
+
+	   WHERE	NOT EXISTS
+					(
+					  SELECT	1
+						FROM	hwt.Result AS r
+					   WHERE	r.Name = lvs.Name
+									AND r.DataType = lvs.Type
+									AND r.Units = lvs.Units
+					)
+				;
+
+	 
+--	2)	INSERT new VectorResult data from temp storage into hwt
+	  INSERT	hwt.VectorResult
+					( VectorID, ResultID, NodeOrder, IsArray, IsExtended, UpdatedBy, UpdatedDate ) 
+	  SELECT	DISTINCT
+				VectorID	=	lvs.VectorID
+			  , ResultID	=	r.ResultID
+			  , NodeOrder	=	ISNULL( NULLIF( lvs.NodeOrder, 0 ), ROW_NUMBER() OVER( PARTITION BY lvs.VectorID ORDER BY lvs.ID ) ) 
+			  , IsArray		=	CONVERT( bit, ISJSON( lvs.Value ) )
+			  , IsExtended	=	CASE ISJSON( lvs.Value ) 
+									WHEN 	1 THEN 1 
+									ELSE 	CASE  
+												WHEN LEN( lvs.Value ) > 100 THEN 1 
+												ELSE 0 
+											END 
+								END 
+			  , UpdatedBy	=	FIRST_VALUE( h.OperatorName ) OVER( ORDER BY h.ID )
+			  , UpdatedDate	=	SYSDATETIME()
+		FROM	labViewStage.result_element AS lvs
+				INNER JOIN	@Records 
+						ON	RecordID = lvs.ID	
+
+				INNER JOIN 	labViewStage.vector AS v 
+						ON	v.ID = lvs.VectorID
+							
+				INNER JOIN	labViewStage.header AS h
+						ON	h.ID = v.HeaderID
+
+				INNER JOIN 	hwt.Result AS r 
+					   ON	r.Name = lvs.Name
+								AND r.DataType = lvs.Type
+								AND r.Units = lvs.Units
+				;
+					
+					
+--	3)	INSERT data into temp storage from PublishAudit
 	  CREATE TABLE	#changes
 					(
 						ID					int
@@ -54,134 +127,71 @@ BEGIN TRY
 					  , NodeOrder			int
 					  , OperatorName		nvarchar(50)
 					  , ResultID			int
+					  , VectorResultID		int
 					)
 					;
 
 	  INSERT	#changes
-					( ID, VectorID, Name, Type, Units, Value, NodeOrder, OperatorName )
+					( ID, VectorID, Name, Type, Units, Value, NodeOrder, OperatorName, ResultID, VectorResultID )
 	  SELECT	i.ID
 			  , i.VectorID
-			  , i.Name
-			  , i.Type
+			  , i.Name			
+			  , i.Type			
 			  , i.Units
-			  , i.Value
-			  , NodeOrder		=	ISNULL( NULLIF( i.NodeOrder, 0 ), i.ID )
+			  , i.Value			
+			  , i.NodeOrder		
 			  , h.OperatorName
+			  , r.ResultID
+			  , vr.VectorResultID
 		FROM	labViewStage.result_element AS i
-				INNER JOIN	labViewStage.PublishAudit AS pa
-						ON	pa.ObjectID = @ObjectID
-								AND pa.RecordID = i.ID
+				INNER JOIN	@Records 
+						ON	RecordID = i.ID
 
 				INNER JOIN	labViewStage.vector AS v
 						ON	v.ID = i.VectorID
 
 				INNER JOIN	labViewStage.header AS h
 						ON	h.ID = v.HeaderID
+						
+				INNER JOIN	hwt.Result AS r
+						ON	r.Name = i.Name
+								AND r.DataType = i.Type
+								AND r.Units = i.Units
+								
+				INNER JOIN	hwt.VectorResult AS vr 
+						ON	vr.VectorID = i.VectorID 
+								AND vr.ResultID = r.ResultID 
+								AND vr.NodeOrder = i.NodeOrder
 				;
 
 	IF	( @@ROWCOUNT = 0 )
 		RETURN 0 ;
 
 
---	4)	INSERT new Result data from temp storage into hwt.Result
-		--	cte is the set of Result data that does not already exist on hwt
-		--	newData is the set of data from cte with ID attached
-		WITH	cte AS
-					(
-					  SELECT	Name		=	tmp.Name
-							  , DataType	=	tmp.Type
-							  , Units		=	tmp.Units
-						FROM	#changes AS tmp
+--	4)	INSERT non-JSON values data FROM temp storage
+		--	LEN( Value ) < 100 
+	  INSERT	hwt.VectorResultValue 
+					( VectorResultID, ResultValue )
+	  SELECT	VectorResultID	=	i.VectorResultID
+			  , ResultValue		=	i.Value
+		FROM	#changes AS i
 
-					  EXCEPT
-					  SELECT	Name
-							  , DataType
-							  , Units
-						FROM	hwt.Result
-					)
-
-			  , newData AS
-					(
-					  SELECT	DISTINCT
-								ResultID	=	MIN( ID ) OVER( PARTITION BY c.Name, c.Type, c.Units )
-							  , Name		=	cte.Name
-							  , DataType	=	cte.DataType
-							  , Units		=	cte.Units
-						FROM	#changes AS c
-								INNER JOIN cte
-										ON cte.Name = c.Name
-											AND cte.DataType = c.Type
-											AND cte.Units = c.Units
-					)
-
-	  INSERT	hwt.Result
-					( ResultID, Name, DataType, Units, UpdatedBy, UpdatedDate )
-	  SELECT	ResultID	=	newData.ResultID
-			  , Name		=	newData.Name
-			  , DataType	=	newData.DataType
-			  , Units		=	newData.Units
-			  , UpdatedBy	=	x.OperatorName
-			  , UpdatedDate =	SYSDATETIME()
-		FROM	newData
-				CROSS APPLY
-					( SELECT OperatorName FROM #changes AS c WHERE c.ID = newData.ResultID ) AS x
+	   WHERE	ISJSON( i.Value ) = 0 
+					AND LEN( i.Value ) < = 100 
 				;
+				
+		--	LEN( Value ) > 100 
+	  INSERT	hwt.VectorResultExtended
+					( VectorResultID, ResultValue )
+		
+	  SELECT	VectorResultID	=	i.VectorResultID
+			  , ResultValue		=	i.Value
+		FROM	#changes AS i
 
-
---	5)	UPDATE ResultID back into temp storage
-	  UPDATE	tmp
-		 SET	ResultID  =	  r.ResultID
-		FROM	#changes AS tmp
-				INNER JOIN hwt.Result AS r
-						ON r.Name = tmp.Name
-							AND r.DataType = tmp.Type
-							AND r.Units = tmp.Units
+	   WHERE	ISJSON( i.Value ) = 1 OR LEN( i.Value ) > 100 
 				;
-
-
---	6)	INSERT vector results from temp storage into hwt.VectorResult
-		--	for #changes.Value records containing non-JSON data
-	  INSERT	hwt.VectorResult
-					( VectorID, ResultID, NodeOrder, ResultN, ResultValue, UpdatedBy, UpdatedDate )
-	  SELECT	VectorID		=	tmp.VectorID
-			  , ResultID		=	tmp.ResultID
-			  , NodeOrder		=	tmp.NodeOrder
-			  , ResultN			=	1
-			  , ResultValue		=	CONVERT( nvarchar(100), LEFT( tmp.Value, 100 ) )
-			  , UpdatedBy		=	OperatorName
-			  , UpdatedDate		=	SYSDATETIME()
-		FROM	#changes AS tmp
-
-	   WHERE	LEFT( tmp.Type, 5 ) != N'ARRAY'
-				;
-
-		--	for #changes.Value records containing JSON data
-	  INSERT	hwt.VectorResult
-					( VectorID, ResultID, NodeOrder, ResultN, ResultValue, UpdatedBy, UpdatedDate )
-	  SELECT	VectorID		=	tmp.VectorID
-			  , ResultID		=	tmp.ResultID
-			  , NodeOrder		=	tmp.NodeOrder
-			  , ResultN			=	ISNULL( x.[Key] + 1, 1 )
-			  , ResultValue		=	LEFT( ISNULL( x.Value, N'' ), 100 )
-			  , UpdatedBy		=	OperatorName
-			  , UpdatedDate		=	SYSDATETIME()
-		FROM	#changes AS tmp
-				CROSS APPLY OPENJSON( tmp.Value ) AS x
-
-	   WHERE	LEFT( tmp.Type, 5 ) = N'ARRAY'
-					AND ISJSON( tmp.Value ) = 1
-				;
-
-
---	7)	DELETE processed records from labViewStage.PublishAudit
-	  DELETE	pa
-		FROM	labViewStage.PublishAudit AS pa
-				INNER JOIN	#changes AS tmp
-						ON	pa.ObjectID = @ObjectID
-								AND pa.RecordID = tmp.ID
-				;
-
-
+				
+				
 	RETURN 0 ;
 
 END TRY

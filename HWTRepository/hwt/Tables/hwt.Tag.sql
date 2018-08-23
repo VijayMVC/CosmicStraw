@@ -6,7 +6,7 @@
 				  , Description nvarchar(200)	NOT NULL
 				  , IsDeleted	tinyint			NOT NULL
 				  , UpdatedBy	sysname			NOT NULL
-				  , UpdatedDate datetime		NOT NULL
+				  , UpdatedDate datetime2(3)	NOT NULL
 
 				  , CONSTRAINT	PK_hwt_Tag
 						PRIMARY KEY CLUSTERED( TagID ASC )

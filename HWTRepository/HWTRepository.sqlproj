@@ -242,7 +242,6 @@
     <None Include="Post-Deployment Scripts\ErrorMessages.sql" />
     <Build Include="hwt\Stored Procedures\hwt.usp_InsertTagToRepository.sql" />
     <Build Include="hwt\Stored Procedures\hwt.usp_UpdateTagInRepository.sql" />
-    <Build Include="xmlStage\Stored Procedures\xmlStage.usp_ShredLegacyXML.sql" />
     <Build Include="xmlStage\Triggers\xmlStage.trg_LegacyXML_Files.sql" />
     <Build Include="xmlStage\XMLSchemaCollections\xmlStage.LegacyLabViewXSD.sql" />
     <Build Include="Security\Roles\ElevatedUsers.sql" />
@@ -308,6 +307,18 @@
     <Build Include="labViewStage\Tables\labViewStage.PublishAudit.sql" />
     <Build Include="labViewStage\Stored Procedures\labViewStage.usp_Load_PublishAudit.sql" />
     <Build Include="labViewStage\Stored Procedures\labViewStage.usp_RestartSQLMessageQueue.sql" />
+    <Build Include="xmlStage\Stored Procedures\xmlStage.usp_ShredLegacyXML.sql" />
+    <Build Include="hwt\Tables\hwt.VectorResultValue.sql" />
+    <Build Include="hwt\Tables\hwt.VectorResultExtended.sql" />
+    <Build Include="xmlStage\Tables\xmlStage.appConst_element.sql" />
+    <Build Include="xmlStage\Tables\xmlStage.equipment_element.sql" />
+    <Build Include="xmlStage\Tables\xmlStage.error_element.sql" />
+    <Build Include="xmlStage\Tables\xmlStage.header.sql" />
+    <Build Include="xmlStage\Tables\xmlStage.libraryInfo_file.sql" />
+    <Build Include="xmlStage\Tables\xmlStage.option_element.sql" />
+    <Build Include="xmlStage\Tables\xmlStage.result_element.sql" />
+    <Build Include="xmlStage\Tables\xmlStage.vector.sql" />
+    <Build Include="xmlStage\Tables\xmlStage.vector_element.sql" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Publish Scripts\HWTRepositoryD.local.publish.xml" />

@@ -39,15 +39,55 @@ SET XACT_ABORT, NOCOUNT ON ;
 BEGIN TRY
 
 	 DECLARE	@ObjectID	int	=	OBJECT_ID( N'labViewStage.option_element' ) ;
+	 
+	 DECLARE 	@Records	TABLE	( RecordID int ) ; 
 
+--	7)	DELETE processed records from labViewStage.PublishAudit
+	  DELETE	labViewStage.PublishAudit 
+	  OUTPUT	deleted.RecordID 
+	    INTO	@Records( RecordID )
+	   WHERE 	ObjectID = @ObjectID
+				;
+
+	IF	( @@ROWCOUNT = 0 )
+		RETURN 0 ;
+
+				
+--	1)	INSERT new Option data from temp storage into hwt
+	  INSERT	hwt.[Option]
+					( Name, DataType, Units, UpdatedBy, UpdatedDate )
+	  SELECT	DISTINCT 
+				Name			=	lvs.Name
+			  , DataType		=	lvs.Type
+			  , Units			=	lvs.Units
+			  , UpdatedBy		=	FIRST_VALUE( h.OperatorName ) OVER( PARTITION BY lvs.Name, lvs.Type, lvs.Units ORDER BY lvs.ID )
+			  , UpdatedDate		=	SYSDATETIME()
+		FROM	labViewStage.option_element AS lvs
+				INNER JOIN	@Records 
+						ON	RecordID = lvs.ID
+
+				INNER JOIN	labViewStage.header AS h
+						ON	h.ID = lvs.HeaderID
+
+	   WHERE	NOT EXISTS
+					(
+					  SELECT	1
+						FROM	hwt.[Option] AS o
+					   WHERE	o.Name = lvs.Name
+								AND o.DataType = lvs.Type
+								AND o.Units = lvs.Units
+					)
+				;
+
+				
 --	2)	INSERT data into temp storage from PublishAudit
 	CREATE TABLE	#changes
 					(
 						ID				int
 					  , HeaderID		int
-					  , Name			nvarchar(100)
+					  , Name			nvarchar(250)
 					  , Type			nvarchar(50)
-					  , Units			nvarchar(50)
+					  , Units			nvarchar(250)
 					  , Value			nvarchar(1000)
 					  , NodeOrder		int
 					  , OperatorName	nvarchar(50)
@@ -56,84 +96,29 @@ BEGIN TRY
 					;
 
 	  INSERT	INTO #changes
-					( ID, HeaderID, Name, Type, Units, Value, NodeOrder, OperatorName )
+					( ID, HeaderID, Name, Type, Units, Value, NodeOrder, OperatorName, OptionID )
 	  SELECT	i.ID
 			  , i.HeaderID
 			  , i.Name
 			  , i.Type
 			  , i.Units
 			  , i.Value
-			  , NodeOrder		=	ISNULL( NULLIF( i.NodeOrder, 0 ), i.ID )
+			  , i.NodeOrder		
 			  , h.OperatorName
+			  , o.OptionID
 		FROM	labViewStage.option_element AS i
-				INNER JOIN	labViewStage.PublishAudit AS pa
-						ON	pa.ObjectID = @ObjectID
-								AND pa.RecordID = i.ID
+				INNER JOIN	@Records 
+						ON	RecordID = i.ID
 
 				INNER JOIN labViewStage.header AS h
 						ON h.ID = i.HeaderID
+
+				INNER JOIN	hwt.[Option] AS o
+						ON	o.Name = i.Name
+								AND o.DataType = i.Type
+								AND o.Units = i.Units
 				;
 
-
-	IF	( @@ROWCOUNT = 0 )
-		RETURN 0 ;
-
-
---	3)	INSERT new Option data from temp storage into hwt.Option
-		--	cte is the set of Option data that does not already exist on hwt
-		--	newData is the set of data from cte with ID attached
-		WITH	cte AS
-					(
-					  SELECT	DISTINCT
-								Name		=	tmp.Name
-							  , DataType	=	tmp.Type
-							  , Units		=	tmp.Units
-						FROM	#changes AS tmp
-
-					  EXCEPT
-					  SELECT	Name
-							  , DataType
-							  , Units
-						FROM	hwt.[Option]
-					)
-
-			  , newData AS
-					(
-					  SELECT	DISTINCT
-								OptionID	=	MIN( ID ) OVER( PARTITION BY c.Name, c.Type, c.Units )
-							  , Name		=	cte.Name
-							  , DataType	=	cte.DataType
-							  , Units		=	cte.Units
-						FROM	#changes AS c
-								INNER JOIN cte
-										ON cte.Name = c.Name
-											AND cte.DataType = c.Type
-											AND cte.Units = c.Units
-					)
-
-	  INSERT	hwt.[Option]
-					( OptionID, Name, DataType, Units, UpdatedBy, UpdatedDate )
-	  SELECT	OptionID		=	newData.OptionID
-			  , Name			=	newData.Name
-			  , DataType		=	newData.DataType
-			  , Units			=	newData.Units
-			  , UpdatedBy		=	x.OperatorName
-			  , UpdatedDate		=	SYSDATETIME()
-		FROM	newData
-				CROSS APPLY
-					( SELECT OperatorName FROM #changes AS c WHERE c.ID = newData.OptionID ) AS x
-				;
-
---	4)	Apply OptionID back into temp storage
-	  UPDATE	tmp
-		 SET	OptionID	=	o.OptionID
-		FROM	#changes AS tmp
-				INNER JOIN
-					hwt.[Option] AS o
-						ON o.Name = tmp.Name
-							AND o.DataType = tmp.Type
-							AND o.Units = tmp.Units
-				;
 
 
 --	5)	INSERT header OptionID data from temp storage into hwt.HeaderOptionID
@@ -147,15 +132,6 @@ BEGIN TRY
 			  , OperatorName
 			  , SYSDATETIME()
 		FROM	#changes AS tmp
-				;
-
-
---	7)	DELETE processed records from labViewStage.PublishAudit
-	  DELETE	pa
-		FROM	labViewStage.PublishAudit AS pa
-				INNER JOIN	#changes AS tmp
-						ON	pa.ObjectID = @ObjectID
-							AND tmp.ID = pa.RecordID
 				;
 
 

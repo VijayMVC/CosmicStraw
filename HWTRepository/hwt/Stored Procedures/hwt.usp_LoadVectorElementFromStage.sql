@@ -7,13 +7,10 @@
 
 	Logic Summary
 	-------------
-	1)	EXECUTE sp_getapplock to ensure single-threading for procedure
-	2)	INSERT data into temp storage from labViewStage
-	3)	INSERT new Element data from temp storage into hwt.Element
-	4)	UPDATE ElementID back into temp storage
-	5)	INSERT vector element data from temp storage into hwt.VectorElement
-	6)	UPDATE PublishDate on labViewStage.vector_element
-	7)	EXECUTE sp_releaseapplock to release lock
+	1)	INSERT new Element data from temp storage into hwt
+	2)	INSERT data into temp storage from PublishAudit and labViewStage
+	3)	INSERT vector Element data from temp storage into hwt.VectorElement
+	4)	DELETE processed records from labViewStage.PublishAudit
 
 	Parameters
 	----------
@@ -40,14 +37,53 @@ BEGIN TRY
 
 	 DECLARE	@ObjectID	int	=	OBJECT_ID( N'labViewStage.vector_element' ) ;
 
+	 DECLARE	@Records	TABLE	( RecordID int ) ; 
+	 
+--	7)	DELETE processed records from labViewStage.PublishAudit
+	  DELETE	labViewStage.PublishAudit
+	  OUTPUT	deleted.RecordID 
+	    INTO	@Records( RecordID ) 
+	   WHERE	ObjectID = @ObjectID
+				;
+
+--	3)	INSERT new Element data from temp storage into hwt.Element
+	  INSERT	hwt.Element
+					( Name, DataType, Units, UpdatedBy, UpdatedDate )
+	  SELECT	DISTINCT
+				Name		=	lvs.Name
+			  , DataType	=	lvs.Type
+			  , Units		=	lvs.Units
+			  , UpdatedBy	=	FIRST_VALUE( h.OperatorName ) OVER( PARTITION BY lvs.Name, lvs.Type, lvs.Units ORDER BY lvs.ID )
+			  , UpdatedDate =	SYSDATETIME()
+		FROM	labViewStage.vector_element AS lvs
+				INNER JOIN	@Records 
+						ON	RecordID = lvs.ID
+							
+				INNER JOIN 	labViewStage.vector AS v
+						ON 	v.ID = lvs.VectorID
+	
+				INNER JOIN 	labViewStage.header AS h
+						ON 	h.ID = v.HeaderID 
+
+	   WHERE	NOT EXISTS
+					(
+					  SELECT	1
+						FROM	hwt.Element AS e
+					   WHERE	e.Name = lvs.Name
+								AND e.DataType = lvs.Type
+								AND e.Units = lvs.Units
+					)
+				;
+
+				
 --	2)	INSERT data into temp storage from PublishAudit
 	CREATE TABLE	#changes
 					(
 						ID				int
 					  , VectorID		int
-					  , Name			nvarchar(100)
+					  , Name			nvarchar(250)
 					  , Type			nvarchar(50)
-					  , Units			nvarchar(50)
+					  , Units			nvarchar(250)
 					  , Value			nvarchar(1000)
 					  , NodeOrder		int
 					  , OperatorName	nvarchar(50)
@@ -56,85 +92,34 @@ BEGIN TRY
 					;
 
 	  INSERT	INTO #changes
-					( ID, VectorID, Name, Type, Units, Value, NodeOrder, OperatorName )
+					( ID, VectorID, Name, Type, Units, Value, NodeOrder, OperatorName, ElementID )
 	  SELECT	i.ID
 			  , i.VectorID
 			  , i.Name
 			  , i.Type
 			  , i.Units
 			  , i.Value
-			  , NodeOrder		=	ISNULL( NULLIF( i.NodeOrder, 0 ), i.ID )
+			  , i.NodeOrder		
 			  , h.OperatorName
+			  , e.ElementID
 		FROM	labViewStage.vector_element AS i
-				INNER JOIN	labViewStage.PublishAudit AS pa
-						ON	pa.ObjectID = @ObjectID
-								AND pa.RecordID = i.ID
+				INNER JOIN	@Records 
+						ON	RecordID = i.ID
 
 				INNER JOIN 	labViewStage.vector AS v
 						ON 	v.ID = i.VectorID
 	
 				INNER JOIN 	labViewStage.header AS h
 						ON 	h.ID = v.HeaderID 
+						
+				INNER JOIN	hwt.Element AS e
+						ON	e.Name = i.Name
+								AND e.DataType = i.Type
+								AND e.Units = i.Units
 				;
 
 	IF	( @@ROWCOUNT = 0 )
 		RETURN 0 ;
-
-
---	3)	INSERT new Element data from temp storage into hwt.Element
-		--	cte is the set of AppConst data that does not already exist on hwt
-		--	newData is the set of data from cte with ID attached
-		WITH	cte AS
-				(
-				  SELECT	Name		=	tmp.Name
-						  , DataType	=	tmp.Type
-						  , Units		=	tmp.Units
-					FROM	#changes AS tmp
-
-				  EXCEPT
-				  SELECT	Name
-						  , DataType
-						  , Units
-					FROM	hwt.Element
-				)
-
-			  , newData AS
-					(
-					  SELECT	DISTINCT
-								ElementID	=	MIN( ID ) OVER( PARTITION BY c.Name, c.Type, c.Units )
-							  , Name		=	cte.Name
-							  , DataType	=	cte.DataType
-							  , Units		=	cte.Units
-						FROM	#changes AS c
-								INNER JOIN cte
-										ON cte.Name = c.Name
-											AND cte.DataType = c.Type
-											AND cte.Units = c.Units
-					)
-
-	  INSERT	hwt.Element
-					( ElementID, Name, DataType, Units, UpdatedBy, UpdatedDate )
-	  SELECT	ElementID	=	newData.ElementID
-			  , Name		=	newData.Name
-			  , DataType	=	newData.DataType
-			  , Units		=	newData.Units
-			  , UpdatedBy	=	x.OperatorName
-			  , UpdatedDate =	SYSDATETIME()
-		FROM	newData
-				CROSS APPLY
-					( SELECT OperatorName FROM #changes AS c WHERE c.ID = newData.ElementID ) AS x
-				;
-
-
---	4)	UPDATE ElementID back into temp storage
-	  UPDATE	tmp
-		 SET	ElementID	=	e.ElementID
-		FROM	#changes AS tmp
-				INNER JOIN hwt.Element AS e
-						ON e.Name = tmp.Name
-							AND e.DataType = tmp.Type
-							AND e.Units = tmp.Units
-				;
 
 
 --	5)	INSERT vector element data from temp storage into hwt.VectorElement
@@ -147,21 +132,14 @@ BEGIN TRY
 			  , OperatorName
 			  , SYSDATETIME()
 		FROM	#changes
-				;
-
-
---	7)	DELETE processed records from labViewStage.PublishAudit
-	  DELETE	pa
-		FROM	labViewStage.PublishAudit AS pa
-				INNER JOIN	#changes AS tmp
-						ON	pa.ObjectID = @ObjectID
-							AND tmp.ID = pa.RecordID
+	ORDER BY	VectorID ASC, ElementID ASC
 				;
 
 
 	RETURN 0 ;
 
 END TRY
+
 BEGIN CATCH
 	 DECLARE	@pErrorData xml ;
 

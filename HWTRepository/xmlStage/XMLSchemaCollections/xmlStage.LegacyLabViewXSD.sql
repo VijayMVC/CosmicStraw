@@ -120,11 +120,29 @@ AS N'<?xml version="1.0"?>
 							<xs:element name="error_element" minOccurs="0">
 								<xs:complexType>
 									<xs:sequence>
-										<xs:element name="test_error">
+										<xs:element name="test_error" minOccurs="0" maxOccurs="unbounded" >
 											<xs:complexType>
 												<xs:simpleContent>
 													<xs:extension base="xs:string">
 														<xs:attribute name="code" type="xs:int" use="required"/>
+													</xs:extension>
+												</xs:simpleContent>
+											</xs:complexType>
+										</xs:element>
+										<xs:element name="data_error" minOccurs="0" maxOccurs="unbounded" >
+											<xs:complexType>
+												<xs:simpleContent>
+													<xs:extension base="xs:string">
+														<xs:attribute name="num" type="xs:int" use="required"/>
+													</xs:extension>
+												</xs:simpleContent>
+											</xs:complexType>
+										</xs:element>
+										<xs:element name="input_param_error" minOccurs="0" maxOccurs="unbounded" >
+											<xs:complexType>
+												<xs:simpleContent>
+													<xs:extension base="xs:string">
+														<xs:attribute name="num" type="xs:int" use="required"/>
 													</xs:extension>
 												</xs:simpleContent>
 											</xs:complexType>

@@ -1,11 +1,11 @@
 ﻿  CREATE	TABLE hwt.HeaderEquipment
 				(
-					HeaderID			int			NOT NULL
-				  , EquipmentID			int			NOT NULL
-				  , NodeOrder			int			NOT NULL
-				  , CalibrationDueDate	datetime	NOT NULL
-				  , UpdatedBy			sysname		NOT NULL
-				  , UpdatedDate			datetime	NOT NULL
+					HeaderID			int				NOT NULL
+				  , EquipmentID			int				NOT NULL
+				  , NodeOrder			int				NOT NULL
+				  , CalibrationDueDate	datetime		NOT NULL
+				  , UpdatedBy			sysname			NOT NULL
+				  , UpdatedDate			datetime2(3)	NOT NULL
 
 				  , CONSTRAINT	PK_hwt_HeaderEquipment
 						PRIMARY KEY CLUSTERED( HeaderID ASC, EquipmentID ASC, NodeOrder ASC )

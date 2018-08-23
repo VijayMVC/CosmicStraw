@@ -5,7 +5,7 @@
 				  , NodeOrder	int				NOT NULL
 				  , OptionValue	nvarchar(1000)	NOT NULL
 				  , UpdatedBy	sysname			NOT NULL
-				  , UpdatedDate datetime		NOT NULL
+				  , UpdatedDate datetime2(3)	NOT NULL
 
 				  , CONSTRAINT	PK_hwt_HeaderOption
 						PRIMARY KEY CLUSTERED( HeaderID ASC, OptionID ASC, NodeOrder ASC )

@@ -2,9 +2,9 @@
 				(
 					ID				int				NOT NULL	IDENTITY
 				  , VectorID		int				NOT NULL
-				  , Name			nvarchar(100)
+				  , Name			nvarchar(250)
 				  , Type			nvarchar(50)
-				  , Units			nvarchar(50)
+				  , Units			nvarchar(250)
 				  , Value			nvarchar(1000)
 				  , NodeOrder		int				NOT NULL	DEFAULT 0
 				  , CreatedDate		datetime2(3)	NOT NULL	DEFAULT SYSDATETIME()
@@ -22,11 +22,20 @@
 			;
 GO
 
-  CREATE	INDEX UX_labViewStage_vector_element_VectorID
+  CREATE	INDEX IX_labViewStage_vector_element_VectorID
 				ON labViewStage.vector_element
-					( ID ASC, VectorID ASC )
+					( VectorID ASC )
 	WITH	( DATA_COMPRESSION = PAGE ) 
 	  ON	[HWTIndexes]
-			; 
+			;
+GO
+
+  CREATE	INDEX IX_labViewStage_vector_element_Name
+				ON labViewStage.vector_element
+					( Name ASC, [Type] ASC, Units ASC )
+	WITH	( DATA_COMPRESSION = PAGE )
+	  ON	[HWTIndexes]
+			;
+
 			
 			

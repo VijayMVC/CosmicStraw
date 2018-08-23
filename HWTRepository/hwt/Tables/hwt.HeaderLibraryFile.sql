@@ -1,13 +1,13 @@
 ﻿  CREATE	TABLE hwt.HeaderLibraryFile
 				(
-					HeaderID		int			NOT NULL
-				  , LibraryFileID	int			NOT NULL
-				  , NodeOrder		int			NOT NULL
-				  , UpdatedBy		sysname		NOT NULL
-				  , UpdatedDate		datetime	NOT NULL
+					HeaderID		int				NOT NULL
+				  , LibraryFileID	int				NOT NULL
+				  , NodeOrder		int				NOT NULL
+				  , UpdatedBy		sysname			NOT NULL
+				  , UpdatedDate		datetime2(3)	NOT NULL
 
 				  , CONSTRAINT	PK_hwt_HeaderLibraryFile
-						PRIMARY KEY CLUSTERED( HeaderID ASC, LibraryFileID ASC )
+						PRIMARY KEY CLUSTERED( HeaderID ASC, LibraryFileID ASC, NodeOrder ASC )
 						WITH( DATA_COMPRESSION = PAGE )
 						ON [HWTTables]
 

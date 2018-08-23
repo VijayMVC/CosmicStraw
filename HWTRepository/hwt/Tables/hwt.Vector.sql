@@ -1,13 +1,13 @@
 ﻿  CREATE	TABLE hwt.Vector
 				(
-					VectorID		int			NOT NULL
-				  , HeaderID		int			NOT NULL
-				  , VectorNumber	int			NOT NULL
-				  , LoopNumber		int			NOT NULL
-				  , StartTime		datetime
-				  , EndTime			datetime
-				  , UpdatedBy		sysname		NOT NULL
-				  , UpdatedDate		datetime	NOT NULL
+					VectorID		int				NOT NULL
+				  , HeaderID		int				NOT NULL
+				  , VectorNumber	int				NOT NULL
+				  , LoopNumber		int				NOT NULL
+				  , StartTime		datetime2(3)
+				  , EndTime			datetime2(3)
+				  , UpdatedBy		sysname			NOT NULL
+				  , UpdatedDate		datetime2(3)	NOT NULL
 
 				  , CONSTRAINT PK_hwt_Vector
 						PRIMARY KEY CLUSTERED( VectorID ASC )
@@ -26,6 +26,14 @@ GO
   CREATE	UNIQUE INDEX UX_hwt_Vector_Number
 				ON hwt.Vector
 					( HeaderID ASC, VectorNumber ASC, LoopNumber ASC, StartTime ASC )
+	WITH	( DATA_COMPRESSION = PAGE )
+	  ON	[HWTIndexes]
+			;
+GO
+
+  CREATE	INDEX IX_hwt_Vector_VectorID
+				ON hwt.Vector
+					( VectorID ASC )
 	WITH	( DATA_COMPRESSION = PAGE )
 	  ON	[HWTIndexes]
 			;

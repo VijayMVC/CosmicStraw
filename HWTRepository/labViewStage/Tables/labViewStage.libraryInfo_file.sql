@@ -20,3 +20,11 @@
 				)
 			ON	[HWTTables]
 			;
+GO
+
+  CREATE 	INDEX IX_labViewStage_libraryInfo_file_Name 
+				ON labViewStage.libraryInfo_file
+					( FileName ASC, FileRev ASC, Status ASC, HashCode ASC ) 
+	WITH	( DATA_COMPRESSION = PAGE ) 
+	  ON 	[HWTIndexes]
+			; 

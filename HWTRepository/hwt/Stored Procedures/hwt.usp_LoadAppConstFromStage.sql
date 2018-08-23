@@ -7,13 +7,10 @@
 
 	Logic Summary
 	-------------
-	1)	EXECUTE sp_getapplock to ensure single-threading for procedure
-	2)	INSERT data into temp storage from trigger
-	3)	INSERT new AppConst data from temp storage into hwt.AppConst
-	4)	UPDATE AppConstID back into temp storage
-	5)	INSERT header AppConst data from temp storage into hwt.HeaderAppConst
-	6)	UPDATE PublishDate on labViewStage.appConst_element
-	7)	EXECUTE sp_releaseapplock to release lock
+	1)	INSERT new AppConst data from temp storage into hwt
+	2)	INSERT data into temp storage from PublishAudit and labViewStage
+	3)	INSERT header AppConst data from temp storage into hwt.HeaderAppConst
+	4)	DELETE processed records from labViewStage.PublishAudit
 
 
 	Parameters
@@ -42,101 +39,91 @@ BEGIN TRY
 
 	 DECLARE	@ObjectID	int	=	OBJECT_ID( N'labViewStage.appConst_element' ) ;
 
---	2)	INSERT data into temp storage from PublishAudit
-	  CREATE	TABLE #changes
-					(
-						ID				int
-					  , HeaderID		int
-					  , Name			nvarchar(100)
-					  , Type			nvarchar(50)
-					  , Units			nvarchar(50)
-					  , Value			nvarchar(50)
-					  , NodeOrder		int
-					  , OperatorName	nvarchar(1000)
-					  , AppConstID		int
-					)
-				;
+	 DECLARE	@Records	TABLE	( RecordID int ) ;
 
-	  INSERT	#changes
-					( ID, HeaderID, Name, Type, Units, Value, NodeOrder, OperatorName )
-	  SELECT	i.ID
-			  , i.HeaderID
-			  , Name			=	REPLACE( REPLACE( REPLACE( i.Name, '&amp;', '&' ), '&lt;', '<' ), '&gt;', '>' )
-			  , i.Type
-			  , Units			=	REPLACE( REPLACE( REPLACE( i.Units, '&amp;', '&' ), '&lt;', '<' ), '&gt;', '>' )
-			  , Value			=	REPLACE( REPLACE( REPLACE( i.Value, '&amp;', '&' ), '&lt;', '<' ), '&gt;', '>' )
-			  , NodeOrder		=	ISNULL( NULLIF( i.NodeOrder, 0 ), i.ID )
-			  , h.OperatorName
-		FROM	labViewStage.appConst_element AS i
-				INNER JOIN	labViewStage.PublishAudit AS pa
-						ON	pa.ObjectID = @ObjectID
-								AND pa.RecordID = i.ID
 
-				INNER JOIN	labViewStage.header AS h
-						ON	h.ID = i.HeaderID
+--	4)	DELETE processed records from labViewStage.PublishAudit
+	  DELETE	labViewStage.PublishAudit 
+	  OUTPUT	deleted.RecordID
+		INTO	@Records( RecordID )
+	   WHERE	ObjectID = @ObjectID
 				;
 
 	IF	( @@ROWCOUNT = 0 )
 		RETURN 0 ;
 
 
---	3)	INSERT new AppConst data from temp storage into hwt.AppConst
-		--	cte is the set of AppConst data that does not already exist on hwt
-		--	newData is the set of data from cte with ID attached
-		WITH	cte AS
-					(
-					  SELECT	Name		=	tmp.Name
-							  , DataType	=	tmp.Type
-							  , Units		=	tmp.Units
-						FROM	#changes AS tmp
-
-					  EXCEPT
-					  SELECT	Name
-							  , DataType
-							  , Units
-						FROM	hwt.AppConst
-					)
-
-			  , newData AS
-					(
-					  SELECT	DISTINCT
-								AppConstID	=	MIN( ID ) OVER( PARTITION BY c.Name, c.Type, c.Units )
-							  , Name		=	cte.Name
-							  , DataType	=	cte.DataType
-							  , Units		=	cte.Units
-						FROM	#changes AS c
-								INNER JOIN cte
-										ON cte.Name = c.Name
-											AND cte.DataType = c.Type
-											AND cte.Units = c.Units
-					)
-
+--	1)	INSERT new AppConst data from temp storage into hwt
 	  INSERT	hwt.AppConst
-					( AppConstID, Name, DataType, Units, UpdatedBy, UpdatedDate )
-	  SELECT	AppConstID		=	newData.AppConstID
-			  , Name			=	newData.Name
-			  , DataType		=	newData.DataType
-			  , Units			=	newData.Units
-			  , UpdatedBy		=	x.OperatorName
-			  , UpdatedDate		=	SYSDATETIME()
-		FROM	newData
-				CROSS APPLY
-					( SELECT OperatorName FROM #changes AS c WHERE c.ID = newData.AppConstID ) AS x
+					( Name, DataType, Units, UpdatedBy, UpdatedDate )
+	  SELECT	DISTINCT
+				Name		=	lvs.Name
+			  , DataType	=	lvs.Type
+			  , Units		=	lvs.Units
+			  , UpdatedBy	=	FIRST_VALUE( h.OperatorName ) OVER( PARTITION BY lvs.Name, lvs.Type, lvs.Units ORDER BY lvs.ID )
+			  , UpdatedDate	=	SYSDATETIME()
+		FROM	labViewStage.appConst_element AS lvs
+				INNER JOIN	@Records
+						ON	RecordID = lvs.ID
+
+				INNER JOIN	labViewStage.header AS h
+						ON	h.ID = lvs.HeaderID
+
+	   WHERE	NOT EXISTS
+					(
+					  SELECT	1
+						FROM	hwt.AppConst AS ac
+					   WHERE	ac.Name = lvs.Name
+								AND ac.DataType = lvs.Type
+								AND ac.Units = lvs.Units
+					)
 				;
 
 
---	4)	UPDATE AppConstID back into temp storage
-	  UPDATE	tmp
-		 SET	AppConstID	=	ac.AppConstID
-		FROM	#changes AS tmp
-				INNER JOIN hwt.AppConst AS ac
-						ON ac.Name = tmp.Name
-							AND ac.DataType = tmp.Type
-							AND ac.Units = tmp.Units
+--	2)	INSERT data into temp storage from PublishAudit and labViewStage
+	  CREATE	TABLE #changes
+					(
+						ID				int
+					  , HeaderID		int
+					  , Name			nvarchar(250)
+					  , Type			nvarchar(50)
+					  , Units			nvarchar(250)
+					  , Value			nvarchar(1000)
+					  , NodeOrder		int
+					  , OperatorName	nvarchar(50)
+					  , AppConstID		int
+					)
+				;
+
+	  INSERT	#changes
+					(
+						ID, HeaderID, Name, Type, Units, Value
+							, NodeOrder, OperatorName, AppConstID
+					)
+	  SELECT	i.ID
+			  , i.HeaderID
+			  , i.Name
+			  , i.Type
+			  , i.Units
+			  , i.Value
+			  , i.NodeOrder
+			  , h.OperatorName
+			  , ac.AppConstID
+		FROM	labViewStage.appConst_element AS i
+				INNER JOIN	@Records
+						ON	RecordID = i.ID
+
+				INNER JOIN	labViewStage.header AS h
+						ON	h.ID = i.HeaderID
+
+				INNER JOIN	hwt.AppConst AS ac
+						ON	ac.Name = i.Name
+							AND ac.DataType = i.Type
+							AND ac.Units = i.Units
 				;
 
 
---	5)	INSERT header AppConst data from temp storage into hwt.HeaderAppConst
+--	3)	INSERT header AppConst data from temp storage into hwt.HeaderAppConst
 	  INSERT	hwt.HeaderAppConst
 					( HeaderID, AppConstID, NodeOrder, AppConstValue, UpdatedBy, UpdatedDate )
 
@@ -147,15 +134,6 @@ BEGIN TRY
 			  , OperatorName
 			  , SYSDATETIME()
 		FROM	#changes
-				;
-
-
---	7)	DELETE processed records from labViewStage.PublishAudit
-	  DELETE	pa
-		FROM	labViewStage.PublishAudit AS pa
-				INNER JOIN	#changes AS tmp
-						ON	pa.ObjectID = @ObjectID
-							AND tmp.ID = pa.RecordID
 				;
 
 

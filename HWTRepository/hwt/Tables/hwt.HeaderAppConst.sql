@@ -5,7 +5,7 @@
 				  , NodeOrder		int				NOT NULL
 				  , AppConstValue	nvarchar(1000)	NOT NULL
 				  , UpdatedBy		sysname			NOT NULL
-				  , UpdatedDate		datetime		NOT NULL
+				  , UpdatedDate		datetime2(3)	NOT NULL
 
 				  , CONSTRAINT	PK_hwt_HeaderAppConst
 						PRIMARY KEY CLUSTERED( HeaderID ASC, AppConstID ASC, NodeOrder ASC )

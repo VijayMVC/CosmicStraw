@@ -32,7 +32,7 @@ BEGIN TRY
 			  , i.HeaderID
 			  , i.VectorNum
 			  , i.Loop
-			  , ReqID			=	REPLACE( REPLACE( REPLACE( i.ReqID, '&amp;', '&' ), '&lt;', '<' ), '&gt;', '>' )
+			  , i.ReqID			
 			  , i.StartTime
 			  , i.EndTime
 			  , i.CreatedDate
@@ -43,7 +43,6 @@ BEGIN TRY
 
 --	2)	EXECUTE proc that loads vector data into repository
 	 EXECUTE	hwt.usp_LoadVectorFromStage ;
-
 
 	RETURN ;
 
@@ -59,7 +58,7 @@ BEGIN CATCH
 												FROM	inserted
 														FOR XML PATH( 'inserted' ), TYPE, ELEMENTS XSINIL
 											)
-											FOR XML PATH( 'trg_vector_element' ), TYPE
+											FOR XML PATH( 'trg_vector' ), TYPE
 								)
 				;
 

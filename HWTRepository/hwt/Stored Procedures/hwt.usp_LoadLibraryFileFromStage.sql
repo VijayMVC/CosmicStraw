@@ -40,6 +40,56 @@ SET XACT_ABORT, NOCOUNT ON ;
 BEGIN TRY
 
 	 DECLARE	@ObjectID	int	=	OBJECT_ID( N'labViewStage.libraryInfo_file' ) ;
+	 
+	 DECLARE 	@Records	TABLE	( RecordID int ) ; 
+
+	 
+--	7)	DELETE processed records from labViewStage.PublishAudit
+	  DELETE	labViewStage.PublishAudit
+	  OUTPUT 	deleted.RecordID 	  
+	    INTO	@Records( RecordID ) 
+	   WHERE 	ObjectID = @ObjectID
+				;
+
+	IF	( @@ROWCOUNT = 0 )
+		RETURN 0 ;
+
+		
+--	2)	INSERT new Library File data from temp storage into hwt.LibraryFile
+	  INSERT	hwt.LibraryFile
+					( FileName, FileRev, Status, HashCode, UpdatedBy, UpdatedDate )
+	  SELECT	DISTINCT 
+	  		    FileName		=	lvs.FileName
+			  , FileRev			=	lvs.FileRev
+			  , Status			=	lvs.Status
+			  , HashCode		=	lvs.HashCode
+			  , UpdatedBy		=	FIRST_VALUE( h.OperatorName ) OVER	( 	
+																			PARTITION BY	lvs.FileName
+																						  , lvs.FileRev
+																						  , lvs.Status
+																						  , lvs.HashCode 
+																			ORDER BY 		lvs.ID 
+																		)
+																		
+			  , UpdatedDate		=	SYSDATETIME()
+		FROM	labViewStage.libraryInfo_file AS lvs
+				INNER JOIN	@Records
+						ON	RecordID = lvs.ID
+
+				INNER JOIN	labViewStage.header AS h
+						ON	h.ID = lvs.HeaderID
+
+	   WHERE	NOT EXISTS
+					(
+					  SELECT	1
+						FROM	hwt.LibraryFile AS lf
+					   WHERE	lf.FileName = lvs.FileName
+								AND lf.FileRev = lvs.FileRev
+								AND lf.Status = lvs.Status
+								AND lf.HashCode = lvs.HashCode
+					)
+				;
+
 
 --	2)	INSERT data into temp storage from PublishAudit
 	CREATE TABLE	#changes
@@ -57,89 +107,29 @@ BEGIN TRY
 
 
 	  INSERT	INTO #changes
-					( ID, HeaderID, FileName, FileRev, Status, HashCode, NodeOrder, OperatorName )
+					( ID, HeaderID, FileName, FileRev, Status, HashCode, NodeOrder, OperatorName, LibraryFileID )
 	  SELECT	i.ID
 			  , i.HeaderID
 			  , i.FileName
 			  , i.FileRev
 			  , i.Status
 			  , i.HashCode
-			  , NodeOrder		=	ISNULL( NULLIF( i.NodeOrder, 0 ), i.ID )
+			  , i.NodeOrder		
 			  , h.OperatorName
+			  , lf.LibraryFileID
 		FROM	labViewStage.libraryInfo_file AS i
-				INNER JOIN	labViewStage.PublishAudit AS pa
-						ON	pa.ObjectID = @ObjectID
-								AND pa.RecordID = i.ID
+				INNER JOIN	@Records 
+						ON	RecordID = i.ID
 
 				INNER JOIN labViewStage.header AS h
 						ON h.ID = i.HeaderID
+
+				INNER JOIN	hwt.LibraryFile AS lf
+						ON	lf.FileName = i.FileName
+								AND lf.FileRev = i.FileRev
+								AND lf.Status = i.Status
+								AND lf.HashCode = i.HashCode
 				;
-
-	IF	( @@ROWCOUNT = 0 )
-		RETURN 0 ;
-
-
---	2)	INSERT new Library File data from temp storage into hwt.LibraryFile
-		--	cte is the set of AppConst data that does not already exist on hwt
-		--	newData is the set of data from cte with ID attached
-		WITH	cte AS
-				(
-					  SELECT	FileName
-							  , FileRev
-							  , Status
-							  , HashCode
-						FROM	#changes
-
-					  EXCEPT
-					  SELECT	FileName
-							  , FileRev
-							  , Status
-							  , HashCode
-						FROM	hwt.LibraryFile
-				)
-
-			  , newData AS
-					(
-					  SELECT	DISTINCT
-								LibraryFileID	=	MIN( ID ) OVER( PARTITION BY c.FileName, c.FileRev, c.Status, c.HashCode )
-							  , FileName		=	cte.FileName
-							  , FileRev			=	cte.FileRev
-							  , Status			=	cte.Status
-							  , HashCode		=	cte.HashCode
-						FROM	#changes AS c
-								INNER JOIN cte
-										ON cte.FileName = c.FileName
-											AND cte.FileRev = c.FileRev
-											AND cte.Status = c.Status
-											AND cte.HashCode = c.HashCode
-					)
-
-	  INSERT	hwt.LibraryFile
-					( LibraryFileID, FileName, FileRev, Status, HashCode, UpdatedBy, UpdatedDate )
-	  SELECT	LibraryFileID	=	newData.LibraryFileID
-			  , FileName		=	newData.FileName
-			  , FileRev			=	newData.FileRev
-			  , Status			=	newData.Status
-			  , HashCode		=	newData.HashCode
-			  , UpdatedBy		=	x.OperatorName
-			  , UpdatedDate		=	SYSDATETIME()
-		FROM	newData
-				CROSS APPLY
-					( SELECT OperatorName FROM #changes AS c WHERE c.ID = newData.LibraryFileID ) AS x
-				;
-
-
---	3)	Apply LibraryFileID back into temp storage
-	  UPDATE	tmp
-		 SET	LibraryFileID	=	l.LibraryFileID
-		FROM	#changes AS tmp
-				INNER JOIN hwt.LibraryFile AS l
-						ON l.FileName = tmp.FileName
-							AND l.FileRev = tmp.FileRev
-							AND l.Status = tmp.Status
-							AND l.HashCode = tmp.HashCode
-				;
-
 
 --	4)	INSERT header libraryFile data from temp storage into hwt.HeaderLibraryFile
 	  INSERT	hwt.HeaderLibraryFile
@@ -153,13 +143,6 @@ BEGIN TRY
 				;
 
 
---	7)	DELETE processed records from labViewStage.PublishAudit
-	  DELETE	pa
-		FROM	labViewStage.PublishAudit AS pa
-				INNER JOIN	#changes AS tmp
-						ON	pa.ObjectID = @ObjectID
-							AND tmp.ID = pa.RecordID
-				;
 
 
 	RETURN 0 ;

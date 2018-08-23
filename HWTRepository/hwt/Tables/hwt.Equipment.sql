@@ -1,11 +1,11 @@
 ﻿  CREATE	TABLE hwt.Equipment
 				(
-					EquipmentID			int				NOT NULL
+					EquipmentID			int				NOT NULL	IDENTITY
 				  , Asset				nvarchar(50)	NOT NULL
-				  , Description			nvarchar(100)	NOT NULL
+				  , Description			nvarchar(250)	NOT NULL
 				  , CostCenter			nvarchar(50)	NOT NULL
 				  , UpdatedBy			sysname			NOT NULL
-				  , UpdatedDate			datetime		NOT NULL
+				  , UpdatedDate			datetime2(3)	NOT NULL
 
 				  , CONSTRAINT PK_hwt_Equipment
 						PRIMARY KEY CLUSTERED( EquipmentID ASC )

@@ -5,7 +5,7 @@
 				  , NodeOrder		int				NOT NULL
 				  , ElementValue	nvarchar(1000)	NOT NULL
 				  , UpdatedBy		sysname			NOT NULL
-				  , UpdatedDate		datetime		NOT NULL
+				  , UpdatedDate		datetime2(3)	NOT NULL
 
 				  , CONSTRAINT PK_hwt_VectorElement
 						PRIMARY KEY CLUSTERED( VectorID ASC, ElementID ASC, NodeOrder ASC )

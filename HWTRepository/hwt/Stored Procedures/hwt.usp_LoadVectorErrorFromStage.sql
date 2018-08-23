@@ -35,29 +35,36 @@ SET XACT_ABORT, NOCOUNT ON ;
 
 BEGIN TRY
 
-	 DECLARE	@updates	table	( ID	int ) ;
-
 	 DECLARE	@ObjectID	int	=	OBJECT_ID( N'labViewStage.error_element' ) ;
 
+	 DECLARE 	@Records	TABLE	( RecordID int ) ; 
+
+--	7)	DELETE processed records from labViewStage.PublishAudit
+	  DELETE	labViewStage.PublishAudit
+	  OUTPUT	deleted.RecordID 
+	    INTO	@Records( RecordID ) 
+	   WHERE	ObjectID = @ObjectID
+				;
+
+				
 --	2)	INSERT error data from labViewStage into hwt.VectorError
 	  INSERT	hwt.VectorError
-					( VectorErrorID, VectorID, ErrorType, ErrorCode, ErrorText, ErrorSequenceNumber, UpdatedBy, UpdatedDate )
-
-	  OUTPUT	inserted.VectorErrorID
-				INTO @updates( ID )
+					( 
+						VectorErrorID, VectorID, ErrorType, ErrorCode, ErrorText
+							, ErrorSequenceNumber, UpdatedBy, UpdatedDate 
+					)
 
 	  SELECT	i.ID
 			  , i.VectorID
 			  , i.ErrorType
 			  , i.ErrorCode
 			  , i.ErrorText
-			  , ErrorSequenceNumber	=	ISNULL( NULLIF( i.NodeOrder, 0 ), i.ID )
+			  , ErrorSequenceNumber	=	i.NodeOrder
 			  , h.OperatorName
 			  , SYSDATETIME()
 		FROM	labViewStage.error_element AS i
-				INNER JOIN	labViewStage.PublishAudit AS pa
-						ON	pa.ObjectID = @ObjectID
-								AND pa.RecordID = i.ID
+				INNER JOIN	@Records 
+						ON	RecordID = i.ID
 
 				INNER JOIN
 					labViewStage.vector AS v
@@ -67,19 +74,6 @@ BEGIN TRY
 					labViewStage.header AS h
 						ON h.ID = v.HeaderID
 				;
-
-	IF	( @@ROWCOUNT = 0 )
-		RETURN 0 ;
-
-
---	7)	DELETE processed records from labViewStage.PublishAudit
-	  DELETE	pa
-		FROM	labViewStage.PublishAudit AS pa
-				INNER JOIN	@updates AS tmp
-						ON	pa.ObjectID = @ObjectID
-							AND tmp.ID = pa.RecordID
-				;
-
 
 	RETURN 0 ;
 
@@ -92,9 +86,8 @@ BEGIN CATCH
 								  SELECT	(
 											  SELECT	lvs.*
 												FROM	labViewStage.error_element AS lvs
-														INNER JOIN	labViewStage.PublishAudit AS pa 
-																ON	pa.ObjectID = @ObjectID 
-																		AND pa.RecordID = lvs.ID
+														INNER JOIN	@Records
+																ON	RecordID = lvs.ID
 														FOR XML PATH( 'inserted' ), TYPE, ELEMENTS XSINIL
 											)
 											FOR XML PATH( 'usp_LoadVectorErrorFromStage' ), TYPE

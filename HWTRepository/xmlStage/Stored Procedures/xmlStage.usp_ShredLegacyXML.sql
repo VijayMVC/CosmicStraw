@@ -226,7 +226,7 @@ BEGIN TRY
 							  , VectorNum	=	vector.xmlData.value( 'num[1]', 'int' )
 							  , Loop		=	ISNULL( vector.xmlData.value( 'Loop[1]', 'int' ), 1 )
 							  , StartTime	=	vector.xmlData.value( 'Timestamp/StartTime[1]', 'nvarchar(50)' )										  
-							  , ErrorCode	=	error_element.xmlData.value( 'test_error/@code[1]', 'int' )
+							  , ErrorCode	=	error_element.xmlData.value( ' ( test_error/@code ) [1]', 'int' )
 							  , ErrorText	=	error_element.xmlData.value( 'test_error[1]', 'nvarchar(max)' )
 						FROM	@xmlData.nodes( 'root/vector' ) AS vector( xmlData )
 								CROSS APPLY vector.xmlData.nodes('error_element') AS error_element( xmlData )

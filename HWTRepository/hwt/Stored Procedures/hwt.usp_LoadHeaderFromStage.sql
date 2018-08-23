@@ -76,14 +76,14 @@ BEGIN TRY
 			  , hwtData.FinishTime			=	NULLIF( CONVERT( datetime, i.FinishTime, 109 ), '1900-01-01' )
 			  , hwtData.Duration			=	i.TestDuration
 			  , hwtData.TestStationName		=	i.TestStationID
-			  , hwtData.TestName			=	i.TestName
+			  , hwtData.TestName			=	REPLACE( REPLACE( REPLACE( REPLACE( REPLACE( i.TestName, '&apos;', '''' ), '&lt;', '<' ), '&gt;', '>' ), '&quot;', '"' ), '&amp;', '&' )
 			  , hwtData.TestConfigFile		=	i.TestConfigFile
 			  , hwtData.TestCodePath		=	i.TestCodePathName
 			  , hwtData.TestCodeRevision	=	i.TestCodeRev
 			  , hwtData.HWTSysCodeRevision	=	i.HWTSysCodeRev
 			  , hwtData.KdrivePath			=	i.KdrivePath
-			  , hwtData.Comments			=	i.Comments
-			  , hwtData.ExternalFileInfo	=	i.ExternalFileInfo
+			  , hwtData.Comments			=	REPLACE( REPLACE( REPLACE( REPLACE( REPLACE( i.Comments, '&apos;', '''' ), '&lt;', '<' ), '&gt;', '>' ), '&quot;', '"' ), '&amp;', '&' )
+			  , hwtData.ExternalFileInfo	=	REPLACE( REPLACE( REPLACE( REPLACE( REPLACE( i.ExternalFileInfo, '&apos;', '''' ), '&lt;', '<' ), '&gt;', '>' ), '&quot;', '"' ), '&amp;', '&' )
 			  , hwtData.UpdatedBy			=	i.OperatorName
 			  , hwtData.UpdatedDate			=	SYSDATETIME()
 		FROM	hwt.Header AS hwtData
@@ -106,14 +106,14 @@ BEGIN TRY
 			  , FinishTime			=	NULLIF( CONVERT( datetime, i.FinishTime, 109 ), '1900-01-01' )
 			  , Duration			=	i.TestDuration
 			  , TestStationName		=	i.TestStationID
-			  , TestName			=	i.TestName
+			  , TestName			=	REPLACE( REPLACE( REPLACE( REPLACE( REPLACE( i.TestName, '&apos;', '''' ), '&lt;', '<' ), '&gt;', '>' ), '&quot;', '"' ), '&amp;', '&' )
 			  , TestConfigFile		=	i.TestConfigFile
 			  , TestCodePath		=	i.TestCodePathName
 			  , TestCodeRevision	=	i.TestCodeRev
 			  , HWTSysCodeRevision	=	i.HWTSysCodeRev
 			  , KdrivePath			=	i.KdrivePath
-			  , Comments			=	i.Comments
-			  , ExternalFileInfo	=	i.ExternalFileInfo
+			  , Comments			=	REPLACE( REPLACE( REPLACE( REPLACE( REPLACE( i.Comments, '&apos;', '''' ), '&lt;', '<' ), '&gt;', '>' ), '&quot;', '"' ), '&amp;', '&' )
+			  , ExternalFileInfo	=	REPLACE( REPLACE( REPLACE( REPLACE( REPLACE( i.ExternalFileInfo, '&apos;', '''' ), '&lt;', '<' ), '&gt;', '>' ), '&quot;', '"' ), '&amp;', '&' )
 			  , UpdatedBy			=	i.OperatorName
 			  , UpdatedDate			=	SYSDATETIME()
 		FROM	#inserted AS i

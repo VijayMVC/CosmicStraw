@@ -4,7 +4,7 @@
 				  , TagID		int				NOT NULL
 				  , NodeOrder	int				NOT NULL
 				  , UpdatedBy	sysname			NOT NULL
-				  , UpdatedDate datetime		NOT NULL
+				  , UpdatedDate datetime2(3)	NOT NULL
 
 				  , CONSTRAINT	PK_hwt_VectorRequirement
 						PRIMARY KEY CLUSTERED( VectorID, TagID )

@@ -1,4 +1,4 @@
-﻿CREATE PROCEDURE [hwt].[usp_GetDatasetXML]
+﻿CREATE	PROCEDURE hwt.usp_GetDatasetXML
 			(
 				@pHeaderID	nvarchar(max)
 			)
@@ -155,15 +155,12 @@ BEGIN TRY
 						ON	t.TagID = vr.TagID
 				;
 
-			
-				
 --	5)	SELECT dataset name and XML representation for each Header.HeaderID value in dataset.
 --			NCHAR(92) is the '\' character, using the actual character corrupts the code editor syntax highlighting
 	  SELECT	DatasetName =	RIGHT( ResultFileName, CHARINDEX( NCHAR(92), REVERSE( h.ResultFileName ) + NCHAR(92) ) - 1 )
 			  , DatasetXML	=	(
 								  SELECT	(
-											  SELECT	[@ID]				=	h2.HeaderID
-													  , Result_File			=	h2.ResultFileName
+											  SELECT	Result_File			=	h2.ResultFileName
 													  , Start_Time			=	FORMAT( h2.StartTime, 'MMM dd, yyyy HH:mm' )
 													  , Finish_Time			=	FORMAT( h2.FinishTime, 'MMM dd, yyyy HH:mm' )
 													  , Test_Duration		=	h2.Duration
@@ -264,7 +261,7 @@ BEGIN TRY
 																							ON	ha.AppConstID = ac.AppConstID
 																		   WHERE	ha.HeaderID = h2.HeaderID
 																		ORDER BY	ha.NodeOrder
-																					FOR XML PATH( 'AppConst_element' ), TYPE
+																					FOR XML PATH( 'appConst_element' ), TYPE
 																		)
 																		FOR XML PATH(''), TYPE
 															) AS options( xmlData )
@@ -292,7 +289,7 @@ BEGIN TRY
 													  , ( SELECT vector_element.xmlData )
 													  , ( SELECT ReqID.xmlData )
 													  , ( SELECT result_element.xmlData )
-													  ,  error_element	=	CONVERT( xml, NULLIF( CONVERT( nvarchar(max), error_element.xmlData) , '' ) )
+													  , error_element	=	error_element.xmlData
 													  , Timestamp		=	Timestamp.xmlData
 												FROM	hwt.Vector AS v
 
@@ -339,47 +336,23 @@ BEGIN TRY
 														-- result_element XML
 														OUTER APPLY
 															(
-																  SELECT	name	=	r.Name
-																	      , type	=	r.DataType
-																	  	  , ( SELECT value.xmlData )
-																		  , units	=	r.Units
-																	FROM	hwt.Result AS r
-																			INNER JOIN	hwt.VectorResult AS vr
-																					ON	vr.ResultID = r.ResultID
-																																	
-																			OUTER APPLY
-																				(
-																					  SELECT	value	
-																						FROM
-																							(
-																								  SELECT 	value	=	vr2.ResultValue
-																									FROM	hwt.VectorResultValue AS vr2
-																								   WHERE	vr2.VectorResultID = vr.VectorResultID
-																																	   
-																								UNION ALL 
-																								  SELECT	vr3.ResultValue
-																									FROM	hwt.VectorResultExtended AS vr3
-																								   WHERE	vr3.VectorResultID = vr.VectorResultID
-																												AND vr.IsExtended = 1 
-																												AND vr.IsArray = 0 
-																																									
-																								UNION ALL
-																								  SELECT 	value
-																									FROM 	( 
-																												  SELECT 	TOP 100 PERCENT 
-																															x.[Key]
-																														  , x.Value 
-																													FROM 	hwt.VectorResultExtended AS vr4
-																															CROSS APPLY OPENJSON( vr4.ResultValue ) AS x
-																													
-																												   WHERE	vr4.VectorResultID = vr.VectorResultID
-																																AND vr.IsArray = 1 
-																												ORDER BY	x.[Key] 
-																											)  AS y 
-																							) as z
-																							FOR XML PATH( '' ), TYPE
-																			) AS value( xmlData )
-																WHERE	vr.VectorID = v.VectorID
+															  SELECT	name	=	r.Name
+																	  , type	=	r.DataType
+																	  , units	=	r.Units
+																	  , (
+																		  SELECT	value = vr2.ResultValue
+																			FROM	hwt.VectorResult AS vr2
+																		   WHERE	vr2.VectorID = vr.VectorID
+																						AND vr2.ResultID = vr.ResultID
+																						AND vr2.NodeOrder = vr.NodeOrder
+																		ORDER BY	vr2.ResultN
+																					FOR XML PATH( '' ), TYPE
+																		)
+																FROM	hwt.Result AS r
+																		INNER JOIN	hwt.VectorResult AS vr
+																				ON	vr.ResultID = r.ResultID
+															   WHERE	vr.VectorID = v.VectorID
+																		AND vr.ResultN = 1
 															ORDER BY	vr.NodeOrder
 																		FOR XML PATH( 'result_element' ), TYPE
 															) AS result_element( xmlData )
@@ -387,40 +360,30 @@ BEGIN TRY
 														-- error_element XML
 														OUTER APPLY
 															(
-															  SELECT	( SELECT test_error.xmlData )
-																	  , ( SELECT data_error.xmlData )
-																	  , ( SELECT input_param_error.xmlData )
-
-																FROM	( SELECT NULL ) AS z(z)
-																		OUTER APPLY
-																			(
-																			  SELECT	[test_error/@code]	=	e.ErrorCode
-																					  , test_error			=	e.ErrorText
-																				FROM	hwt.VectorError AS e
-																			   WHERE	e.VectorID = v.VectorID
-																							AND e.ErrorType = 1
-																						FOR XML PATH( '' ), TYPE
-																			)	AS test_error( xmlData )
-																		OUTER APPLY
-																			(
-																			  SELECT	[data_error/@num]	=	e.ErrorCode
-																					  , data_error			=	e.ErrorText
-																				FROM	hwt.VectorError AS e
-																			   WHERE	e.VectorID = v.VectorID
-																							AND e.ErrorType = 2
-																						FOR XML PATH( '' ), TYPE
-																			)	AS data_error( xmlData )
-																		OUTER APPLY
-																			(
-																			  SELECT	[input_param_error/@num]	=	e.ErrorCode
-																					  , input_param_error			=	e.ErrorText
-																				FROM	hwt.VectorError AS e
-																			   WHERE	e.VectorID = v.VectorID
-																							AND e.ErrorType = 3
-																						FOR XML PATH( '' ), TYPE
-																			)	AS input_param_error(xmlData)
-																		FOR XML PATH(''), TYPE
-
+															  SELECT	(
+																		  SELECT	[test_error/@code]	=	e.ErrorCode
+																				  , test_error			=	e.ErrorText
+																			FROM	hwt.VectorError AS e
+																		   WHERE	e.VectorID = v.VectorID
+																						AND e.ErrorType = 1 
+																					FOR XML PATH( '' ), TYPE
+																		)
+																	  , (
+																		  SELECT	[data_error/@num]	=	e.ErrorCode
+																				  , data_error			=	e.ErrorText
+																			FROM	hwt.VectorError AS e
+																		   WHERE	e.VectorID = v.VectorID
+																						AND e.ErrorType = 2 
+																					FOR XML PATH( '' ), TYPE
+																		)
+																	  , (
+																		  SELECT	[input_param_error/@num]	=	e.ErrorCode
+																				  , input_param_error			=	e.ErrorText
+																			FROM	hwt.VectorError AS e
+																		   WHERE	e.VectorID = v.VectorID
+																						AND e.ErrorType = 3
+																					FOR XML PATH( '' ), TYPE
+																		)
 															)	AS error_element( xmlData )
 
 														-- Timestamp XML
