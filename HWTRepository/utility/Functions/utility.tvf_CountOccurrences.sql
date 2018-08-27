@@ -1,11 +1,9 @@
-﻿CREATE FUNCTION			utility.tvf_CountOccurrences
-( 
-		@pExpression	NVARCHAR(4000)
-	  , @pPattern		NVARCHAR(4000)	
-)
-
-RETURNS TABLE
-WITH SCHEMABINDING
+﻿CREATE FUNCTION	utility.tvf_CountOccurrences
+					( 
+							@pExpression	NVARCHAR(4000)
+						  , @pPattern		NVARCHAR(4000)	
+					)
+RETURNS TABLE WITH SCHEMABINDING
 /*
 ************************************************************************************************************************************
 
@@ -61,3 +59,5 @@ SELECT 			ItemCount = COUNT(*) --startPos -- , Item = SUBSTRING( @pExpression, s
 FROM   			En
 INNER JOIN 		s ON SUBSTRING( searchTarget, startPos, LEN(@pPattern)) = @pPattern
 ;
+GO
+

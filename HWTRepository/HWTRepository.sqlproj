@@ -166,6 +166,9 @@
     <Folder Include="ErrorHandlerSource" />
     <Folder Include="ErrorHandlerSource\sqleventlog" />
     <Folder Include="Unused Scripts" />
+    <Folder Include="xmlStage\Views" />
+    <Folder Include="labViewStage\FileTables" />
+    <Folder Include="Service Broker\CompareXML" />
   </ItemGroup>
   <ItemGroup>
     <Build Include="Database Triggers\ddlDatabaseTriggerLog.sql" />
@@ -232,7 +235,6 @@
     <Build Include="Security\Schemas\xmlStage.sql" />
     <Build Include="xmlStage\FileTables\xmlStage.LegacyXML_Files.sql" />
     <Build Include="hwt\FileTables\hwt.SupportingFiles.sql" />
-    <Build Include="utility\Functions\utility.ufn_GetDuration.sql" />
     <Build Include="utility\Functions\utility.ufn_SplitString.sql" />
     <Build Include="utility\Stored Procedures\utility.usp_RemoveDatasetFromRepository.sql" />
     <Build Include="utility\Tables\utility.DatabaseLog.sql" />
@@ -243,7 +245,6 @@
     <Build Include="hwt\Stored Procedures\hwt.usp_InsertTagToRepository.sql" />
     <Build Include="hwt\Stored Procedures\hwt.usp_UpdateTagInRepository.sql" />
     <Build Include="xmlStage\Triggers\xmlStage.trg_LegacyXML_Files.sql" />
-    <Build Include="xmlStage\XMLSchemaCollections\xmlStage.LegacyLabViewXSD.sql" />
     <Build Include="Security\Roles\ElevatedUsers.sql" />
     <Build Include="Security\Roles\StandardUsers.sql" />
     <Build Include="Security\Permissions\CONTROL.sql" />
@@ -260,7 +261,6 @@
     <Build Include="archive\Tables\archive.Tag.sql" />
     <Build Include="Security\Schemas\archive.sql" />
     <Build Include="hwt\Stored Procedures\hwt.usp_ScrubSearchInput.sql" />
-    <Build Include="utility\Functions\utility.tvf_CountOccurrences.sql" />
     <Build Include="hwt\Stored Procedures\hwt.usp_GetAssetNumbers.sql" />
     <Build Include="xmlStage\Stored Procedures\xmlStage.usp_LegacyXML_ShredRequest.sql" />
     <Build Include="xmlStage\Stored Procedures\xmlStage.usp_LegacyXML_ShredResponse.sql" />
@@ -319,6 +319,32 @@
     <Build Include="xmlStage\Tables\xmlStage.result_element.sql" />
     <Build Include="xmlStage\Tables\xmlStage.vector.sql" />
     <Build Include="xmlStage\Tables\xmlStage.vector_element.sql" />
+    <Build Include="xmlStage\Stored Procedures\xmlStage.usp_CompareStageData.sql" />
+    <Build Include="xmlStage\Views\xmlStage.vw_appConst_element_Compare.sql" />
+    <Build Include="xmlStage\Views\xmlStage.vw_equipment_element_Compare.sql" />
+    <Build Include="xmlStage\Views\xmlStage.vw_error_element_Compare.sql" />
+    <Build Include="xmlStage\Views\xmlStage.vw_header_Compare.sql" />
+    <Build Include="xmlStage\Views\xmlStage.vw_libraryFile_info_Compare.sql" />
+    <Build Include="xmlStage\Views\xmlStage.vw_option_element_Compare.sql" />
+    <Build Include="xmlStage\Views\xmlStage.vw_result_element_Compare.sql" />
+    <Build Include="xmlStage\Views\xmlStage.vw_vector_Compare.sql" />
+    <Build Include="xmlStage\Views\xmlStage.vw_vector_element_Compare.sql" />
+    <Build Include="utility\Functions\utility.ufn_NumberList.sql" />
+    <Build Include="utility\Functions\utility.tvf_CountOccurrences.sql" />
+    <Build Include="xmlStage\Tables\xmlStage.InputXMLFile.sql" />
+    <Build Include="labViewStage\FileTables\labViewStage.OutputXML_Files.sql" />
+    <Build Include="hwt\FileTables\hwt.ArchiveXML_Files.sql" />
+    <Build Include="labViewStage\Triggers\labViewStage.trg_OutputXML_Files.sql" />
+    <Build Include="Service Broker\CompareXML\CompareXML_Contract.sql" />
+    <Build Include="Service Broker\CompareXML\CompareXML_MessageTypes.sql" />
+    <Build Include="Service Broker\CompareXML\CompareXML_Queues.sql" />
+    <Build Include="Service Broker\CompareXML\CompareXML_Services.sql" />
+    <Build Include="xmlStage\Stored Procedures\xmlStage.usp_CompareXML_Request.sql" />
+    <Build Include="xmlStage\Stored Procedures\xmlStage.usp_CompareXML_Response.sql" />
+    <Build Include="xmlStage\XMLSchemaCollections\xmlStage.LabViewXSD.sql" />
+    <Build Include="xmlStage\Tables\xmlStage.SQLMessage.sql" />
+    <Build Include="xmlStage\Tables\xmlStage.XMLOutputCache.sql" />
+    <Build Include="xmlStage\Stored Procedures\xmlStage.usp_ShredXMLData.sql" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Publish Scripts\HWTRepositoryD.local.publish.xml" />

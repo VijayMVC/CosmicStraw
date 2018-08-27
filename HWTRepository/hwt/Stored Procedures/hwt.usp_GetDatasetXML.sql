@@ -1,7 +1,9 @@
-﻿CREATE PROCEDURE [hwt].[usp_GetDatasetXML]
-			(
-				@pHeaderID	nvarchar(max)
-			)
+﻿CREATE PROCEDURE	hwt.usp_GetDatasetXML
+						(
+							@pHeaderID		nvarchar(max)
+						  , @pCreateOutput	int 			=	1
+						  , @pBuildXML		int				=	0
+						)
 /*
 ***********************************************************************************************************************************
 
@@ -20,14 +22,25 @@
 
 	Parameters
 	----------
-	@pHeaderID	nvarchar(max)	pipe-delimited list of Header.HeaderID values
-								must not be null
-								must contain only HeaderIDs that exists in system
+	@pHeaderID		nvarchar(max)	pipe-delimited list of Header.HeaderID values
+										must not be null
+										must contain only HeaderIDs that exists in system
+	@pCreateOutput	int				Does the procedure produce an output dataset? 
+										defaults to 1 ( create dataset ) 
+										can be supressed if goal is to load cache with data
+	@pBuildXML		int				Will always build XML whether or not data is in cache			
+										defaults to 0 ( never build XML if already exists ) 
 
 	Notes
 	-----
 
 	FOR XML PATH usage notes:
+	
+	TRANSACTION ISOLATION LEVEL READ UNCOMMITTED
+		--	used here to prevent contention with other working operations
+		--	when dataset XML is being extracted, it is unlikely that data for the dataset is being inserted
+			--	if data *is* being inserted, the results will be up-to-the-minute
+			--	if data is being inserted, the dataset is still considered In-Progress
 
 
 	Revision
@@ -35,12 +48,15 @@
 	carsoc3		2018-04-27		production release
 	carsoc3		2018-08-31		labViewwStage messaging architecture
 								--	updated column names
+								--	added caching to allow for re-use of recent datasets
 
 ***********************************************************************************************************************************
 */
 AS
 
 SET XACT_ABORT, NOCOUNT ON ;
+
+SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED ; 
 
  DECLARE	@p1					sql_variant
 		  , @p2					sql_variant
@@ -52,15 +68,35 @@ SET XACT_ABORT, NOCOUNT ON ;
 			;
 
   SELECT	@pInputParameters	=	(
-									  SELECT	[usp_GetDatasetXML.@pHeaderID]	=	@pHeaderID
+									  SELECT	[usp_GetDatasetXML.@pHeaderID]		=	@pHeaderID
+											  , [usp_GetDatasetXML.@pCreateOutput]	=	@pCreateOutput
+											  , [usp_GetDatasetXML.@pBuildXML]		=	@pBuildXML
+									  
 												FOR JSON PATH, WITHOUT_ARRAY_WRAPPER, INCLUDE_NULL_VALUES
 									)
 			;
 
 BEGIN TRY
 
-	 DECLARE	@recordCount	int ;
-
+	 DECLARE	@recordCount		int 
+			  , @inProgressTagID	int 
+				; 
+				
+	 DECLARE	@DatasetXML		TABLE	(		
+											HeaderID		int 
+										  , DatasetName		nvarchar(1000)
+										  , DatasetXML 		xml ( CONTENT xmlStage.LabViewXSD )
+										) 
+				; 
+				
+	 DECLARE	@Headers		TABLE	(		
+											HeaderID		int 
+										) 
+				; 
+				
+				
+				
+				
 --	1)	Parse input parameter into temp storage
 	DROP TABLE IF EXISTS #headers ;
 
@@ -115,16 +151,37 @@ BEGIN TRY
 											  , @p3			=	@pInputParameters
 					;
 		END
+		
+		
+--	3)	When @pBuildXML is set to true, clear any requested datasets out of cache
+	IF(	@pBuildXML = 1 ) 
+	  DELETE	x 
+	    FROM	xmlStage.XMLOutputCache AS x 
+				INNER JOIN 	#headers AS h 
+						ON 	h.HeaderID = x.HeaderID 
+	   WHERE	@pBuildXML = 1
+				; 
 
-
---	3)	Load tags for selected headers into temporary storage
+				
+--	4)	Load datasets that need to be extracted into temp storage
+	  INSERT	@Headers( HeaderID )
+	  SELECT	h.HeaderID 
+	    FROM 	#headers AS h 
+	  
+	  EXCEPT
+	  SELECT 	x.HeaderID 
+	    FROM 	xmlStage.XMLOutputCache AS x 
+				; 
+				
+				
+--	5)	Load tags for selected headers into temporary storage
 	DROP TABLE IF EXISTS #Tags ;
 
 	  SELECT	HeaderID	=	h.HeaderID
 			  , TagType		=	tType.Name
 			  , TagName		=	t.Name
 		INTO	#Tags
-		FROM	#headers AS h
+		FROM	@Headers AS h
 				INNER JOIN	hwt.HeaderTag AS hTag
 						ON	hTag.HeaderID = h.HeaderID
 
@@ -136,15 +193,14 @@ BEGIN TRY
 				;
 
 
-
---	4)	Load ReqIDs for selected datasets into temporary storage
+--	6)	Load ReqIDs for selected datasets into temporary storage
 	DROP TABLE IF EXISTS #ReqIDs ;
 
 	  SELECT	VectorID	=	v.VectorID
 			  , ReqID		=	t.Name
 			  , NodeOrder	=	vr.NodeOrder
 		INTO	#ReqIDs
-		FROM	#headers AS h
+		FROM	@Headers AS h
 				INNER JOIN	hwt.Vector AS v
 						ON	v.HeaderID = h.HeaderID
 
@@ -155,11 +211,13 @@ BEGIN TRY
 						ON	t.TagID = vr.TagID
 				;
 
-			
-				
---	5)	SELECT dataset name and XML representation for each Header.HeaderID value in dataset.
+
+--	7)	SELECT dataset name and XML representation for each Header.HeaderID value in dataset.
 --			NCHAR(92) is the '\' character, using the actual character corrupts the code editor syntax highlighting
-	  SELECT	DatasetName =	RIGHT( ResultFileName, CHARINDEX( NCHAR(92), REVERSE( h.ResultFileName ) + NCHAR(92) ) - 1 )
+	  INSERT 	@DatasetXML
+				  ( HeaderID, DatasetName, DatasetXML ) 
+	  SELECT	HeaderID 	=	h.HeaderID 
+			  , DatasetName =	RIGHT( ResultFileName, CHARINDEX( NCHAR(92), REVERSE( h.ResultFileName ) + NCHAR(92) ) - 1 )
 			  , DatasetXML	=	(
 								  SELECT	(
 											  SELECT	[@ID]				=	h2.HeaderID
@@ -179,7 +237,7 @@ BEGIN TRY
 													  , Test_Code_Rev		=	h2.TestCodeRevision
 													  , HWTSys_Code_Rev		=	h2.HWTSysCodeRevision
 													  , Kdrive_Path			=	h2.KdrivePath
-													  , equipment			=	equipment.xmlData
+													  , equipment			=	ISNULL( equipment.xmlData, '' )
 													  , External_File_Info	=	h2.ExternalFileInfo
 													  , options				=	options.xmlData
 													  , Comments			=	h2.Comments
@@ -441,9 +499,47 @@ BEGIN TRY
 								)
 
 		FROM	hwt.Header AS h
-				INNER JOIN #headers AS tmp
+				INNER JOIN @Headers AS tmp
 						ON tmp.HeaderID = h.HeaderID
 				;
+				
+--	8)	Load output XML into cache for preservation 
+	  SELECT	@inProgressTagID	=	TagID 
+		FROM	hwt.vw_AllTags 
+	   WHERE	TagTypeName = N'Modifier' 
+					AND TagName = N'In-Progress' 
+				; 
+				
+	  INSERT	xmlStage.XMLOutputCache
+					( HeaderID, FileName, DatasetXML )
+	  SELECT 	x.HeaderID, x.DatasetName, x.DatasetXML
+	    FROM 	@DatasetXML AS x 
+				INNER JOIN 	@Headers AS h 
+						ON	h.HeaderID = x.HeaderID 
+	   WHERE 	NOT EXISTS	(
+							  SELECT	1 
+								FROM	hwt.HeaderTag AS ht 
+							   WHERE	ht.HeaderID = h.HeaderID 
+											AND ht.TagID = @inProgressTagID
+							)	
+				; 
+				
+				
+--	9)	Output dataset if desired 
+	IF( @pCreateOutput	=	1 ) 
+	
+		SELECT	DatasetName, DatasetXML FROM @DatasetXML 	
+	 UNION ALL
+	    SELECT 	x.FileName, x.DatasetXML 
+		  FROM 	xmlStage.XMLOutputCache AS x 
+				INNER JOIN	( 
+							  SELECT 	HeaderID FROM #headers
+							  EXCEPT 
+							  SELECT 	HeaderID FROM @Headers 
+							) AS h
+						ON	h.HeaderID = x.HeaderID 
+				; 
+							    
 
 	RETURN 0 ;
 
@@ -461,3 +557,4 @@ BEGIN CATCH
 	RETURN 55555 ;
 
 END CATCH
+

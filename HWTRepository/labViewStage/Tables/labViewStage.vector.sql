@@ -28,3 +28,11 @@ GO
 	WITH	( DATA_COMPRESSION = PAGE )
 	  ON	[HWTIndexes]
 			;
+GO			
+
+  CREATE	UNIQUE INDEX UX_labViewStage_vector
+				ON labViewStage.vector
+					( HeaderID ASC, VectorNum ASC, Loop ASC, StartTime ASC )
+	WITH	( DATA_COMPRESSION = PAGE )
+	  ON	[HWTIndexes]
+			;			

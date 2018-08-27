@@ -1,5 +1,5 @@
 ﻿CREATE XML SCHEMA COLLECTION
-	xmlStage.LegacyLabViewXSD
+	xmlStage.LabViewXSD
 AS N'<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" elementFormDefault="qualified" attributeFormDefault="unqualified">
 	<xs:element name="root">
@@ -13,7 +13,7 @@ AS N'<?xml version="1.0"?>
 							<xs:element name="Finish_Time" type="xs:string"/>
 							<xs:element name="Test_Duration" type="xs:string"/>
 							<xs:element name="Project_Name" type="xs:string"/>
-							<xs:element name="Firmware_Rev" type="xs:unsignedInt"/>
+							<xs:element name="Firmware_Rev" type="xs:string"/>
 							<xs:element name="Hardware_Rev" type="xs:string"/>
 							<xs:element name="Part_SN" type="xs:string"/>
 							<xs:element name="Operator_Name" type="xs:string"/>
@@ -87,6 +87,7 @@ AS N'<?xml version="1.0"?>
 								</xs:complexType>
 							</xs:element>
 						</xs:sequence>
+						<xs:attribute name="ID" type="xs:int"/>
 					</xs:complexType>
 				</xs:element>
 				<xs:element name="vector" minOccurs="0" maxOccurs="unbounded">
@@ -108,8 +109,8 @@ AS N'<?xml version="1.0"?>
 							<xs:element name="result_element" minOccurs="0" maxOccurs="unbounded">
 								<xs:complexType>
 									<xs:sequence>
-										<xs:element name="name" type="xs:string"/>
 										<xs:choice maxOccurs="unbounded">
+											<xs:element name="name" type="xs:string"/>
 											<xs:element name="units" type="xs:string"/>
 											<xs:element name="type" type="xs:string"/>
 											<xs:element name="value" type="xs:string" minOccurs="0" maxOccurs="unbounded"/>
@@ -120,7 +121,7 @@ AS N'<?xml version="1.0"?>
 							<xs:element name="error_element" minOccurs="0">
 								<xs:complexType>
 									<xs:sequence>
-										<xs:element name="test_error" minOccurs="0" maxOccurs="unbounded" >
+										<xs:element name="test_error" minOccurs="0" maxOccurs="unbounded">
 											<xs:complexType>
 												<xs:simpleContent>
 													<xs:extension base="xs:string">
@@ -129,7 +130,7 @@ AS N'<?xml version="1.0"?>
 												</xs:simpleContent>
 											</xs:complexType>
 										</xs:element>
-										<xs:element name="data_error" minOccurs="0" maxOccurs="unbounded" >
+										<xs:element name="data_error" minOccurs="0" maxOccurs="unbounded">
 											<xs:complexType>
 												<xs:simpleContent>
 													<xs:extension base="xs:string">
@@ -138,7 +139,7 @@ AS N'<?xml version="1.0"?>
 												</xs:simpleContent>
 											</xs:complexType>
 										</xs:element>
-										<xs:element name="input_param_error" minOccurs="0" maxOccurs="unbounded" >
+										<xs:element name="input_param_error" minOccurs="0" maxOccurs="unbounded">
 											<xs:complexType>
 												<xs:simpleContent>
 													<xs:extension base="xs:string">
@@ -164,5 +165,6 @@ AS N'<?xml version="1.0"?>
 			</xs:sequence>
 		</xs:complexType>
 	</xs:element>
-</xs:schema>'
+</xs:schema>
+'
 ;
