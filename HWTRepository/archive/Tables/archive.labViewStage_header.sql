@@ -47,5 +47,3 @@ CREATE INDEX
 		WITH( DATA_COMPRESSION = PAGE )
 		ON [HWTIndexes]
 		;
-
-
