@@ -1,6 +1,7 @@
-﻿CREATE TRIGGER	hwt.trg_Tag_insert
-			ON	hwt.Tag
-	INSTEAD OF	INSERT
+﻿CREATE TRIGGER	
+	hwt.trg_Tag_insert
+		ON	hwt.Tag
+		INSTEAD OF	INSERT
 /*
 ***********************************************************************************************************************************
 
@@ -32,26 +33,32 @@ SET XACT_ABORT, NOCOUNT ON ;
 
 BEGIN TRY
 
+	 DECLARE	@duplicateTags	nvarchar(2048)
+			  , @numTags		int
+			  , @duplicateMsg	nvarchar(max) 
+				;
 	--	Throw an error when one or more tags are already present with IsDeleted = 0
-	IF EXISTS( SELECT 1 FROM inserted AS i INNER JOIN hwt.Tag AS t WHERE i.TagID = t.TagID )
-	BEGIN
-
-		 DECLARE	@duplicateTags	nvarchar(max)
-				  , @numTags		int
-				  , @duplicateMsg	nvarchar(max) ;
-
+	  SELECT 	@numTags 	=	COUNT(*) 
+		FROM 	inserted AS i 
+				INNER JOIN hwt.Tag AS t 
+						ON t.TagID = i.TagID
+	   WHERE 	t.IsDeleted = 0 
+				; 
+			
+	IF  ( @numTags > 0 ) 
+  	BEGIN
 		  SELECT	@duplicateTags	=	STUFF
 										(
 											(
 											  SELECT	',' + i.Name
 												FROM	inserted AS i
 														INNER JOIN	hwt.Tag AS t
-																ON ht.TagID = t.TagID
+																ON i.TagID = t.TagID
 											   WHERE	t.IsDeleted = 0
 														FOR XML PATH( '' ), TYPE
 											).value( '.', 'nvarchar(max)' ), 1, 1, ''
-										) ;
-		  SELECT	@numTags = @@ROWCOUNT ;
+										) 
+					;
 
 		IF( @numTags > 1 )
 		  SELECT	@duplicateMsg = 'The following tag already exists: %1' ;
@@ -66,37 +73,66 @@ BEGIN TRY
 					;
 	END
 
+	--	archive any tags that are going to be reset from IsDeleted = 1
+	  INSERT	archive.Tag
+					( TagID, TagTypeID, Name, Description, IsDeleted, UpdatedDate, UpdatedBy, VersionNumber, VersionTimestamp )
+	  SELECT 	TagID				=	i.TagID				
+			  , TagTypeID           =	i.TagTypeID           
+			  , Name                =	i.Name                
+			  , Description         =	t.Description         
+			  , IsDeleted           =	t.IsDeleted           
+			  , UpdatedDate         =	t.UpdatedDate         
+			  , UpdatedBy           =	t.UpdatedBy           
+			  , VersionNumber       =	ISNULL( a.VersionNumber, 0 ) + 1       
+			  , VersionTimestamp    =	SYSDATETIME()
+		FROM	inserted AS i
+				INNER JOIN 	hwt.HeaderTag AS ht 
+						ON 	ht.TagID = i.TagID
+				
+				INNER JOIN	hwt.Tag AS t 
+						ON	t.TagID = i.TagID 
+						
+				OUTER APPLY
+					(
+					  SELECT	VersionNumber = MAX( a.VersionNumber ) 
+						FROM 	archive.Tag AS a 
+					   WHERE	a.TagID = i.TagID
+					) AS a
+				
+	   WHERE	t.IsDeleted = 1
+				;
 
+	
 	--	UPDATE IsDeleted = 0 for any tags that are currently assigned to dataset
 	  UPDATE	t
-
 		 SET	IsDeleted	=	0
 			  , UpdatedBy	=	i.UpdatedBy
 			  , UpdatedDate =	i.UpdatedDate
-			  , Description =	i.Description
+			  , Description =	REPLACE( i.Description, N' -- DELETED', N'' )
 		FROM	hwt.Tag AS t
 				INNER JOIN inserted AS i
-						ON i.TagID = t.TagID ;
+						ON i.TagID = t.TagID 
+	   WHERE	t.IsDeleted = 1
+				;
 
 
 	--	INSERT tags that do not already exist
-	  INSERT	INTO hwt.Tag
+	  INSERT	hwt.Tag
 					(
-						TagID, TagTypeID, Name, Description, IsPermanent
-							, IsDeleted, UpdatedDate, UpdatedBy
+						TagID, TagTypeID, Name, Description,  IsDeleted, UpdatedDate, UpdatedBy
 					)
 
 	  SELECT	TagID			=	i.TagID
 			  , TagTypeID		=	i.TagTypeID
 			  , Name			=	i.Name
 			  , Description		=	i.Description
-			  , IsPermanent		=	i.IsPermanent
 			  , IsDeleted		=	i.IsDeleted
 			  , UpdatedDate		=	i.UpdatedDate
 			  , UpdatedBy		=	i.UpdatedBy
 		FROM	inserted AS i
 	   WHERE	NOT EXISTS
-					( SELECT 1 FROM hwt.Tag AS t WHERE t.TagID = i.TagID ) ;
+					( SELECT 1 FROM hwt.Tag AS t WHERE t.TagID = i.TagID ) 
+				;
 
 END TRY
 
@@ -122,4 +158,6 @@ BEGIN CATCH
 				;
 
 END CATCH
+GO
 
+DISABLE TRIGGER hwt.trg_Tag_insert ON hwt.Tag ; 

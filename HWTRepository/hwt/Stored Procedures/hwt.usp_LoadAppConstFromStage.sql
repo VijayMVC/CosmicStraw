@@ -1,4 +1,5 @@
-﻿CREATE	PROCEDURE hwt.usp_LoadAppConstFromStage
+﻿CREATE PROCEDURE
+	hwt.usp_LoadAppConstFromStage
 /*
 ***********************************************************************************************************************************
 
@@ -37,16 +38,16 @@ SET XACT_ABORT, NOCOUNT ON ;
 
 BEGIN TRY
 
-	 DECLARE	@ObjectID	int	=	OBJECT_ID( N'labViewStage.appConst_element' ) ;
+	 DECLARE	@objectID	int	=	OBJECT_ID( N'labViewStage.appConst_element' ) ;
 
-	 DECLARE	@Records	TABLE	( RecordID int ) ;
+	 DECLARE	@records	TABLE	( RecordID int ) ;
 
 
 --	4)	DELETE processed records from labViewStage.PublishAudit
-	  DELETE	labViewStage.PublishAudit 
+	  DELETE	labViewStage.PublishAudit
 	  OUTPUT	deleted.RecordID
-		INTO	@Records( RecordID )
-	   WHERE	ObjectID = @ObjectID
+		INTO	@records( RecordID )
+	   WHERE	ObjectID = @objectID
 				;
 
 	IF	( @@ROWCOUNT = 0 )
@@ -55,15 +56,15 @@ BEGIN TRY
 
 --	1)	INSERT new AppConst data from temp storage into hwt
 	  INSERT	hwt.AppConst
-					( Name, DataType, Units, UpdatedBy, UpdatedDate )
+					( Name, DataType, Units, CreatedBy, CreatedDate )
 	  SELECT	DISTINCT
 				Name		=	lvs.Name
 			  , DataType	=	lvs.Type
 			  , Units		=	lvs.Units
-			  , UpdatedBy	=	FIRST_VALUE( h.OperatorName ) OVER( PARTITION BY lvs.Name, lvs.Type, lvs.Units ORDER BY lvs.ID )
-			  , UpdatedDate	=	SYSDATETIME()
+			  , CreatedBy	=	FIRST_VALUE( h.OperatorName ) OVER( PARTITION BY lvs.Name, lvs.Type, lvs.Units ORDER BY lvs.ID )
+			  , CreatedDate	=	SYSDATETIME()
 		FROM	labViewStage.appConst_element AS lvs
-				INNER JOIN	@Records
+				INNER JOIN	@records
 						ON	RecordID = lvs.ID
 
 				INNER JOIN	labViewStage.header AS h
@@ -80,41 +81,16 @@ BEGIN TRY
 				;
 
 
---	2)	INSERT data into temp storage from PublishAudit and labViewStage
-	  CREATE	TABLE #changes
-					(
-						ID				int
-					  , HeaderID		int
-					  , Name			nvarchar(250)
-					  , Type			nvarchar(50)
-					  , Units			nvarchar(250)
-					  , Value			nvarchar(1000)
-					  , NodeOrder		int
-					  , OperatorName	nvarchar(50)
-					  , AppConstID		int
-					)
-				;
-
-	  INSERT	#changes
-					(
-						ID, HeaderID, Name, Type, Units, Value
-							, NodeOrder, OperatorName, AppConstID
-					)
-	  SELECT	i.ID
-			  , i.HeaderID
-			  , i.Name
-			  , i.Type
-			  , i.Units
-			  , i.Value
-			  , i.NodeOrder
-			  , h.OperatorName
-			  , ac.AppConstID
+--	3)	INSERT header AppConst data from temp storage into hwt.HeaderAppConst
+	  INSERT	hwt.HeaderAppConst
+					( HeaderID, AppConstID, NodeOrder, AppConstValue )
+	  SELECT	HeaderID		=	i.HeaderID
+			  , AppConstID		=	ac.AppConstID
+			  , NodeOrder		=	i.NodeOrder
+			  , AppConstValue	=	i.Value
 		FROM	labViewStage.appConst_element AS i
-				INNER JOIN	@Records
+				INNER JOIN	@records
 						ON	RecordID = i.ID
-
-				INNER JOIN	labViewStage.header AS h
-						ON	h.ID = i.HeaderID
 
 				INNER JOIN	hwt.AppConst AS ac
 						ON	ac.Name = i.Name
@@ -122,32 +98,20 @@ BEGIN TRY
 							AND ac.Units = i.Units
 				;
 
-
---	3)	INSERT header AppConst data from temp storage into hwt.HeaderAppConst
-	  INSERT	hwt.HeaderAppConst
-					( HeaderID, AppConstID, NodeOrder, AppConstValue, UpdatedBy, UpdatedDate )
-
-	  SELECT	HeaderID
-			  , AppConstID
-			  , NodeOrder
-			  , Value
-			  , OperatorName
-			  , SYSDATETIME()
-		FROM	#changes
-				;
-
-
 	RETURN 0 ;
 
 END TRY
 
 BEGIN CATCH
+
 	 DECLARE	@pErrorData	xml ;
 
 	  SELECT	@pErrorData	=	(
 								  SELECT	(
-											  SELECT	*
-												FROM	#changes
+											  SELECT	lvs.*
+												FROM	labViewStage.appConst_element AS lvs
+														INNER JOIN	@records
+																ON	RecordID = lvs.ID
 														FOR XML PATH( 'changes' ), TYPE, ELEMENTS XSINIL
 											)
 											FOR XML PATH( 'usp_LoadAppConstFromStage' ), TYPE

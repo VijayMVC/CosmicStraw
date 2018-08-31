@@ -1,8 +1,9 @@
-﻿CREATE	PROCEDURE hwt.usp_DeleteTagsFromRepository
-			(
-				@pUserID	sysname			=	NULL
-			  , @pTagID		nvarchar(max)
-			)
+﻿CREATE PROCEDURE
+	hwt.usp_DeleteTagsFromRepository
+		(
+			@pUserID	sysname			=	NULL
+		  , @pTagID		nvarchar(max)
+		)
 /*
 ***********************************************************************************************************************************
 
@@ -34,16 +35,6 @@
 AS
 SET NOCOUNT, XACT_ABORT ON ;
 
- DECLARE	@pInputParameters	nvarchar(4000) ;
-
-  SELECT	@pInputParameters	=	(
-										SELECT	[usp_DeleteTagsFromRepository.@pUserID]		=	@pUserID
-											  , [usp_DeleteTagsFromRepository.@pTagID]		=	@pTagID
-
-												FOR JSON PATH, WITHOUT_ARRAY_WRAPPER, INCLUDE_NULL_VALUES
-									)
-			;
-
 BEGIN TRY
 
 	  DELETE	t
@@ -61,11 +52,21 @@ END TRY
 
 BEGIN CATCH
 
+ DECLARE	@pInputParameters	nvarchar(4000) ;
+
+  SELECT	@pInputParameters	=	(
+										SELECT	[usp_DeleteTagsFromRepository.@pUserID]		=	@pUserID
+											  , [usp_DeleteTagsFromRepository.@pTagID]		=	@pTagID
+
+												FOR JSON PATH, WITHOUT_ARRAY_WRAPPER, INCLUDE_NULL_VALUES
+									)
+			;
+
 	IF @@trancount > 0 ROLLBACK TRANSACTION ;
 
 	EXECUTE		eLog.log_CatchProcessing
 					@pProcID	=	@@PROCID
-				  , @p1			=	@pInputParameters
+				  , @pErrorData	=	@pInputParameters
 				;
 
 	RETURN 55555 ;

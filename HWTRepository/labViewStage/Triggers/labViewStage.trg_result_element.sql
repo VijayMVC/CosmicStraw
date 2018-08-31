@@ -1,6 +1,7 @@
-﻿CREATE TRIGGER	labViewStage.trg_result_element
-			ON	labViewStage.result_element
-		 AFTER	INSERT
+﻿CREATE TRIGGER
+	labViewStage.trg_result_element
+		ON labViewStage.result_element
+		AFTER INSERT
 /*
 ***********************************************************************************************************************************
 
@@ -54,8 +55,8 @@ BEGIN TRY
 				  , @pRecordID	=	@RecordID
 				;
 
-
 END TRY
+
 BEGIN CATCH
 	 DECLARE	@pErrorData xml ;
 
@@ -76,5 +77,4 @@ BEGIN CATCH
 					@pProcID	=	@@PROCID
 				  , @pErrorData =	@pErrorData
 				;
-
 END CATCH

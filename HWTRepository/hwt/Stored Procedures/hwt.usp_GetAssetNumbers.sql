@@ -1,4 +1,5 @@
-﻿CREATE	PROCEDURE hwt.usp_GetAssetNumbers
+﻿CREATE PROCEDURE
+	hwt.usp_GetAssetNumbers
 /*
 ***********************************************************************************************************************************
 
@@ -28,21 +29,24 @@ SET XACT_ABORT, NOCOUNT ON ;
 
 BEGIN TRY
 
+	  SELECT	EquipmentID
+			  , AssetNumber		=	Asset
+		FROM	hwt.Equipment
+	ORDER BY	AssetNumber
+				;
 
-  SELECT	EquipmentID
-		  , AssetNumber			=	Asset
-	FROM	hwt.Equipment
-ORDER BY	AssetNumber ;
-
-  RETURN	0 ;
+	RETURN 0 ;
 
 END TRY
+
 BEGIN CATCH
 
 	IF	( @@TRANCOUNT > 0 )
 		ROLLBACK TRANSACTION ;
 
-	  EXECUTE	eLog.log_CatchProcessing	@pProcID = @@PROCID ;
+	EXECUTE	eLog.log_CatchProcessing
+				@pProcID = @@PROCID
+			;
 
 	RETURN 55555 ;
 

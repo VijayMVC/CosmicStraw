@@ -1,6 +1,7 @@
-﻿CREATE TRIGGER	labViewStage.trg_vector_element
-			ON	labViewStage.vector_element
-		 AFTER	INSERT
+﻿CREATE TRIGGER
+	labViewStage.trg_vector_element
+		ON	labViewStage.vector_element
+		AFTER INSERT
 /*
 ***********************************************************************************************************************************
 
@@ -54,8 +55,8 @@ BEGIN TRY
 				  , @pRecordID	=	@RecordID
 				;
 
-
 END TRY
+
 BEGIN CATCH
 	 DECLARE	@pErrorData xml ;
 

@@ -1,22 +1,23 @@
-CREATE	PROCEDURE eLog.log_ProcessEventLog
-			(
-				@pProcID			int
-			  , @pMessage			nvarchar(2048)
-			  , @pSeverity			tinyint			=	16
-			  , @pMessageID			varchar(36)		=	NULL
-			  , @pRaiserror			bit				=	NULL
-			  , @pErrorNumber		int				=	NULL
-			  , @pErrorProcedure	sysname			=	NULL
-			  , @pErrorLine			int				=	NULL
-			  , @p1					sql_variant		=	NULL
-			  , @p2					sql_variant		=	NULL
-			  , @p3					sql_variant		=	NULL
-			  , @p4					sql_variant		=	NULL
-			  , @p5					sql_variant		=	NULL
-			  , @p6					sql_variant		=	NULL
-			  , @pErrorData			xml				=	NULL
-			  , @pLogID				bigint			=	NULL OUTPUT
-			)
+CREATE PROCEDURE
+	eLog.log_ProcessEventLog
+		(
+			@pProcID			int
+		  , @pMessage			nvarchar(2048)
+		  , @pSeverity			tinyint			=	16
+		  , @pMessageID			varchar(36)		=	NULL
+		  , @pRaiserror			bit				=	NULL
+		  , @pErrorNumber		int				=	NULL
+		  , @pErrorProcedure	sysname			=	NULL
+		  , @pErrorLine			int				=	NULL
+		  , @p1					sql_variant		=	NULL
+		  , @p2					sql_variant		=	NULL
+		  , @p3					sql_variant		=	NULL
+		  , @p4					sql_variant		=	NULL
+		  , @p5					sql_variant		=	NULL
+		  , @p6					sql_variant		=	NULL
+		  , @pErrorData			xml				=	NULL
+		  , @pLogID				bigint			=	NULL OUTPUT
+		)
 /*
 ***********************************************************************************************************************************
 
@@ -62,6 +63,7 @@ CREATE	PROCEDURE eLog.log_ProcessEventLog
 	carsoc3		2018-02-20		Added to alpha release
 	carsoc3		2018-04-27		Original production release
 	carsoc3		2018-08-31		enhanced error handling
+									LabVIEW messaging architecture
 
 
 	Original comments
@@ -155,9 +157,9 @@ BEGIN TRY
 	END
 
 	ELSE
-
+	BEGIN 
 		  SELECT @pMessage = 'Error has occurred, but there is no error message provided' ;
-
+	END
 
 --	2)	Set values for username, accounting for impersonation.
 	  SELECT	@username	=	CASE
@@ -168,7 +170,7 @@ BEGIN TRY
 
 
 --	3)	log error message to eLog.EventLog
-	IF	( @@TRANCOUNT = 0 )
+	IF	@@TRANCOUNT = 0
 	BEGIN
 		--	code was not invoked inside a transaction
 		--	invoke eLog.log_InsertEvent directly
@@ -195,7 +197,6 @@ BEGIN TRY
 	END
 
 	ELSE
-
 	BEGIN
 		--	code was invoked inside a transaction
 		--	invoke eLog.log_InsertEvent via loopback
@@ -307,8 +308,6 @@ BEGIN TRY
 
 	END
 
-	RETURN 0 ;
-
 END TRY
 
 BEGIN CATCH
@@ -329,7 +328,7 @@ BEGIN CATCH
 
 END CATCH
 
-IF	( @pRaiserror = 1 )
+IF	@pRaiserror = 1
 BEGIN
 	-- Do not allow severity > 16.
 	IF	( @pSeverity > 16 ) SELECT @pSeverity	= 16 ;
@@ -337,4 +336,3 @@ BEGIN
 	RAISERROR( '%s', @pSeverity, 1, @usermsg ) WITH NOWAIT ;
 
 END
-

@@ -1,8 +1,9 @@
-﻿CREATE PROCEDURE	xmlStage.usp_ShredXMLData
-						(
-							@pInputXML 	xml( CONTENT xmlStage.LabViewXSD )
-						  , @pHeaderID	int OUTPUT
-						)
+﻿CREATE PROCEDURE	
+	xmlStage.usp_ShredXMLData
+		(
+			@pInputXML 	xml( CONTENT xmlStage.LabViewXSD )
+		  , @pHeaderID	int OUTPUT
+		)
 /*
 ***********************************************************************************************************************************
 
@@ -82,7 +83,8 @@ BEGIN TRY
 			  , IsLegacyXML			=	1 
 			  , VectorCount			=	( SELECT @pInputXML.value('count(root/vector)', 'int') )
 
-		FROM	@pInputXML.nodes( 'root/header' ) AS header( xmlData ) ; 
+		FROM	@pInputXML.nodes( 'root/header' ) AS header( xmlData ) 
+				; 
 
 	SET IDENTITY_INSERT xmlStage.header OFF ; 
 
@@ -97,10 +99,10 @@ BEGIN TRY
 			  , Value		=	appConst.xmlData.value( 'value[1]', 'nvarchar(1000)' )
 			  , NodeOrder	=	DENSE_RANK() OVER ( ORDER BY appConst.xmlData )
 
-		FROM	@pInputXML.nodes( 'root/header/options/AppConst_element' ) AS appConst( xmlData ) ; 
+		FROM	@pInputXML.nodes( 'root/header/options/AppConst_element' ) AS appConst( xmlData ) 
+				; 
 
 		
-	   
 	--	Shred equipment data 
 	  INSERT 	xmlStage.equipment_element
 					( HeaderID, Description, Asset, CalibrationDueDate, CostCenter, NodeOrder )
@@ -111,8 +113,8 @@ BEGIN TRY
 			  , CostCenter			=	equipment.xmlData.value( 'Cost_Center[1]', 'nvarchar(50)' )
 			  , NodeOrder			=	DENSE_RANK() OVER ( ORDER BY equipment.xmlData )
 			  
-		FROM	@pInputXML.nodes( 'root/header/equipment/equipment_element' ) AS equipment( xmlData ) ;
-
+		FROM	@pInputXML.nodes( 'root/header/equipment/equipment_element' ) AS equipment( xmlData ) 
+				;
 
 
 	--	Shred LibraryFile data 
@@ -125,8 +127,10 @@ BEGIN TRY
 			  , HashCode	=	libraryInfo.xmlData.value( '@HashCode[1]', 'nvarchar(100)' )
 			  , NodeOrder	=	DENSE_RANK() OVER ( ORDER BY libraryInfo.xmlData )
 			  
-		FROM	@pInputXML.nodes( 'root/header/LibraryInfo/file' ) AS libraryInfo( xmlData ) ;
+		FROM	@pInputXML.nodes( 'root/header/LibraryInfo/file' ) AS libraryInfo( xmlData ) 
+				;
 
+				
 	--	Shred options data 
 	  INSERT 	xmlStage.option_element
 					( HeaderID, Name, Type, Units, Value, NodeOrder )
@@ -137,14 +141,11 @@ BEGIN TRY
 			  , Value		=	options.xmlData.value( 'value[1]', 'nvarchar(1000)' )
 			  , NodeOrder	=	DENSE_RANK() OVER ( ORDER BY options.xmlData )
 			  
-		FROM	@pInputXML.nodes( 'root/header/options/option_element' ) AS options( xmlData ) ;
-
+		FROM	@pInputXML.nodes( 'root/header/options/option_element' ) AS options( xmlData ) 
+				;
 
 	   
 	--	Shred vector data 
-	--		For detailed description of ReqID construction, see notes at top of proc
-	
-	--	Build temp table to hold vector output data 
 	  INSERT 	xmlStage.vector
 					( HeaderID, VectorNum, Loop, ReqID, StartTime, EndTime )
 	  SELECT 	HeaderID	=	@HeaderID
@@ -158,7 +159,8 @@ BEGIN TRY
 			  , StartTime	=	vector.xmlData.value( 'Timestamp/StartTime[1]', 'nvarchar(50)' )
 			  , EndTime		=	vector.xmlData.value( 'Timestamp/EndTime[1]', 'nvarchar(50)' )
 			  
-		FROM	@pInputXML.nodes( 'root/vector' ) AS vector( xmlData ) ;
+		FROM	@pInputXML.nodes( 'root/vector' ) AS vector( xmlData ) 
+				;
 
 
 	--	Shred vector_element data 
@@ -190,11 +192,11 @@ BEGIN TRY
 						ON v.HeaderID = cte.HeaderID 
 							AND v.VectorNum = cte.VectorNum 
 							AND v.Loop = cte.Loop 
-							AND v.StartTime = cte.StartTime ; 
+							AND v.StartTime = cte.StartTime 
+				; 
 
-
+				
 	--	Shred result_element data 
-	--		For detailed description of Value construction, see notes at top of proc
 		WITH	cte_result_element AS 
 					(
 					  SELECT	HeaderID	=	@HeaderID
@@ -214,7 +216,6 @@ BEGIN TRY
 																		) + ']'
 															ELSE REPLACE( REPLACE( CONVERT( nvarchar(max), result_element.xmlData.query('./value') ), '<value>', '' ), '</value>', ''  ) 
 												END 
-					
 							  , NodeOrder	=	DENSE_RANK() OVER( PARTITION BY vector.xmlData ORDER BY result_element.xmlData ) 
 						FROM	@pInputXML.nodes( 'root/vector' ) AS vector( xmlData )
 								CROSS APPLY vector.xmlData.nodes( 'result_element' ) AS result_element( xmlData )
@@ -233,7 +234,8 @@ BEGIN TRY
 						ON v.HeaderID = cte.HeaderID 
 							AND v.VectorNum = cte.VectorNum 
 							AND v.Loop = cte.Loop 
-							AND v.StartTime = cte.StartTime ; 
+							AND v.StartTime = cte.StartTime 
+				; 
 
 
 	--	Shred error_element data 
@@ -288,7 +290,8 @@ BEGIN TRY
 							AND v.VectorNum = cte.VectorNum 
 							AND v.Loop = cte.Loop 
 							AND v.StartTime = cte.StartTime 
-	   WHERE	cte.ErrorCode IS NOT NULL ; 
+	   WHERE	cte.ErrorCode IS NOT NULL 
+				; 
 
 
 	RETURN 0 ; 
@@ -297,9 +300,20 @@ END TRY
 
 BEGIN CATCH
 
+	DECLARE		@pErrorData		xml ; 
+	 SELECT		@pErrorData		=	( 
+									  SELECT	@pHeaderID
+												FOR XML PATH ( 'DatasetID' ), TYPE
+									) 
+									FOR XML PATH( 'xmlStage.usp_ShredXMLData' ), TYPE 
+				; 
+				
 	IF @@trancount > 0 ROLLBACK TRANSACTION ; 
 	
-	EXECUTE 	eLog.log_CatchProcessing  @pProcID = @@PROCID  ; 
+	EXECUTE 	eLog.log_CatchProcessing  
+					@pProcID	=	@@PROCID
+				  , @pErrorData	=	@pErrorData 
+				; 
 	
 	RETURN 55555 ; 
 

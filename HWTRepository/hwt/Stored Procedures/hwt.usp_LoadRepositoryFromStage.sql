@@ -1,4 +1,5 @@
-﻿CREATE	PROCEDURE hwt.usp_LoadRepositoryFromStage
+﻿CREATE PROCEDURE
+	hwt.usp_LoadRepositoryFromStage
 /*
 ***********************************************************************************************************************************
 

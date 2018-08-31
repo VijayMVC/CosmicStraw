@@ -1,8 +1,9 @@
-﻿CREATE	PROCEDURE utility.usp_RemoveDatasetFromRepository
-			(
-				@pHeaderID		nvarchar(max)
-			  , @pIncludeStage	int				= 0
-			)
+﻿CREATE PROCEDURE 
+	utility.usp_RemoveDatasetFromRepository
+		(
+			@pHeaderID		nvarchar(max)
+		  , @pIncludeStage	int				= 0
+		)
 /*
 ***********************************************************************************************************************************
 
@@ -68,8 +69,6 @@ BEGIN
 	 EXECUTE	eLog.log_ProcessEventLog
 					@pProcID		=	@@PROCID
 				  , @pMessage		=	@ErrorMessage
-				  , @pSeverity		=	16
-				  , @pRaiserror		=	1
 				  , @p1				=	@pInputParameters
 				;
 END
@@ -215,115 +214,115 @@ END
 			;
 
 
-	IF( @pIncludeStage = 1 )
-	BEGIN
-		  DELETE	tmp
-			FROM	labViewStage.error_element AS tmp
-		   WHERE	EXISTS
-						(
-						  SELECT	1
-							FROM	labViewStage.vector AS v
-									INNER JOIN utility.ufn_SplitString( @pHeaderID, '|' ) AS x
-											ON x.Item = v.HeaderID
-						   WHERE	v.ID = tmp.VectorID
-						)
-					;
+IF( @pIncludeStage = 1 )
+BEGIN
+	  DELETE	tmp
+		FROM	labViewStage.error_element AS tmp
+	   WHERE	EXISTS
+					(
+					  SELECT	1
+						FROM	labViewStage.vector AS v
+								INNER JOIN utility.ufn_SplitString( @pHeaderID, '|' ) AS x
+										ON x.Item = v.HeaderID
+					   WHERE	v.ID = tmp.VectorID
+					)
+				;
 
 
-		  DELETE	tmp
-			FROM	labViewStage.result_element AS tmp
-		   WHERE	EXISTS
-						(
-						  SELECT	1
-							FROM	labViewStage.vector AS v
-									INNER JOIN utility.ufn_SplitString( @pHeaderID, '|' ) AS x
-											ON x.Item = v.HeaderID
-						   WHERE	v.ID = tmp.VectorID
-						)
-					;
+	  DELETE	tmp
+		FROM	labViewStage.result_element AS tmp
+	   WHERE	EXISTS
+					(
+					  SELECT	1
+						FROM	labViewStage.vector AS v
+								INNER JOIN utility.ufn_SplitString( @pHeaderID, '|' ) AS x
+										ON x.Item = v.HeaderID
+					   WHERE	v.ID = tmp.VectorID
+					)
+				;
 
 
-		  DELETE	tmp
-			FROM	labViewStage.vector_element AS tmp
-		   WHERE	EXISTS
-						(
-						  SELECT	1
-							FROM	labViewStage.vector AS v
-									INNER JOIN utility.ufn_SplitString( @pHeaderID, '|' ) AS x
-											ON x.Item = v.HeaderID
-						   WHERE	v.ID = tmp.VectorID
-						)
-					;
+	  DELETE	tmp
+		FROM	labViewStage.vector_element AS tmp
+	   WHERE	EXISTS
+					(
+					  SELECT	1
+						FROM	labViewStage.vector AS v
+								INNER JOIN utility.ufn_SplitString( @pHeaderID, '|' ) AS x
+										ON x.Item = v.HeaderID
+					   WHERE	v.ID = tmp.VectorID
+					)
+				;
 
 
-		  DELETE	tmp
-			FROM	labViewStage.vector AS tmp
-		   WHERE	EXISTS
-						(
-						  SELECT	1
-							FROM	utility.ufn_SplitString( @pHeaderID, '|' ) AS x
-						   WHERE	x.Item = tmp.HeaderID
-						)
-					;
+	  DELETE	tmp
+		FROM	labViewStage.vector AS tmp
+	   WHERE	EXISTS
+					(
+					  SELECT	1
+						FROM	utility.ufn_SplitString( @pHeaderID, '|' ) AS x
+					   WHERE	x.Item = tmp.HeaderID
+					)
+				;
 
 
-		  DELETE	tmp
-			FROM	labViewStage.appConst_element AS tmp
-		   WHERE	EXISTS
-						(
-						  SELECT	1
-							FROM	utility.ufn_SplitString( @pHeaderID, '|' ) AS x
-						   WHERE	x.Item = tmp.HeaderID
-						)
-					;
+	  DELETE	tmp
+		FROM	labViewStage.appConst_element AS tmp
+	   WHERE	EXISTS
+					(
+					  SELECT	1
+						FROM	utility.ufn_SplitString( @pHeaderID, '|' ) AS x
+					   WHERE	x.Item = tmp.HeaderID
+					)
+				;
 
 
-		  DELETE	tmp
-			FROM	labViewStage.equipment_element AS tmp
-		   WHERE	EXISTS
-						(
-						  SELECT	1
-							FROM	utility.ufn_SplitString( @pHeaderID, '|' ) AS x
-						   WHERE	x.Item = tmp.HeaderID
-						)
-					;
+	  DELETE	tmp
+		FROM	labViewStage.equipment_element AS tmp
+	   WHERE	EXISTS
+					(
+					  SELECT	1
+						FROM	utility.ufn_SplitString( @pHeaderID, '|' ) AS x
+					   WHERE	x.Item = tmp.HeaderID
+					)
+				;
 
 
-		  DELETE	tmp
-			FROM	labViewStage.libraryInfo_file AS tmp
-		   WHERE	EXISTS
-						(
-						  SELECT	1
-							FROM	utility.ufn_SplitString( @pHeaderID, '|' ) AS x
-						   WHERE	x.Item = tmp.HeaderID
-						)
-					;
+	  DELETE	tmp
+		FROM	labViewStage.libraryInfo_file AS tmp
+	   WHERE	EXISTS
+					(
+					  SELECT	1
+						FROM	utility.ufn_SplitString( @pHeaderID, '|' ) AS x
+					   WHERE	x.Item = tmp.HeaderID
+					)
+				;
 
 
-		  DELETE	tmp
-			FROM	labViewStage.option_element AS tmp
-		   WHERE	EXISTS
-						(
-						  SELECT	1
-							FROM	utility.ufn_SplitString( @pHeaderID, '|' ) AS x
-						   WHERE	x.Item = tmp.HeaderID
-						)
-					;
+	  DELETE	tmp
+		FROM	labViewStage.option_element AS tmp
+	   WHERE	EXISTS
+					(
+					  SELECT	1
+						FROM	utility.ufn_SplitString( @pHeaderID, '|' ) AS x
+					   WHERE	x.Item = tmp.HeaderID
+					)
+				;
 
 
-		  DELETE	tmp
-			FROM	labViewStage.header AS tmp
-		   WHERE	EXISTS
-						(
-						  SELECT	1
-							FROM	utility.ufn_SplitString( @pHeaderID, '|' ) AS x
-						   WHERE	x.Item = tmp.ID
-						)
-					;
+	  DELETE	tmp
+		FROM	labViewStage.header AS tmp
+	   WHERE	EXISTS
+					(
+					  SELECT	1
+						FROM	utility.ufn_SplitString( @pHeaderID, '|' ) AS x
+					   WHERE	x.Item = tmp.ID
+					)
+				;
 
 
 
-	END
+END
 
   SELECT	@ErrorMessage = N'Datasets DELETEd from Repository' ;
  EXECUTE	eLog.log_ProcessEventLog
@@ -341,8 +340,8 @@ BEGIN CATCH
 	IF	( @@TRANCOUNT > 0 ) ROLLBACK TRANSACTION ;
 
 	 EXECUTE	eLog.log_CatchProcessing
-					@pProcID	=	@@PROCID
-				  , @p1			=	@pInputParameters
+					@pProcID		=	@@PROCID
+				  , @pErrorData		=	@pInputParameters
 				;
 
 	RETURN 55555 ;

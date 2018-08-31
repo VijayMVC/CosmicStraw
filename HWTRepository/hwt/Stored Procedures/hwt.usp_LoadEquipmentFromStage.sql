@@ -1,4 +1,5 @@
-﻿CREATE PROCEDURE	hwt.usp_LoadEquipmentFromStage
+﻿CREATE PROCEDURE
+	hwt.usp_LoadEquipmentFromStage
 /*
 ***********************************************************************************************************************************
 
@@ -37,16 +38,16 @@ SET XACT_ABORT, NOCOUNT ON ;
 
 BEGIN TRY
 
-	 DECLARE	@ObjectID	int	=	OBJECT_ID( N'labViewStage.equipment_element' ) ;
+	 DECLARE	@objectID	int	=	OBJECT_ID( N'labViewStage.equipment_element' ) ;
 
-	 DECLARE	@Records	TABLE	( RecordID int ) ;
+	 DECLARE	@records	TABLE	( RecordID int ) ;
 
 
 --	4)	DELETE processed records from labViewStage.PublishAudit
 	  DELETE	labViewStage.PublishAudit
 	  OUTPUT	deleted.RecordID
-		INTO	@Records( RecordID )
-	   WHERE	ObjectID = @ObjectID
+		INTO	@records( RecordID )
+	   WHERE	ObjectID = @objectID
 				;
 
 	IF	( @@ROWCOUNT = 0 )
@@ -55,15 +56,15 @@ BEGIN TRY
 
 --	1)	INSERT new Equipment data from temp storage into hwt
 	  INSERT	hwt.Equipment
-					( Asset, Description, CostCenter, UpdatedBy, UpdatedDate )
+					( Asset, Description, CostCenter, CreatedBy, CreatedDate )
 	  SELECT	DISTINCT
 				Asset				=	lvs.Asset
 			  , Description			=	lvs.Description
 			  , CostCenter			=	lvs.CostCenter
-			  , UpdatedBy			=	FIRST_VALUE( h.OperatorName ) OVER( PARTITION BY lvs.Asset, lvs.Description, lvs.CostCenter ORDER BY lvs.ID )
-			  , UpdatedDate			=	SYSDATETIME()
+			  , CreatedBy			=	FIRST_VALUE( h.OperatorName ) OVER( PARTITION BY lvs.Asset, lvs.Description, lvs.CostCenter ORDER BY lvs.ID )
+			  , CreatedDate			=	SYSDATETIME()
 		FROM	labViewStage.equipment_element AS lvs
-				INNER JOIN	@Records
+				INNER JOIN	@records
 						ON	RecordID = lvs.ID
 
 				INNER JOIN	labViewStage.header AS h
@@ -80,64 +81,24 @@ BEGIN TRY
 				;
 
 
---	2)	INSERT data into temp storage from PublishAudit
-	  CREATE	TABLE #changes
-				(
-					ID					int
-				  , HeaderID			int
-				  , Asset				nvarchar(50)
-				  , Description			nvarchar(250)
-				  , CostCenter			nvarchar(50)
-				  , CalibrationDueDate	nvarchar(50)
-				  , NodeOrder			int
-				  , CreatedDate			datetime2(3)
-				  , OperatorName		nvarchar(50)
-				  , EquipmentID			int
-				)
-				;
-
-	  INSERT	#changes
-					(
-						ID, HeaderID, Description, Asset, CalibrationDueDate, CostCenter
-							, NodeOrder, CreatedDate, OperatorName, EquipmentID
-					)
-	  SELECT	i.ID
-			  , i.HeaderID
-			  , i.Description
-			  , i.Asset
+--	3)	INSERT header equipment from temp storage into hwt.HeaderEquipment
+	  INSERT	hwt.HeaderEquipment
+					( HeaderID, EquipmentID, NodeOrder, CalibrationDueDate )
+	  SELECT	HeaderID			=	i.HeaderID
+			  , EquipmentID			=	e.EquipmentID
+			  , NodeOrder			=	i.NodeOrder
 			  , CalibrationDueDate	=	CASE ISDATE( i.CalibrationDueDate )
 														WHEN 1 THEN CONVERT( datetime, i.CalibrationDueDate )
 														ELSE CONVERT( datetime, '1900-01-01' )
 										END
-			  , i.CostCenter
-			  , i.NodeOrder
-			  , i.CreatedDate
-			  , h.OperatorName
-			  , e.EquipmentID
 		FROM	labViewStage.equipment_element AS i
-				INNER JOIN	@Records
+				INNER JOIN	@records
 						ON	RecordID = i.ID
-
-				INNER JOIN labViewStage.header AS h
-						ON h.ID = i.HeaderID
 
 				INNER JOIN	hwt.Equipment AS e
 						ON	e.Asset = i.Asset
 							AND e.Description = i.Description
 							AND e.CostCenter = i.CostCenter
-				;
-
-
---	3)	INSERT header equipment from temp storage into hwt.HeaderEquipment
-	  INSERT	hwt.HeaderEquipment
-					( HeaderID, EquipmentID, NodeOrder, CalibrationDueDate, UpdatedBy, UpdatedDate )
-	  SELECT	HeaderID
-			  , EquipmentID
-			  , NodeOrder
-			  , CalibrationDueDate
-			  , OperatorName
-			  , SYSDATETIME()
-		FROM	#changes
 				;
 
 
@@ -151,8 +112,10 @@ BEGIN CATCH
 	  SELECT	@pErrorData =	(
 								  SELECT
 											(
-											  SELECT	*
-												FROM	#changes
+											  SELECT	lvs.*
+												FROM	labViewStage.equipment_element AS lvs
+														INNER JOIN	@records
+																ON	RecordID = lvs.ID
 														FOR XML PATH( 'changes' ), TYPE, ELEMENTS XSINIL
 											)
 											FOR XML PATH( 'usp_LoadEquipmentFromStage' ), TYPE

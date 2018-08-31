@@ -1,9 +1,10 @@
-﻿CREATE	PROCEDURE hwt.usp_RemoveTagsFromDatasets
-			(
-				@pUserID	sysname			=	NULL
-			  , @pHeaderID	nvarchar(max)
-			  , @pTagID		nvarchar(max)
-			)
+﻿CREATE PROCEDURE 
+	hwt.usp_RemoveTagsFromDatasets
+		(
+			@pUserID	sysname			=	NULL
+		  , @pHeaderID	nvarchar(max)
+		  , @pTagID		nvarchar(max)
+		)
 /*
 ***********************************************************************************************************************************
 
@@ -36,24 +37,6 @@ AS
 
 SET NOCOUNT, XACT_ABORT ON ;
 
- DECLARE	@p1					sql_variant
-		  , @p2					sql_variant
-		  , @p3					sql_variant
-		  , @p4					sql_variant
-		  , @p5					sql_variant
-		  , @p6					sql_variant
-
-		  , @pInputParameters	nvarchar(4000)
-			;
-
-  SELECT	@pInputParameters	=	(
-										SELECT	[usp_RemoveTagsFromDatasets.@pUserID]	=	@pUserID
-											  , [usp_RemoveTagsFromDatasets.@pHeaderID] =	@pHeaderID
-											  , [usp_RemoveTagsFromDatasets.@pTagID]	=	@pTagID
-
-												FOR JSON PATH, WITHOUT_ARRAY_WRAPPER, INCLUDE_NULL_VALUES
-									)
-			;
 
 BEGIN TRY
 
@@ -65,7 +48,8 @@ BEGIN TRY
 		INTO	#hTags
 		FROM	utility.ufn_SplitString( @pHeaderID, '|' ) AS h
 				CROSS JOIN
-					utility.ufn_SplitString( @pTagID, '|' ) AS t ;
+					utility.ufn_SplitString( @pTagID, '|' ) AS t 
+				;
 
 
 --	2)	DELETE tags assignments from hwt.HeaderTag
@@ -75,7 +59,8 @@ BEGIN TRY
 				INNER JOIN
 					#hTags AS tmp
 						ON tmp.HeaderID = hTag.HeaderID
-							AND tmp.TagID = hTag.TagID ;
+							AND tmp.TagID = hTag.TagID 
+				;
 
 	RETURN 0 ;
 
@@ -83,11 +68,22 @@ END TRY
 
 BEGIN CATCH
 
+ DECLARE	@pInputParameters	nvarchar(4000) ;
+
+  SELECT	@pInputParameters	=	(
+										SELECT	[usp_RemoveTagsFromDatasets.@pUserID]	=	@pUserID
+											  , [usp_RemoveTagsFromDatasets.@pHeaderID] =	@pHeaderID
+											  , [usp_RemoveTagsFromDatasets.@pTagID]	=	@pTagID
+
+												FOR JSON PATH, WITHOUT_ARRAY_WRAPPER, INCLUDE_NULL_VALUES
+									)
+			;
+
 	IF	( @@TRANCOUNT > 0 ) ROLLBACK TRANSACTION ;
 
 	 EXECUTE	eLog.log_CatchProcessing
 					@pProcID	=	@@PROCID
-				  , @p1			=	@pInputParameters
+				  , @pErrorData	=	@pInputParameters
 				;
 
 	RETURN 55555 ;

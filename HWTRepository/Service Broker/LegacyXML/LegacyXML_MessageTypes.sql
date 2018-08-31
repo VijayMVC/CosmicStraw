@@ -1,10 +1,10 @@
-﻿  CREATE	MESSAGE
-	TYPE	[//HWTRepository/LegacyXML/ShredRequest]
-				VALIDATION = WELL_FORMED_XML
-			;
+﻿CREATE MESSAGE TYPE	
+	[//HWTRepository/ShredLegacyXML/Request]
+		VALIDATION = WELL_FORMED_XML
+	;
 GO
 
-  CREATE	MESSAGE
-	TYPE	[//HWTRepository/LegacyXML/ShredResponse]
-				VALIDATION = WELL_FORMED_XML
-			;
+CREATE MESSAGE TYPE	
+	[//HWTRepository/ShredLegacyXML/Response]
+		VALIDATION = WELL_FORMED_XML
+	;

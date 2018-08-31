@@ -1,15 +1,16 @@
-﻿CREATE	PROCEDURE hwt.usp_GetResultsByTag
-			(
-				@pHeaderID			nvarchar(max)	=	NULL
-			  , @pTestName			nvarchar(max)	=	NULL
-			  , @pStartTime			datetime		=	NULL
-			  , @pEndTime			datetime		=	NULL
-			  , @pIncludeErrors		int				=	NULL
-			  , @pIncludeIgnored	int				=	NULL
-			  , @pTags				nvarchar(max)	=	NULL
-			  , @pSearchTerms		nvarchar(max)	=	NULL
-			  , @pDebug				int				=	0
-			)
+﻿CREATE PROCEDURE
+	hwt.usp_GetResultsByTag
+		(
+			@pHeaderID			nvarchar(max)	=	NULL
+		  , @pTestName			nvarchar(max)	=	NULL
+		  , @pStartTime			datetime		=	NULL
+		  , @pEndTime			datetime		=	NULL
+		  , @pIncludeErrors		int				=	NULL
+		  , @pIncludeIgnored	int				=	NULL
+		  , @pTags				nvarchar(max)	=	NULL
+		  , @pSearchTerms		nvarchar(max)	=	NULL
+		  , @pDebug				int				=	0
+		)
 /*
 ***********************************************************************************************************************************
 
@@ -84,15 +85,7 @@ AS
 
 SET NOCOUNT, XACT_ABORT ON ;
 
- DECLARE	@p1					sql_variant
-		  , @p2					sql_variant
-		  , @p3					sql_variant
-		  , @p4					sql_variant
-		  , @p5					sql_variant
-		  , @p6					sql_variant
-
-		  , @pInputParameters	nvarchar(4000)
-			;
+ DECLARE	@pInputParameters	nvarchar(4000) ;
 
   SELECT	@pInputParameters	=	(
 										SELECT	[usp_GetResultsByTag.@pHeaderID]		=	@pHeaderID
@@ -118,7 +111,6 @@ BEGIN TRY
 			  , @lTestName		nvarchar(max)
 			  , @lSearchTerms	nvarchar(max)
 			  , @lAssetNumbers	nvarchar(max)
-			  , @pDataID		int				=	TRY_CONVERT( int, @pHeaderID )
 				;
 
 
@@ -128,7 +120,7 @@ BEGIN TRY
 					@pSearchField	=	N'DatasetID'
 				  , @pSearchInput	=	@pHeaderID
 				  , @pSearchOutput	=	@lHeaderID OUTPUT
-					;
+				;
 
 
 	--	TestName:	minimum three character search limit.
@@ -136,32 +128,31 @@ BEGIN TRY
 					@pSearchField	=	N'TestName'
 				  , @pSearchInput	=	@pTestName
 				  , @pSearchOutput	=	@lTestName OUTPUT
-					;
+				;
 
 	--	SearchTerms:	minimum three character search limit.
 	 EXECUTE	hwt.usp_ScrubSearchInput
 					@pSearchField	=	N'SearchTerms'
 				  , @pSearchInput	=	@pSearchTerms
 				  , @pSearchOutput	=	@lSearchTerms OUTPUT
-					;
+				;
 
 
 	--	StartTime must be less than EndTime
 	IF	( @pStartTime > @pEndTime )
-		BEGIN
-			 EXECUTE	eLog.log_ProcessEventLog
-							@pProcID	=	@@PROCID
-						  , @pMessage	=	N'StartDate of %1 is after EndDate of %2'
-						  , @p1			=	@pStartTime
-						  , @p2			=	@pEndTime
-						  , @p3			=	@pInputParameters
-							;
-		END
+	BEGIN
+		 EXECUTE	eLog.log_ProcessEventLog
+						@pProcID	=	@@PROCID
+					  , @pMessage	=	N'StartDate of %1 is after EndDate of %2'
+					  , @p1			=	@pStartTime
+					  , @p2			=	@pEndTime
+					  , @pErrorData	=	@pInputParameters
+					;
+	END
 
 
 	--	Load Dataset IDs from input into temp storage
 	DROP TABLE IF EXISTS #inputHeaderIDs ;
-
 	  SELECT	HeaderID =	LTRIM( RTRIM( x.Item ) )
 		INTO	#inputHeaderIDs
 		FROM	utility.ufn_SplitString( @lHeaderID, @delimiter ) AS x
@@ -171,7 +162,6 @@ BEGIN TRY
 	--	Define set of datasets to be searched
 	--		default is all datasets unless data exists in #inputHeaderIDs
 	DROP TABLE IF EXISTS #HeaderIDs ;
-
 	  SELECT	HeaderID			=	h.HeaderID
 			  , IncludeInResults	=	CONVERT( int, 1 )
 		INTO	#HeaderIDs
@@ -199,20 +189,19 @@ BEGIN TRY
 
 	--	Drop Headers that do not match TestName search criteria
 	DROP TABLE IF EXISTS #inputTestNames ;
-
 	  SELECT	TestName =	LTRIM( RTRIM( x.Item ) )
 		INTO	#inputTestNames
 		FROM	utility.ufn_SplitString( @lTestName, @delimiter) AS x
 				;
 
 		WITH	headers AS
-				(
-				  SELECT	h.HeaderID
-					FROM	hwt.Header AS h
-							INNER JOIN #inputTestNames AS i
-									ON h.TestName LIKE i.TestName
-										OR @pTestName IS NULL
-				)
+					(
+					  SELECT	h.HeaderID
+						FROM	hwt.Header AS h
+								INNER JOIN #inputTestNames AS i
+										ON h.TestName LIKE i.TestName
+											OR @pTestName IS NULL
+					)
 	  UPDATE	tmp
 		 SET	IncludeInResults = 0
 		FROM	#HeaderIDs AS tmp
@@ -249,28 +238,27 @@ BEGIN TRY
 	--	if there are no tags for a given tag type, do not drop any headers
 	--	Load header data into temp storage
 	DROP TABLE IF EXISTS #Tags ;
-
 	  SELECT	TagTypeID	=	t.TagTypeID
 			  , TagID		=	t.TagID
 		INTO	#Tags
 		FROM	hwt.Tag AS t
 	   WHERE	EXISTS
-				(
-				  SELECT	1
-					FROM	utility.ufn_SplitString( @pTags, '|' ) AS x
-				   WHERE	CONVERT( int, x.Item ) = t.TagID
-				)
+					(
+					  SELECT	1
+						FROM	utility.ufn_SplitString( @pTags, '|' ) AS x
+					   WHERE	CONVERT( int, x.Item ) = t.TagID
+					)
 				;
 
 	WHILE EXISTS( SELECT 1 FROM #Tags )
-		BEGIN
-			  SELECT	TOP 1
-						@TagTypeID	= TagTypeID
-				FROM	#Tags
-			ORDER BY	TagTypeID
-						;
+	BEGIN
+		  SELECT	TOP 1
+					@TagTypeID	= TagTypeID
+			FROM	#Tags
+		ORDER BY	TagTypeID
+					;
 
-				WITH	cte AS
+			WITH	cte AS
 						(
 						  SELECT	DISTINCT
 									HeaderID
@@ -279,198 +267,212 @@ BEGIN TRY
 											ON t.TagID = hTag.TagID
 						   WHERE	t.TagTypeID = @TagTypeID
 						)
-			  UPDATE	tmp
-				 SET	IncludeInResults = 0
-				FROM	#HeaderIDs AS tmp
-			   WHERE	tmp.HeaderID NOT IN ( SELECT cte.HeaderID FROM cte )
-						;
+		  UPDATE	tmp
+			 SET	IncludeInResults = 0
+			FROM	#HeaderIDs AS tmp
+		   WHERE	tmp.HeaderID NOT IN ( SELECT cte.HeaderID FROM cte )
+					;
 
-			  DELETE	#Tags
-			   WHERE	TagTypeID = @TagTypeID
-						;
+		  DELETE	#Tags
+		   WHERE	TagTypeID = @TagTypeID
+					;
 
-		END
+	END
 
 
 	--	Drop headers where search terms do not match
 	IF ( @lSearchTerms IS NOT NULL )
-		BEGIN
+	BEGIN
 
-			DROP TABLE IF EXISTS #SearchTerms ;
-			DROP TABLE IF EXISTS #MatchingSearch ;
+		DROP TABLE IF EXISTS #SearchTerms ;
+		DROP TABLE IF EXISTS #MatchingSearch ;
 
-			  SELECT	SearchItem = Item
-				INTO	#SearchTerms
-				FROM	utility.ufn_SplitString( @lSearchTerms, @delimiter ) AS x
-						;
+		  SELECT	SearchItem = Item
+			INTO	#SearchTerms
+			FROM	utility.ufn_SplitString( @lSearchTerms, @delimiter ) AS x
+					;
 
-			  SELECT	tmp.HeaderID
-				INTO	#MatchingSearch
-				FROM	#HeaderIDs AS tmp
-						INNER JOIN hwt.Header AS h
-								ON h.HeaderID = tmp.HeaderID
+		  SELECT	tmp.HeaderID
+			INTO	#MatchingSearch
+			FROM	#HeaderIDs AS tmp
+					INNER JOIN hwt.Header AS h
+							ON h.HeaderID = tmp.HeaderID
 
-						INNER JOIN #SearchTerms AS t
-								ON h.Comments LIKE t.SearchItem
-									OR h.HeaderIDStr		LIKE t.SearchItem
-									OR h.ExternalFileInfo	LIKE t.SearchItem
-									OR h.TestStationName	LIKE t.SearchItem
-									OR h.TestName			LIKE t.SearchItem
-									OR h.TestConfigFile		LIKE t.SearchItem
-									OR h.TestCodePath		LIKE t.SearchItem
-									OR h.TestCodeRevision	LIKE t.SearchItem
-									OR h.HWTSysCodeRevision LIKE t.SearchItem
-									OR h.KdrivePath			LIKE t.SearchItem
-									OR h.ResultFileName		LIKE t.SearchItem
-						;
-
-
-			  INSERT	INTO #MatchingSearch
-			  SELECT	tmp.HeaderID
-				FROM	#HeaderIDs AS tmp
-						INNER JOIN hwt.HeaderAppConst AS h
-								ON h.HeaderID = tmp.HeaderID
-
-						INNER JOIN hwt.AppConst AS ac
-								ON ac.AppConstID = h.AppConstID
-
-						INNER JOIN #SearchTerms AS t
-								ON ac.Name LIKE t.SearchItem
-									OR h.AppConstValue LIKE t.SearchItem
-						;
-
-			  INSERT	INTO #MatchingSearch
-			  SELECT	tmp.HeaderID
-				FROM	#HeaderIDs AS tmp
-						INNER JOIN hwt.HeaderOption AS h
-								ON h.HeaderID = tmp.HeaderID
-
-						INNER JOIN hwt.[Option] AS o
-								ON o.OptionID = h.OptionID
-
-						INNER JOIN #SearchTerms AS t
-								ON o.Name LIKE t.SearchItem
-									OR h.OptionValue LIKE t.SearchItem
-						;
+					INNER JOIN #SearchTerms AS t
+							ON h.Comments LIKE t.SearchItem
+								OR h.HeaderIDStr		LIKE t.SearchItem
+								OR h.ExternalFileInfo	LIKE t.SearchItem
+								OR h.TestStationName	LIKE t.SearchItem
+								OR h.TestName			LIKE t.SearchItem
+								OR h.TestConfigFile		LIKE t.SearchItem
+								OR h.TestCodePath		LIKE t.SearchItem
+								OR h.TestCodeRevision	LIKE t.SearchItem
+								OR h.HWTSysCodeRevision LIKE t.SearchItem
+								OR h.KdrivePath			LIKE t.SearchItem
+								OR h.ResultFileName		LIKE t.SearchItem
+					;
 
 
-			  INSERT	INTO #MatchingSearch
-			  SELECT	tmp.HeaderID
-				FROM	#HeaderIDs AS tmp
-						INNER JOIN hwt.HeaderEquipment AS h
-								ON h.HeaderID = tmp.HeaderID
-						INNER JOIN hwt.Equipment AS e
-								ON e.EquipmentID = h.EquipmentID
-						INNER JOIN #SearchTerms AS t
-								ON e.Asset LIKE t.SearchItem
-									OR e.Description LIKE t.SearchItem
-									OR e.CostCenter LIKE t.SearchItem
-						;
+		  INSERT	INTO #MatchingSearch
+		  SELECT	tmp.HeaderID
+			FROM	#HeaderIDs AS tmp
+					INNER JOIN hwt.HeaderAppConst AS h
+							ON h.HeaderID = tmp.HeaderID
 
-			  INSERT	INTO #MatchingSearch
-			  SELECT	tmp.HeaderID
-				FROM	#HeaderIDs AS tmp
-						INNER JOIN hwt.HeaderLibraryFile AS h
-								ON h.HeaderID = tmp.HeaderID
-						INNER JOIN hwt.LibraryFile AS lf
-								ON lf.LibraryFileID = h.LibraryFileID
-						INNER JOIN #SearchTerms AS t
-								ON lf.FileName LIKE t.SearchItem
-									OR lf.FileRev LIKE t.SearchItem
-						;
+					INNER JOIN hwt.AppConst AS ac
+							ON ac.AppConstID = h.AppConstID
 
-			  INSERT	INTO #MatchingSearch
-			  SELECT	tmp.HeaderID
-				FROM	#HeaderIDs AS tmp
-						INNER JOIN hwt.HeaderTag AS h
-								ON h.HeaderID = tmp.HeaderID
-						INNER JOIN hwt.Tag AS tag
-								ON tag.TagID = h.TagID
-						INNER JOIN #SearchTerms AS t
-								ON tag.Name LIKE t.SearchItem
-						;
+					INNER JOIN #SearchTerms AS t
+							ON ac.Name LIKE t.SearchItem
+								OR h.AppConstValue LIKE t.SearchItem
+					;
 
-			  INSERT	INTO #MatchingSearch
-			  SELECT	tmp.HeaderID
-				FROM	#HeaderIDs AS tmp
-						INNER JOIN hwt.Vector AS v
-								ON v.HeaderID = tmp.HeaderID
-						INNER JOIN hwt.VectorElement AS ve
-								ON ve.VectorID = v.VectorID
-						INNER JOIN hwt.Element AS e
-								ON e.ElementID = ve.ElementID
-						INNER JOIN #SearchTerms AS t
-								ON e.Name LIKE t.SearchItem
-										OR ve.ElementValue	LIKE t.SearchItem
-						;
+		  INSERT	INTO #MatchingSearch
+		  SELECT	tmp.HeaderID
+			FROM	#HeaderIDs AS tmp
+					INNER JOIN hwt.HeaderOption AS h
+							ON h.HeaderID = tmp.HeaderID
 
-			  INSERT	INTO #MatchingSearch
-			  SELECT	tmp.HeaderID
-				FROM	#HeaderIDs AS tmp
-						INNER JOIN hwt.Vector AS v
-								ON v.HeaderID = tmp.HeaderID
-						INNER JOIN hwt.VectorResult AS vr
-								ON vr.VectorID = v.VectorID
-						INNER JOIN hwt.Result AS r
-								ON r.ResultID = vr.ResultID
-						INNER JOIN #SearchTerms AS t
-								ON r.Name LIKE t.SearchItem
-						;
+					INNER JOIN hwt.[Option] AS o
+							ON o.OptionID = h.OptionID
 
-			  INSERT	INTO #MatchingSearch
-			  SELECT	tmp.HeaderID
-				FROM	#HeaderIDs AS tmp
-						INNER JOIN hwt.Vector AS v
-								ON v.HeaderID = tmp.HeaderID
-						INNER JOIN hwt.VectorError AS e
-								ON e.VectorID = v.VectorID
-						INNER JOIN #SearchTerms AS t
-								ON e.ErrorCode LIKE t.SearchItem
-									OR e.ErrorText LIKE t.SearchItem
-						;
+					INNER JOIN #SearchTerms AS t
+							ON o.Name LIKE t.SearchItem
+								OR h.OptionValue LIKE t.SearchItem
+					;
 
-			  UPDATE	tmp
-				 SET	IncludeInResults = 0
-				FROM	#HeaderIDs AS tmp
-			   WHERE	tmp.HeaderID NOT IN ( SELECT HeaderID FROM #MatchingSearch )
-						;
 
-		END
+		  INSERT	INTO #MatchingSearch
+		  SELECT	tmp.HeaderID
+			FROM	#HeaderIDs AS tmp
+					INNER JOIN hwt.HeaderEquipment AS h
+							ON h.HeaderID = tmp.HeaderID
+
+					INNER JOIN hwt.Equipment AS e
+							ON e.EquipmentID = h.EquipmentID
+
+					INNER JOIN #SearchTerms AS t
+							ON e.Asset LIKE t.SearchItem
+								OR e.Description LIKE t.SearchItem
+								OR e.CostCenter LIKE t.SearchItem
+					;
+
+		  INSERT	INTO #MatchingSearch
+		  SELECT	tmp.HeaderID
+			FROM	#HeaderIDs AS tmp
+					INNER JOIN hwt.HeaderLibraryFile AS h
+							ON h.HeaderID = tmp.HeaderID
+
+					INNER JOIN hwt.LibraryFile AS lf
+							ON lf.LibraryFileID = h.LibraryFileID
+
+					INNER JOIN #SearchTerms AS t
+							ON lf.FileName LIKE t.SearchItem
+								OR lf.FileRev LIKE t.SearchItem
+					;
+
+		  INSERT	INTO #MatchingSearch
+		  SELECT	tmp.HeaderID
+			FROM	#HeaderIDs AS tmp
+					INNER JOIN hwt.HeaderTag AS h
+							ON h.HeaderID = tmp.HeaderID
+
+					INNER JOIN hwt.Tag AS tag
+							ON tag.TagID = h.TagID
+
+					INNER JOIN #SearchTerms AS t
+							ON tag.Name LIKE t.SearchItem
+					;
+
+		  INSERT	INTO #MatchingSearch
+		  SELECT	tmp.HeaderID
+			FROM	#HeaderIDs AS tmp
+					INNER JOIN hwt.Vector AS v
+							ON v.HeaderID = tmp.HeaderID
+
+					INNER JOIN hwt.VectorElement AS ve
+							ON ve.VectorID = v.VectorID
+
+					INNER JOIN hwt.Element AS e
+							ON e.ElementID = ve.ElementID
+
+					INNER JOIN #SearchTerms AS t
+							ON e.Name LIKE t.SearchItem
+									OR ve.ElementValue	LIKE t.SearchItem
+					;
+
+		  INSERT	INTO #MatchingSearch
+		  SELECT	tmp.HeaderID
+			FROM	#HeaderIDs AS tmp
+					INNER JOIN hwt.Vector AS v
+							ON v.HeaderID = tmp.HeaderID
+
+					INNER JOIN hwt.VectorResult AS vr
+							ON vr.VectorID = v.VectorID
+
+					INNER JOIN hwt.Result AS r
+							ON r.ResultID = vr.ResultID
+
+					INNER JOIN #SearchTerms AS t
+							ON r.Name LIKE t.SearchItem
+					;
+
+		  INSERT	INTO #MatchingSearch
+		  SELECT	tmp.HeaderID
+			FROM	#HeaderIDs AS tmp
+					INNER JOIN hwt.Vector AS v
+							ON v.HeaderID = tmp.HeaderID
+
+					INNER JOIN hwt.VectorError AS e
+							ON e.VectorID = v.VectorID
+
+					INNER JOIN #SearchTerms AS t
+							ON e.ErrorCode LIKE t.SearchItem
+								OR e.ErrorText LIKE t.SearchItem
+					;
+
+		  UPDATE	tmp
+			 SET	IncludeInResults = 0
+			FROM	#HeaderIDs AS tmp
+		   WHERE	tmp.HeaderID NOT IN ( SELECT HeaderID FROM #MatchingSearch )
+					;
+
+	END
 		--	Drop headers where search terms do not match
 	IF ( PATINDEX( '%[-]%', @pTags ) > 0 )
-		BEGIN
+	BEGIN
 
-			DROP TABLE IF EXISTS #AssetNumbers ;
-			DROP TABLE IF EXISTS #MatchingAssets ;
+		DROP TABLE IF EXISTS #AssetNumbers ;
+		DROP TABLE IF EXISTS #MatchingAssets ;
 
-			  SELECT	SearchItem	=	e.Asset
-				INTO	#AssetNumbers
-				FROM	hwt.Equipment AS e
-						INNER JOIN utility.ufn_SplitString( @pTags, '|' ) AS x
-								ON ABS( x.Item ) = e.EquipmentID
-						;
+		  SELECT	SearchItem	=	e.Asset
+			INTO	#AssetNumbers
+			FROM	hwt.Equipment AS e
+					INNER JOIN utility.ufn_SplitString( @pTags, '|' ) AS x
+							ON ABS( x.Item ) = e.EquipmentID
+					;
 
-			  SELECT	DISTINCT
-						tmp.HeaderID
-				INTO	#MatchingAssets
-				FROM	#HeaderIDs AS tmp
-						INNER JOIN hwt.HeaderEquipment AS he
-								ON he.HeaderID = tmp.HeaderID
+		  SELECT	DISTINCT
+					tmp.HeaderID
+			INTO	#MatchingAssets
+			FROM	#HeaderIDs AS tmp
+					INNER JOIN hwt.HeaderEquipment AS he
+							ON he.HeaderID = tmp.HeaderID
 
-						INNER JOIN hwt.Equipment AS e
-								ON e.EquipmentID = he.EquipmentID
+					INNER JOIN hwt.Equipment AS e
+							ON e.EquipmentID = he.EquipmentID
 
-						INNER JOIN #AssetNumbers AS t
-								ON e.Asset = t.SearchItem
-						;
+					INNER JOIN #AssetNumbers AS t
+							ON e.Asset = t.SearchItem
+					;
 
-			  UPDATE	tmp
-				 SET	IncludeInResults = 0
-				FROM	#HeaderIDs AS tmp
-			   WHERE	tmp.HeaderID NOT IN ( SELECT HeaderID FROM #MatchingAssets )
-						;
+		  UPDATE	tmp
+			 SET	IncludeInResults = 0
+			FROM	#HeaderIDs AS tmp
+		   WHERE	tmp.HeaderID NOT IN ( SELECT HeaderID FROM #MatchingAssets )
+					;
 
-		END
+	END
 
 	--	Output results
 	  SELECT	DatasetID
@@ -512,7 +514,7 @@ BEGIN CATCH
 
 	 EXECUTE	eLog.log_CatchProcessing
 					@pProcID	=	@@PROCID
-				  , @p1			=	@pInputParameters
+				  , @pErrorData	=	@pInputParameters
 				;
 
 	RETURN 55555 ;

@@ -245,4 +245,7 @@ ELSE
 							;
 			END
 	END
-GO	  
+GO	 
+
+ENABLE TRIGGER ALL ON hwt.Tag ; 
+GO

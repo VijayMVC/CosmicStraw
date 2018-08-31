@@ -1,8 +1,8 @@
-﻿CREATE TABLE 	labViewStage.OutputXML_Files 
-		  AS 	FILETABLE 
-				FILESTREAM_ON [HWTFiles]
-		WITH	( 
+﻿CREATE TABLE
+	labViewStage.OutputXML_Files
+		AS		FILETABLE FILESTREAM_ON [HWTFiles]
+		WITH	(
 					FILETABLE_COLLATE_FILENAME = SQL_Latin1_General_CP1_CI_AS
-				  , FILETABLE_DIRECTORY = N'LabVIEW_XML' 
-				) ;
-
+				  , FILETABLE_DIRECTORY = N'LabVIEW_XML'
+				)
+	;

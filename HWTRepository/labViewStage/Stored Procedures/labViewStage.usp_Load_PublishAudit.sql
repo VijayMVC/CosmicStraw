@@ -1,8 +1,9 @@
-﻿CREATE	PROCEDURE labViewStage.usp_Load_PublishAudit
-			(
-				@pObjectID	int
-			  , @pRecordID	xml
-			)
+﻿CREATE PROCEDURE
+	labViewStage.usp_Load_PublishAudit
+		(
+			@pObjectID	int
+		  , @pRecordID	xml
+		)
 /*
 ***********************************************************************************************************************************
 
@@ -51,12 +52,7 @@ BEGIN TRY
 END TRY
 BEGIN CATCH
 
-	IF	( @@TRANCOUNT > 0 ) ROLLBACK TRANSACTION ;
-
-	EXECUTE eLog.log_CatchProcessing
-			@pProcID	=	@@PROCID
-		  , @p1			=	@pObjectID
-		  , @p2			=	@pRecordID
+	EXECUTE eLog.log_CatchProcessing @pProcID	=	@@PROCID ;
 
 	RETURN 55555 ;
 

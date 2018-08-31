@@ -1,6 +1,7 @@
-﻿CREATE TRIGGER	labViewStage.trg_vector
-			ON	labViewStage.vector
-		 AFTER	INSERT
+﻿CREATE TRIGGER
+	labViewStage.trg_vector
+		ON	labViewStage.vector
+		AFTER INSERT
 /*
 ***********************************************************************************************************************************
 
@@ -32,7 +33,7 @@ BEGIN TRY
 			  , i.HeaderID
 			  , i.VectorNum
 			  , i.Loop
-			  , i.ReqID			
+			  , i.ReqID
 			  , i.StartTime
 			  , i.EndTime
 			  , i.CreatedDate
@@ -46,8 +47,8 @@ BEGIN TRY
 
 	RETURN ;
 
-
 END TRY
+
 BEGIN CATCH
 	 DECLARE	@pErrorData xml ;
 

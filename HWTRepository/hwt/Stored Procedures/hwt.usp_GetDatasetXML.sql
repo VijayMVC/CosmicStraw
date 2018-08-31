@@ -1,9 +1,10 @@
-﻿CREATE PROCEDURE	hwt.usp_GetDatasetXML
-						(
-							@pHeaderID		nvarchar(max)
-						  , @pCreateOutput	int 			=	1
-						  , @pBuildXML		int				=	0
-						)
+﻿CREATE PROCEDURE	
+	hwt.usp_GetDatasetXML
+		(
+			@pHeaderID		nvarchar(max)
+		  , @pCreateOutput	int 			=	1
+		  , @pBuildXML		int				=	0
+		)
 /*
 ***********************************************************************************************************************************
 
@@ -82,16 +83,14 @@ BEGIN TRY
 			  , @inProgressTagID	int 
 				; 
 				
-	 DECLARE	@DatasetXML		TABLE	(		
+	 DECLARE	@datasetXML		TABLE	(		
 											HeaderID		int 
 										  , DatasetName		nvarchar(1000)
 										  , DatasetXML 		xml ( CONTENT xmlStage.LabViewXSD )
 										) 
 				; 
 				
-	 DECLARE	@Headers		TABLE	(		
-											HeaderID		int 
-										) 
+	 DECLARE	@headers		TABLE	(	HeaderID		int ) 
 				; 
 				
 				
@@ -111,46 +110,24 @@ BEGIN TRY
 
 --	2)	Validate input parameters
 	IF	( @pHeaderID IS NULL ) OR ( @recordCount = 0 )
-		BEGIN
-			 EXECUTE	eLog.log_ProcessEventLog
-							@pProcID	=	@@PROCID
-						  , @pMessage	=	'Error:	 Input for hwt.GetDatasetXML must contain at least one dataset ID. '
-						  , @p1			=	@pInputParameters
-						;
-		END
+	BEGIN
+		 EXECUTE	eLog.log_ProcessEventLog
+						@pProcID	=	@@PROCID
+					  , @pMessage	=	'Error:	 Input for hwt.GetDatasetXML must contain at least one dataset ID. Input = %1'
+					  , @p1			=	@pHeaderID
+					  , @pErrorData	=	@pInputParameters
+					;
+	END
+
 
 	IF	EXISTS( SELECT 1 FROM #headers WHERE HeaderID IS NULL )
-		BEGIN
-			 DECLARE	@invalidDatasetIDs	nvarchar(max)
-					  , @invalidMsg			nvarchar(max)
-						;
-
-			  SELECT	@invalidDatasetIDs	=	STUFF
-												(
-													(
-													  SELECT	',' + LTRIM( RTRIM( x.Item ) )
-														FROM	utility.ufn_SplitString( @pHeaderID, '|' ) AS x
-													   WHERE	ISNUMERIC( LTRIM( RTRIM( x.Item ) ) ) = 0
-																	FOR XML PATH( '' ), TYPE
-													).value( '.', 'nvarchar(max)' ), 1, 1, ''
-												)
-						;
-
-			  SELECT	@recordCount = @@ROWCOUNT ;
-
-			IF	( @recordCount > 1 )
-				  SELECT	@invalidMsg = 'The following dataset ID is not valid: %1' ;
-			ELSE
-				  SELECT	@invalidMsg = 'The following %2 dataset IDs are not valid: %1' ;
-
-
-			EXECUTE	eLog.log_ProcessEventLog	@pProcID	=	@@PROCID
-											  , @pMessage	=	@invalidMsg
-											  , @p1			=	@invalidDatasetIDs
-											  , @p2			=	@recordCount
-											  , @p3			=	@pInputParameters
-					;
-		END
+	BEGIN
+		EXECUTE	eLog.log_ProcessEventLog	@pProcID	=	@@PROCID
+										  , @pMessage	=	'Error:	 Input for hwt.GetDatasetXML contains non-integer data. Input = %1'
+										  , @p1			=	@pHeaderID 
+										  , @pErrorData	=	@pInputParameters
+				;
+	END
 		
 		
 --	3)	When @pBuildXML is set to true, clear any requested datasets out of cache
@@ -164,7 +141,7 @@ BEGIN TRY
 
 				
 --	4)	Load datasets that need to be extracted into temp storage
-	  INSERT	@Headers( HeaderID )
+	  INSERT	@headers( HeaderID )
 	  SELECT	h.HeaderID 
 	    FROM 	#headers AS h 
 	  
@@ -178,18 +155,12 @@ BEGIN TRY
 	DROP TABLE IF EXISTS #Tags ;
 
 	  SELECT	HeaderID	=	h.HeaderID
-			  , TagType		=	tType.Name
-			  , TagName		=	t.Name
+			  , TagType		=	ht.TagTypeName
+			  , TagName		=	ht.TagName
 		INTO	#Tags
-		FROM	@Headers AS h
-				INNER JOIN	hwt.HeaderTag AS hTag
-						ON	hTag.HeaderID = h.HeaderID
-
-				INNER JOIN	hwt.Tag AS t
-						ON	hTag.TagID = t.TagID
-
-				INNER JOIN	hwt.TagType AS tType
-						ON	tType.TagTypeID = t.TagTypeID
+		FROM	@headers AS h
+				INNER JOIN	hwt.vw_HeaderTag_expanded AS ht
+						ON	ht.HeaderID = h.HeaderID
 				;
 
 
@@ -200,7 +171,7 @@ BEGIN TRY
 			  , ReqID		=	t.Name
 			  , NodeOrder	=	vr.NodeOrder
 		INTO	#ReqIDs
-		FROM	@Headers AS h
+		FROM	@headers AS h
 				INNER JOIN	hwt.Vector AS v
 						ON	v.HeaderID = h.HeaderID
 
@@ -214,7 +185,7 @@ BEGIN TRY
 
 --	7)	SELECT dataset name and XML representation for each Header.HeaderID value in dataset.
 --			NCHAR(92) is the '\' character, using the actual character corrupts the code editor syntax highlighting
-	  INSERT 	@DatasetXML
+	  INSERT 	@datasetXML
 				  ( HeaderID, DatasetName, DatasetXML ) 
 	  SELECT	HeaderID 	=	h.HeaderID 
 			  , DatasetName =	RIGHT( ResultFileName, CHARINDEX( NCHAR(92), REVERSE( h.ResultFileName ) + NCHAR(92) ) - 1 )
@@ -223,7 +194,7 @@ BEGIN TRY
 											  SELECT	[@ID]				=	h2.HeaderID
 													  , Result_File			=	h2.ResultFileName
 													  , Start_Time			=	FORMAT( h2.StartTime, 'MMM dd, yyyy HH:mm' )
-													  , Finish_Time			=	FORMAT( h2.FinishTime, 'MMM dd, yyyy HH:mm' )
+													  , Finish_Time			=	ISNULL( FORMAT( h2.FinishTime, 'MMM dd, yyyy HH:mm' ), '' )
 													  , Test_Duration		=	h2.Duration
 													  , Project_Name		=	p.TagName
 													  , Firmware_Rev		=	fw.TagName
@@ -239,9 +210,9 @@ BEGIN TRY
 													  , Kdrive_Path			=	h2.KdrivePath
 													  , equipment			=	ISNULL( equipment.xmlData, '' )
 													  , External_File_Info	=	h2.ExternalFileInfo
-													  , options				=	options.xmlData
+													  , options				=	ISNULL( options.xmlData, '' )
 													  , Comments			=	h2.Comments
-													  , LibraryInfo			=	LibraryInfo.xmlData
+													  , LibraryInfo			=	ISNULL( LibraryInfo.xmlData, '' )
 												FROM	hwt.Header AS h2
 														-- Apply tagged data to header attributes
 														OUTER APPLY
@@ -408,33 +379,32 @@ BEGIN TRY
 																			OUTER APPLY
 																				(
 																					  SELECT	value	
-																						FROM
-																							(
-																								  SELECT 	value	=	vr2.ResultValue
-																									FROM	hwt.VectorResultValue AS vr2
-																								   WHERE	vr2.VectorResultID = vr.VectorResultID
-																																	   
-																								UNION ALL 
-																								  SELECT	vr3.ResultValue
-																									FROM	hwt.VectorResultExtended AS vr3
-																								   WHERE	vr3.VectorResultID = vr.VectorResultID
-																												AND vr.IsExtended = 1 
-																												AND vr.IsArray = 0 
-																																									
-																								UNION ALL
-																								  SELECT 	value
-																									FROM 	( 
-																												  SELECT 	TOP 100 PERCENT 
-																															x.[Key]
-																														  , x.Value 
-																													FROM 	hwt.VectorResultExtended AS vr4
-																															CROSS APPLY OPENJSON( vr4.ResultValue ) AS x
-																													
-																												   WHERE	vr4.VectorResultID = vr.VectorResultID
-																																AND vr.IsArray = 1 
-																												ORDER BY	x.[Key] 
-																											)  AS y 
-																							) as z
+																						FROM	(
+																									  SELECT 	value	=	vr2.ResultValue
+																										FROM	hwt.VectorResultValue AS vr2
+																									   WHERE	vr2.VectorResultID = vr.VectorResultID
+																																		   
+																									UNION ALL 
+																									  SELECT	vr3.ResultValue
+																										FROM	hwt.VectorResultExtended AS vr3
+																									   WHERE	vr3.VectorResultID = vr.VectorResultID
+																													AND vr.IsExtended = 1 
+																													AND vr.IsArray = 0 
+																																										
+																									UNION ALL
+																									  SELECT 	value
+																										FROM 	( 
+																													  SELECT 	TOP 100 PERCENT 
+																																x.[Key]
+																															  , x.Value 
+																														FROM 	hwt.VectorResultExtended AS vr4
+																																CROSS APPLY OPENJSON( vr4.ResultValue ) AS x
+																														
+																													   WHERE	vr4.VectorResultID = vr.VectorResultID
+																																	AND vr.IsArray = 1 
+																													ORDER BY	x.[Key] 
+																												)  AS y 
+																								) as z
 																							FOR XML PATH( '' ), TYPE
 																			) AS value( xmlData )
 																WHERE	vr.VectorID = v.VectorID
@@ -499,7 +469,7 @@ BEGIN TRY
 								)
 
 		FROM	hwt.Header AS h
-				INNER JOIN @Headers AS tmp
+				INNER JOIN @headers AS tmp
 						ON tmp.HeaderID = h.HeaderID
 				;
 				
@@ -513,8 +483,8 @@ BEGIN TRY
 	  INSERT	xmlStage.XMLOutputCache
 					( HeaderID, FileName, DatasetXML )
 	  SELECT 	x.HeaderID, x.DatasetName, x.DatasetXML
-	    FROM 	@DatasetXML AS x 
-				INNER JOIN 	@Headers AS h 
+	    FROM 	@datasetXML AS x 
+				INNER JOIN 	@headers AS h 
 						ON	h.HeaderID = x.HeaderID 
 	   WHERE 	NOT EXISTS	(
 							  SELECT	1 
@@ -528,14 +498,14 @@ BEGIN TRY
 --	9)	Output dataset if desired 
 	IF( @pCreateOutput	=	1 ) 
 	
-		SELECT	DatasetName, DatasetXML FROM @DatasetXML 	
+		SELECT	DatasetName, DatasetXML FROM @datasetXML 	
 	 UNION ALL
 	    SELECT 	x.FileName, x.DatasetXML 
 		  FROM 	xmlStage.XMLOutputCache AS x 
 				INNER JOIN	( 
 							  SELECT 	HeaderID FROM #headers
 							  EXCEPT 
-							  SELECT 	HeaderID FROM @Headers 
+							  SELECT 	HeaderID FROM @headers 
 							) AS h
 						ON	h.HeaderID = x.HeaderID 
 				; 
@@ -550,8 +520,8 @@ BEGIN CATCH
 	IF	( @@TRANCOUNT > 0 ) ROLLBACK TRANSACTION ;
 
 	 EXECUTE	eLog.log_CatchProcessing
-					@pProcID	=	@@PROCID
-				  , @p1			=	@pInputParameters
+					@pProcID		=	@@PROCID
+				  , @pErrorData		=	@pInputParameters
 				;
 
 	RETURN 55555 ;

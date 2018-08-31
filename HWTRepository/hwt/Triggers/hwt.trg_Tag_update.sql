@@ -1,6 +1,7 @@
-﻿CREATE TRIGGER	hwt.trg_Tag_update
-			ON	hwt.Tag
-		   FOR	UPDATE
+﻿CREATE TRIGGER	
+	hwt.trg_Tag_update
+		ON	hwt.Tag
+		FOR	UPDATE
 /*
 ***********************************************************************************************************************************
 
@@ -26,23 +27,26 @@ SET XACT_ABORT, NOCOUNT ON ;
 BEGIN TRY
 
 	--	INSERT archive copies of updated tags
-	  INSERT 	INTO archive.Tag
-					(
-						TagID, TagTypeID, Name, Description, IsDeleted, UpdatedDate, UpdatedBy, VersionNumber		
-					) 
-
-	  SELECT 	TagID       	=	d.TagID       	
-			  , TagTypeID   	=	d.TagTypeID   	
-			  , Name        	=	d.Name        	
-			  , Description		=	d.Description		
-			  , IsDeleted   	=	d.IsDeleted   	
-			  , UpdatedDate 	=	d.UpdatedDate 	
-			  , UpdatedBy   	=	d.UpdatedBy   	
-			  , VersionNumber	=	ISNULL( a.VersionNumber, 0 ) + 1	
+	  INSERT	archive.Tag
+					( TagID, TagTypeID, Name, Description, IsDeleted, UpdatedDate, UpdatedBy, VersionNumber, VersionTimestamp )
+	  SELECT 	TagID       		=	d.TagID       	
+			  , TagTypeID   		=	d.TagTypeID   	
+			  , Name        		=	d.Name        	
+			  , Description			=	d.Description		
+			  , IsDeleted   		=	d.IsDeleted   	
+			  , UpdatedDate 		=	d.UpdatedDate 	
+			  , UpdatedBy   		=	d.UpdatedBy   	
+			  , VersionNumber		=	ISNULL( a.VersionNumber, 0 ) + 1	
+			  , VersionTimestamp	=	SYSDATETIME()
 
 		FROM	deleted AS d 
-				INNER JOIN archive.Tag AS a 
-						ON a.TagID = d.TagID ;
+				OUTER APPLY
+					(
+					  SELECT	VersionNumber = MAX( a.VersionNumber ) 
+						FROM 	archive.Tag AS a
+					   WHERE	a.TagID = d.TagID
+					) AS a						
+				;
 
 END TRY
 
@@ -73,5 +77,6 @@ BEGIN CATCH
 				;
 
 END CATCH
+GO
 
-
+DISABLE TRIGGER hwt.trg_Tag_update ON hwt.Tag ; 

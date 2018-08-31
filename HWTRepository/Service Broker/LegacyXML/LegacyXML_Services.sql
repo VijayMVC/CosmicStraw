@@ -1,10 +1,12 @@
-﻿  CREATE	SERVICE [//HWTRepository/LegacyXML/ShredResponseService]
-	  ON	QUEUE xmlStage.[LegacyXML_ShredResponseQueue]
-				([//HWTRepository/LegacyXML/ShredderContract])
-			;
+﻿CREATE SERVICE 
+	[//HWTRepository/ShredLegacyXML/ResponseService]
+		ON QUEUE xmlStage.ShredLegacyXML_ResponseQueue
+			( [//HWTRepository/ShredLegacyXML/Contract] )
+	;
 GO
 
-  CREATE	SERVICE [//HWTRepository/LegacyXML/ShredRequestService]
-	  ON	QUEUE xmlStage.[LegacyXML_ShredRequestQueue]
-				([//HWTRepository/LegacyXML/ShredderContract])
-			;
+CREATE SERVICE 
+	[//HWTRepository/ShredLegacyXML/RequestService]
+		ON QUEUE xmlStage.ShredLegacyXML_RequestQueue
+			( [//HWTRepository/ShredLegacyXML/Contract] )
+	;

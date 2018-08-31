@@ -1,4 +1,5 @@
-﻿CREATE PROCEDURE labViewStage.usp_Process_SQLSender
+﻿CREATE PROCEDURE
+	labViewStage.usp_Process_SQLSender
 /*
 ***********************************************************************************************************************************
 
@@ -18,11 +19,11 @@
 
 	Notes
 	-----
-	Derived from code originally appearing in: 
+	Derived from code originally appearing in:
 		Error and Transaction Handling in SQL Server
 		Erland Sommarskog, Microsoft SQL Server MVP
 		http://www.sommarskog.se/error_handling/Appendix3.html
-		
+
 
 	Revision
 	--------
@@ -43,19 +44,20 @@ SET XACT_ABORT, NOCOUNT ON ;
 		  , @errorCode					int
 		  , @error_message				nvarchar(2048)
 		  , @error_number				int
+		  , @procedureName				sysname				=	N'usp_CompareXML_Request'
 			;
-			
+
 
 --	1)	Begin Loop to process all enqueued messages
 WHILE	( 1 = 1 )
 BEGIN TRY
 
-	  SELECT 	@conversation_handle		=	NULL 
-			  , @message_sequence_number	=	NULL 
-			  , @message_type_name			=	NULL 
-			  , @binary_message				=	NULL 
-			  , @message_body				=	NULL 
-			  , @error_number				=	NULL 
+	  SELECT	@conversation_handle		=	NULL
+			  , @message_sequence_number	=	NULL
+			  , @message_type_name			=	NULL
+			  , @binary_message				=	NULL
+			  , @message_body				=	NULL
+			  , @error_number				=	NULL
 				;
 
 --	2)	RECEIVE messages from labViewStage.SQLSenderQueue
@@ -77,25 +79,29 @@ BEGIN TRY
 		IF	( @conversation_handle IS NULL )
 		BEGIN
 			COMMIT TRANSACTION ;
-			BREAK ;
+			RETURN ;
 		END
 
---	3)	Process RECEIVEd message by message type
-		--	end dialog message
+--	4)	Process messages that are non-contract message types
+		--	Message Type:	end dialog
+		--	Req'd Action:	end conversation
 		ELSE IF ( @message_type_name = N'http://schemas.microsoft.com/SQL/ServiceBroker/EndDialog' )
 		BEGIN
-			--	clean up conversation
 			END CONVERSATION @conversation_handle ;
+			CONTINUE ;
 		END
 
 
-		--	Service Broker error message
+		--	Message Type:	Service Broker error
+		--	Req'd Action:	shred error data from SB Error message
+		--					log error message
+		--					record message in permanent storage
+		--					end conversation
 		ELSE IF ( @message_type_name = N'http://schemas.microsoft.com/SQL/ServiceBroker/Error' )
 		BEGIN
-			--	shred error data from SB Error message
 			 DECLARE	@error			int
 					  , @description	nvarchar(4000)
-							;
+						;
 
 			  SELECT	@message_body = CONVERT( xml, @binary_message ) ;
 
@@ -104,21 +110,19 @@ BEGIN TRY
 					  , @description	=	@message_body.value('(//ssb:Error/ssb:Description)[1]', 'nvarchar(4000)' )
 						;
 
-			--	log error message
 			 EXECUTE	eLog.log_ProcessEventLog
 							@pProcID	=	@@PROCID
-						  , @pMessage	=	N'Received error code: %1 Description %2'
+						  , @pMessage	=	N'Service Broker error!	 Error code: %1	 Description: %2'
 						  , @p1			=	@error
 						  , @p2			=	@description
 						;
 
-			--	record message in permanent storage
-			  INSERT	labViewStage.SQLMessage
-						(
-							MessageProcessor, MessageType, ConversationHandle, MessageSequenceNumber
-								, MessageBody, MessageQueued, ErrorCode, MessageProcessed
-						)
-			  SELECT	MessageProcessor		=	N'usp_Process_SQLSender'
+			  INSERT	eLog.ServiceBrokerMessage
+							(
+								MessageProcessor, MessageType, ConversationHandle, MessageSequenceNumber
+									, MessageBody, MessageQueued, ErrorCode, MessageProcessed
+							)
+			  SELECT	MessageProcessor		=	@ProcedureName
 					  , MessageType				=	@message_type_name
 					  , ConversationHandle		=	@conversation_handle
 					  , MessageSequenceNumber	=	@message_sequence_number
@@ -128,27 +132,30 @@ BEGIN TRY
 					  , MessageProcessed		=	SYSDATETIME()
 						;
 
-			--	end the conversation
-			END CONVERSATION @conversation_handle ;
+			END	CONVERSATION @conversation_handle ;
+			CONTINUE ;
 		END
 
-		--	Any other message type here is an error
+		--	Message Type:	Any other message type here is an error ( unexpected message error ) 
+		--					Note:	The SQLMessage contract is a monolog, there is no message sent 
+		--								from the SQLMessage service
+		--	Req'd Action:	log error message
+		--					record message in permanent storage
+		--					end the conversation
 		ELSE
 		BEGIN
-			--	log error message
-			EXECUTE eLog.log_ProcessEventLog
+			 EXECUTE	eLog.log_ProcessEventLog
 							@pProcID	=	@@PROCID
 						  , @pMessage	=	N'Service Broker unexpected message type!  Message Type: %1'
 						  , @p1			=	@message_type_name
 						;
 
-			--	record message in permanent storage
-			  INSERT	labViewStage.SQLMessage
+			  INSERT	eLog.ServiceBrokerMessage
 							(
 								MessageProcessor, MessageType, ConversationHandle, MessageSequenceNumber
 									, MessageBody, MessageQueued, ErrorCode, MessageProcessed
 							)
-			  SELECT	MessageProcessor		=	N'usp_Process_SQLSender'
+			  SELECT	MessageProcessor		=	@ProcedureName
 					  , MessageType				=	@message_type_name
 					  , ConversationHandle		=	@conversation_handle
 					  , MessageSequenceNumber	=	@message_sequence_number
@@ -158,8 +165,8 @@ BEGIN TRY
 					  , MessageProcessed		=	SYSDATETIME()
 						;
 
-			--	end the conversation
 			END CONVERSATION @conversation_handle ;
+			CONTINUE ;
 		END
 
 --	4)	COMMIT transaction and iterate for next message

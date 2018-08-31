@@ -1,7 +1,8 @@
-﻿CREATE	PROCEDURE hwt.usp_GetTagsByTagType
-			(
-				@pCriteria	AS	nvarchar(max) = NULL
-			)
+﻿CREATE PROCEDURE
+	hwt.usp_GetTagsByTagType
+		(
+			@pCriteria	AS	nvarchar(max) = NULL
+		)
 /*
 ***********************************************************************************************************************************
 
@@ -34,15 +35,6 @@ AS
 
 SET XACT_ABORT, NOCOUNT ON ;
 
- DECLARE	@pInputParameters	nvarchar(4000) ;
-
-  SELECT	@pInputParameters	=	(
-										SELECT	[usp_GetTagsByTagType.@pCriteria]	=	@pCriteria
-
-												FOR JSON PATH, WITHOUT_ARRAY_WRAPPER, INCLUDE_NULL_VALUES
-									)
-			;
-
 
 BEGIN TRY
 
@@ -52,66 +44,68 @@ BEGIN TRY
 
 	  SELECT	TOP 1
 				@IsNumeric	= ISNUMERIC( x.Item )
-		FROM	utility.ufn_SplitString( @pCriteria, '|' ) AS x ;
+		FROM	utility.ufn_SplitString( @pCriteria, '|' ) AS x
+				;
 
 	IF	( @pCriteria IS NULL )
-		BEGIN
-			  SELECT	TagTypeName
-					  , TagID
-					  , TagName
-					  , TagDescription
-					  , TagIsPermanent
-					  , TagIsDeleted
-					  , TagTypeRestricted
-				FROM	hwt.vw_AllTags AS tags
-			   WHERE	tags.TagIsDeleted = 0
+	BEGIN
+		  SELECT	TagTypeName
+				  , TagID
+				  , TagName
+				  , TagDescription
+				  , TagIsPermanent
+				  , TagIsDeleted
+				  , TagTypeRestricted
+			FROM	hwt.vw_AllTags AS tags
+		   WHERE	tags.TagIsDeleted = 0
 
-		   UNION ALL
-			  SELECT	'Assets'
-					  , MIN( EquipmentID * -1 )
-					  , Asset + ' - ' + REPLACE( LEFT( Description, 20 ), ',', ' ' )
-					  , Description
-					  , 0
-					  , 0
-					  , 0
-				FROM	hwt.Equipment AS e
-			GROUP BY	Asset + ' - ' + REPLACE( LEFT( Description, 20 ), ',', ' ' ), Description
-			ORDER BY	TagTypeName, TagName
-						;
-			RETURN 0 ;
-		END
+	   UNION ALL
+		  SELECT	'Assets'
+				  , MIN( EquipmentID * -1 )
+				  , Asset + ' - ' + REPLACE( LEFT( Description, 20 ), ',', ' ' )
+				  , Description
+				  , 0
+				  , 0
+				  , 0
+			FROM	hwt.Equipment AS e
+		GROUP BY	Asset + ' - ' + REPLACE( LEFT( Description, 20 ), ',', ' ' ), Description
+		ORDER BY	TagTypeName, TagName
+					;
+
+		RETURN 0 ;
+	END
 
 
 	IF	( @IsNumeric = 0 )
 	BEGIN
-			  SELECT	TagTypeName
-					  , TagID
-					  , TagName
-					  , TagDescription
-					  , TagIsPermanent
-					  , TagIsDeleted
-					  , TagTypeRestricted
-				FROM	hwt.vw_AllTags AS tags
-						INNER JOIN utility.ufn_SplitString( @pCriteria, '|' ) AS x
-								ON @pCriteria IS NULL
+		  SELECT	TagTypeName
+				  , TagID
+				  , TagName
+				  , TagDescription
+				  , TagIsPermanent
+				  , TagIsDeleted
+				  , TagTypeRestricted
+			FROM	hwt.vw_AllTags AS tags
+					INNER JOIN	utility.ufn_SplitString( @pCriteria, '|' ) AS x
+							ON	@pCriteria IS NULL
 									OR( x.Item = tags.TagTypeName )
-			   WHERE	tags.TagIsDeleted = 0
+		   WHERE	tags.TagIsDeleted = 0
 
-		   UNION ALL
-			  SELECT	'Assets'
-					  , MIN( EquipmentID * -1 )
-					  , Asset + ' - ' + REPLACE( LEFT( Description, 20 ), ',', ' ' )
-					  , Description
-					  , 0
-					  , 0
-					  , 0
-				FROM	hwt.Equipment AS e
-						INNER JOIN utility.ufn_SplitString( @pCriteria, '|' ) AS x
-								ON @pCriteria IS NULL
+	   UNION ALL
+		  SELECT	'Assets'
+				  , MIN( EquipmentID * -1 )
+				  , Asset + ' - ' + REPLACE( LEFT( Description, 20 ), ',', ' ' )
+				  , Description
+				  , 0
+				  , 0
+				  , 0
+			FROM	hwt.Equipment AS e
+					INNER JOIN	utility.ufn_SplitString( @pCriteria, '|' ) AS x
+							ON	@pCriteria IS NULL
 									OR( x.Item = 'Assets' )
-			GROUP BY	Asset + ' - ' + REPLACE( LEFT( Description, 20 ), ',', ' ' ), Description
-			ORDER BY	TagTypeName, TagName
-						;
+		GROUP BY	Asset + ' - ' + REPLACE( LEFT( Description, 20 ), ',', ' ' ), Description
+		ORDER BY	TagTypeName, TagName
+					;
 
 		RETURN 0 ;
 	END
@@ -126,9 +120,10 @@ BEGIN TRY
 				  , TagIsDeleted
 				  , TagTypeRestricted
 			FROM	hwt.vw_AllTags AS tags
-					INNER JOIN utility.ufn_SplitString( @pCriteria, '|' ) AS x
-							ON x.Item = tags.TagTypeID
-		ORDER BY	TagTypeName, TagName ;
+					INNER JOIN	utility.ufn_SplitString( @pCriteria, '|' ) AS x
+							ON	x.Item = tags.TagTypeID
+		ORDER BY	TagTypeName, TagName
+					;
 
 		RETURN 0 ;
 	END
@@ -137,11 +132,19 @@ END TRY
 
 BEGIN CATCH
 
+ DECLARE	@pInputParameters	nvarchar(4000) ;
+
+  SELECT	@pInputParameters	=	(
+										SELECT	[usp_GetTagsByTagType.@pCriteria]	=	@pCriteria
+												FOR JSON PATH, WITHOUT_ARRAY_WRAPPER, INCLUDE_NULL_VALUES
+									)
+			;
+
 	IF	( @@TRANCOUNT > 0 ) ROLLBACK TRANSACTION ;
 
 	 EXECUTE	eLog.log_CatchProcessing
 					@pProcID	=	@@PROCID
-				  , @p1			=	@pInputParameters
+				  , @pErrorData	=	@pInputParameters
 				;
 
 	RETURN 55555 ;

@@ -1,4 +1,4 @@
-﻿  CREATE	MESSAGE
-	TYPE	[//HWTRepository/LabVIEW/SQLMessage]
-				VALIDATION = NONE
-			;
+﻿CREATE MESSAGE TYPE
+	[//HWTRepository/LabVIEW/SQLMessage]
+		VALIDATION = NONE
+	;

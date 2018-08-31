@@ -1,4 +1,5 @@
-﻿CREATE PROCEDURE	hwt.usp_LoadLibraryFileFromStage
+﻿CREATE PROCEDURE
+	hwt.usp_LoadLibraryFileFromStage
 /*
 ***********************************************************************************************************************************
 
@@ -39,41 +40,41 @@ SET XACT_ABORT, NOCOUNT ON ;
 
 BEGIN TRY
 
-	 DECLARE	@ObjectID	int	=	OBJECT_ID( N'labViewStage.libraryInfo_file' ) ;
-	 
-	 DECLARE 	@Records	TABLE	( RecordID int ) ; 
+	 DECLARE	@objectID	int	=	OBJECT_ID( N'labViewStage.libraryInfo_file' ) ;
 
-	 
+	 DECLARE	@records	TABLE	( RecordID int ) ;
+
+
 --	7)	DELETE processed records from labViewStage.PublishAudit
 	  DELETE	labViewStage.PublishAudit
-	  OUTPUT 	deleted.RecordID 	  
-	    INTO	@Records( RecordID ) 
-	   WHERE 	ObjectID = @ObjectID
+	  OUTPUT	deleted.RecordID
+		INTO	@records( RecordID )
+	   WHERE	ObjectID = @objectID
 				;
 
 	IF	( @@ROWCOUNT = 0 )
 		RETURN 0 ;
 
-		
+
 --	2)	INSERT new Library File data from temp storage into hwt.LibraryFile
 	  INSERT	hwt.LibraryFile
-					( FileName, FileRev, Status, HashCode, UpdatedBy, UpdatedDate )
-	  SELECT	DISTINCT 
-	  		    FileName		=	lvs.FileName
+					( FileName, FileRev, Status, HashCode, CreatedBy, CreatedDate )
+	  SELECT	DISTINCT
+				FileName		=	lvs.FileName
 			  , FileRev			=	lvs.FileRev
 			  , Status			=	lvs.Status
 			  , HashCode		=	lvs.HashCode
-			  , UpdatedBy		=	FIRST_VALUE( h.OperatorName ) OVER	( 	
+			  , CreatedBy		=	FIRST_VALUE( h.OperatorName ) OVER	(
 																			PARTITION BY	lvs.FileName
 																						  , lvs.FileRev
 																						  , lvs.Status
-																						  , lvs.HashCode 
-																			ORDER BY 		lvs.ID 
+																						  , lvs.HashCode
+																			ORDER BY		lvs.ID
 																		)
-																		
-			  , UpdatedDate		=	SYSDATETIME()
+
+			  , CreatedDate		=	SYSDATETIME()
 		FROM	labViewStage.libraryInfo_file AS lvs
-				INNER JOIN	@Records
+				INNER JOIN	@records
 						ON	RecordID = lvs.ID
 
 				INNER JOIN	labViewStage.header AS h
@@ -91,59 +92,21 @@ BEGIN TRY
 				;
 
 
---	2)	INSERT data into temp storage from PublishAudit
-	CREATE TABLE	#changes
-					(
-						ID				int
-					  , HeaderID		int
-					  , FileName		nvarchar(400)
-					  , FileRev			nvarchar(50)
-					  , Status			nvarchar(50)
-					  , HashCode		nvarchar(100)
-					  , OperatorName	nvarchar(50)
-					  , NodeOrder		int
-					  , LibraryFileID	int
-					) ;
-
-
-	  INSERT	INTO #changes
-					( ID, HeaderID, FileName, FileRev, Status, HashCode, NodeOrder, OperatorName, LibraryFileID )
-	  SELECT	i.ID
-			  , i.HeaderID
-			  , i.FileName
-			  , i.FileRev
-			  , i.Status
-			  , i.HashCode
-			  , i.NodeOrder		
-			  , h.OperatorName
+--	4)	INSERT header libraryFile data from temp storage into hwt.HeaderLibraryFile
+	  INSERT	hwt.HeaderLibraryFile
+					( HeaderID, LibraryFileID, NodeOrder )
+	  SELECT	i.HeaderID
 			  , lf.LibraryFileID
+			  , i.NodeOrder
 		FROM	labViewStage.libraryInfo_file AS i
-				INNER JOIN	@Records 
+				INNER JOIN	@records
 						ON	RecordID = i.ID
-
-				INNER JOIN labViewStage.header AS h
-						ON h.ID = i.HeaderID
 
 				INNER JOIN	hwt.LibraryFile AS lf
 						ON	lf.FileName = i.FileName
 								AND lf.FileRev = i.FileRev
 								AND lf.Status = i.Status
 								AND lf.HashCode = i.HashCode
-				;
-
---	4)	INSERT header libraryFile data from temp storage into hwt.HeaderLibraryFile
-	  INSERT	hwt.HeaderLibraryFile
-					( HeaderID, LibraryFileID, NodeOrder, UpdatedBy, UpdatedDate )
-	  SELECT	HeaderID
-			  , LibraryFileID
-			  , NodeOrder
-			  , OperatorName
-			  , SYSDATETIME()
-		FROM	#changes
-				;
-
-
-
 
 	RETURN 0 ;
 
@@ -154,8 +117,10 @@ BEGIN CATCH
 
 	  SELECT	@pErrorData	=	(
 								  SELECT	(
-											  SELECT	*
-												FROM	#changes
+											  SELECT	i.*
+												FROM	labViewStage.libraryInfo_file AS i
+														INNER JOIN	@records
+																ON	RecordID = i.ID
 														FOR XML PATH( 'changes' ), TYPE, ELEMENTS XSINIL
 											)
 											FOR XML PATH( 'usp_LoadLibraryFileFromStage' ), TYPE

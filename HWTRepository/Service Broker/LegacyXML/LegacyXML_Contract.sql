@@ -1,6 +1,7 @@
-﻿  CREATE	CONTRACT [//HWTRepository/LegacyXML/ShredderContract]
-				(
-					[//HWTRepository/LegacyXML/ShredRequest]	SENT BY INITIATOR
-				  , [//HWTRepository/LegacyXML/ShredResponse]	SENT BY TARGET
-				)
-			;
+﻿CREATE CONTRACT 
+	[//HWTRepository/ShredLegacyXML/Contract]
+		(
+			[//HWTRepository/ShredLegacyXML/Request]	SENT BY INITIATOR
+		  , [//HWTRepository/ShredLegacyXML/Response]	SENT BY TARGET
+		)
+	;

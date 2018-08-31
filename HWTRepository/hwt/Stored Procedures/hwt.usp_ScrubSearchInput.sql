@@ -1,9 +1,10 @@
-﻿CREATE	PROCEDURE hwt.usp_ScrubSearchInput
-			(
-				@pSearchField	nvarchar(50)
-			  , @pSearchInput	nvarchar(2000)
-			  , @pSearchOutput	nvarchar(2000)	OUTPUT
-			)
+﻿CREATE PROCEDURE
+	hwt.usp_ScrubSearchInput
+		(
+			@pSearchField	nvarchar(50)
+		  , @pSearchInput	nvarchar(2000)
+		  , @pSearchOutput	nvarchar(2000)	OUTPUT
+		)
 /*
 ***********************************************************************************************************************************
 
@@ -92,7 +93,7 @@ BEGIN TRY
 					  , @pMessage	=	@scrubErrorMessage
 					  , @p1			=	N'Mismatched quotation marks'
 					  , @p2			=	@pSearchField
-					  , @p4			=	@pInputParameters
+					  , @p3			=	@pInputParameters
 					;
 	END
 
@@ -120,7 +121,8 @@ BEGIN TRY
 					utility.ufn_SplitString( REPLACE( x.Item, ',', @delimiter ), @delimiter ) AS y
 
 	   WHERE	x.ItemNumber % 2 = 1
-					AND y.Item != '' ;
+					AND y.Item != ''
+				;
 
 
 --	4)	Apply wild card % to search terms
@@ -134,7 +136,8 @@ BEGIN TRY
 												ELSE '%' + Item + '%'
 											END
 								ELSE REPLACE( Item, '*', '%' )
-							END ;
+							END
+				;
 
 
 --	5)	Build delimited string from temp storage
@@ -145,7 +148,8 @@ BEGIN TRY
 												FROM	#SearchTerms
 														FOR XML PATH ( '' ), TYPE
 										).value('.', 'nvarchar(2000)'), 1, 1, ''
-									) ;
+									)
+				;
 
 	RETURN 0 ;
 
@@ -157,7 +161,7 @@ BEGIN CATCH
 
 	 EXECUTE	eLog.log_CatchProcessing
 					@pProcID	=	@@PROCID
-				  , @p1			=	@pInputParameters
+				  , @pErrorData	=	@pInputParameters
 				;
 
 	RETURN 55555 ;

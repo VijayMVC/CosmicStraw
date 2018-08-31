@@ -1,6 +1,7 @@
-﻿CREATE TRIGGER	labViewStage.trg_equipment_element
-			ON	labViewStage.equipment_element
-		 AFTER	INSERT
+﻿CREATE TRIGGER
+	labViewStage.trg_equipment_element
+		ON labViewStage.equipment_element
+		AFTER INSERT
 /*
 ***********************************************************************************************************************************
 
@@ -40,7 +41,6 @@ BEGIN TRY
 			  , RecordID	=	ID
 		FROM	inserted
 				;
-
 
 END TRY
 

@@ -1,4 +1,5 @@
-﻿CREATE	PROCEDURE hwt.usp_LoadVectorElementFromStage
+﻿CREATE PROCEDURE
+	hwt.usp_LoadVectorElementFromStage
 /*
 ***********************************************************************************************************************************
 
@@ -35,35 +36,35 @@ SET XACT_ABORT, NOCOUNT ON ;
 
 BEGIN TRY
 
-	 DECLARE	@ObjectID	int	=	OBJECT_ID( N'labViewStage.vector_element' ) ;
+	 DECLARE	@objectID	int	=	OBJECT_ID( N'labViewStage.vector_element' ) ;
 
-	 DECLARE	@Records	TABLE	( RecordID int ) ; 
-	 
+	 DECLARE	@records	TABLE	( RecordID int ) ;
+
 --	7)	DELETE processed records from labViewStage.PublishAudit
 	  DELETE	labViewStage.PublishAudit
-	  OUTPUT	deleted.RecordID 
-	    INTO	@Records( RecordID ) 
+	  OUTPUT	deleted.RecordID
+		INTO	@records( RecordID )
 	   WHERE	ObjectID = @ObjectID
 				;
 
 --	3)	INSERT new Element data from temp storage into hwt.Element
 	  INSERT	hwt.Element
-					( Name, DataType, Units, UpdatedBy, UpdatedDate )
+					( Name, DataType, Units, CreatedBy, CreatedDate )
 	  SELECT	DISTINCT
 				Name		=	lvs.Name
 			  , DataType	=	lvs.Type
 			  , Units		=	lvs.Units
-			  , UpdatedBy	=	FIRST_VALUE( h.OperatorName ) OVER( PARTITION BY lvs.Name, lvs.Type, lvs.Units ORDER BY lvs.ID )
-			  , UpdatedDate =	SYSDATETIME()
+			  , CreatedBy	=	FIRST_VALUE( h.OperatorName ) OVER( PARTITION BY lvs.Name, lvs.Type, lvs.Units ORDER BY lvs.ID )
+			  , CreatedDate =	SYSDATETIME()
 		FROM	labViewStage.vector_element AS lvs
-				INNER JOIN	@Records 
+				INNER JOIN	@records
 						ON	RecordID = lvs.ID
-							
-				INNER JOIN 	labViewStage.vector AS v
-						ON 	v.ID = lvs.VectorID
-	
-				INNER JOIN 	labViewStage.header AS h
-						ON 	h.ID = v.HeaderID 
+
+				INNER JOIN	labViewStage.vector AS v
+						ON	v.ID = lvs.VectorID
+
+				INNER JOIN	labViewStage.header AS h
+						ON	h.ID = v.HeaderID
 
 	   WHERE	NOT EXISTS
 					(
@@ -75,43 +76,33 @@ BEGIN TRY
 					)
 				;
 
-				
+
 --	2)	INSERT data into temp storage from PublishAudit
-	CREATE TABLE	#changes
-					(
-						ID				int
-					  , VectorID		int
-					  , Name			nvarchar(250)
-					  , Type			nvarchar(50)
-					  , Units			nvarchar(250)
-					  , Value			nvarchar(1000)
-					  , NodeOrder		int
-					  , OperatorName	nvarchar(50)
-					  , ElementID		int
-					)
-					;
+	CREATE TABLE
+		#changes
+			(
+				ID				int
+			  , VectorID		int
+			  , Value			nvarchar(1000)
+			  , NodeOrder		int
+			  , ElementID		int
+			)
+		;
 
 	  INSERT	INTO #changes
-					( ID, VectorID, Name, Type, Units, Value, NodeOrder, OperatorName, ElementID )
+					( ID, VectorID, Value, NodeOrder, ElementID )
 	  SELECT	i.ID
 			  , i.VectorID
-			  , i.Name
-			  , i.Type
-			  , i.Units
 			  , i.Value
-			  , i.NodeOrder		
-			  , h.OperatorName
+			  , i.NodeOrder
 			  , e.ElementID
 		FROM	labViewStage.vector_element AS i
-				INNER JOIN	@Records 
+				INNER JOIN	@records
 						ON	RecordID = i.ID
 
-				INNER JOIN 	labViewStage.vector AS v
-						ON 	v.ID = i.VectorID
-	
-				INNER JOIN 	labViewStage.header AS h
-						ON 	h.ID = v.HeaderID 
-						
+				INNER JOIN	labViewStage.vector AS v
+						ON	v.ID = i.VectorID
+
 				INNER JOIN	hwt.Element AS e
 						ON	e.Name = i.Name
 								AND e.DataType = i.Type
@@ -124,15 +115,19 @@ BEGIN TRY
 
 --	5)	INSERT vector element data from temp storage into hwt.VectorElement
 	  INSERT	hwt.VectorElement
-					( VectorID, ElementID, NodeOrder, ElementValue, UpdatedBy, UpdatedDate )
-	  SELECT	VectorID
-			  , ElementID
-			  , NodeOrder
-			  , Value
-			  , OperatorName
-			  , SYSDATETIME()
-		FROM	#changes
-	ORDER BY	VectorID ASC, ElementID ASC
+					( VectorID, ElementID, NodeOrder, ElementValue )
+	  SELECT	VectorID        =	i.VectorID        
+			  , ElementID       =	e.ElementID       
+			  , NodeOrder       =	i.NodeOrder       
+			  , ElementValue	=	i.Value	
+		FROM	labViewStage.vector_element AS i
+				INNER JOIN	@records
+						ON	RecordID = i.ID
+
+				INNER JOIN	hwt.Element AS e
+						ON	e.Name = i.Name
+								AND e.DataType = i.Type
+								AND e.Units = i.Units
 				;
 
 
@@ -145,8 +140,10 @@ BEGIN CATCH
 
 	  SELECT	@pErrorData =	(
 								  SELECT	(
-											  SELECT	*
-												FROM	#changes
+											  SELECT	i.*
+												FROM	labViewStage.vector_element AS i
+														INNER JOIN	@records
+																ON	RecordID = i.ID
 														FOR XML PATH( 'changes' ), TYPE, ELEMENTS XSINIL
 											)
 											FOR XML PATH( 'usp_LoadVectorElementFromStage' ), TYPE

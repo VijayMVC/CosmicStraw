@@ -1,18 +1,13 @@
-CREATE	PROCEDURE eLog.log_CatchProcessing
-			(
-				@pProcID		int				=	NULL
-			  , @pReraise		bit				=	1
-			  , @p1				sql_variant		=	NULL
-			  , @p2				sql_variant		=	NULL
-			  , @p3				sql_variant		=	NULL
-			  , @p4				sql_variant		=	NULL
-			  , @p5				sql_variant		=	NULL
-			  , @p6				sql_variant		=	NULL
-			  , @pError_Number	int				=	NULL	OUTPUT
-			  , @pMessage		nvarchar(2048)	=	NULL	OUTPUT
-			  , @pMessage_aug	nvarchar(2048)	=	NULL	OUTPUT
-			  , @pErrorData		xml				=	NULL
-			)
+CREATE PROCEDURE
+	eLog.log_CatchProcessing
+		(
+			@pProcID		int				=	NULL
+		  , @pReraise		bit				=	1
+		  , @pError_Number	int				=	NULL	OUTPUT
+		  , @pMessage		nvarchar(2048)	=	NULL	OUTPUT
+		  , @pMessage_aug	nvarchar(2048)	=	NULL	OUTPUT
+		  , @pErrorData		xml				=	NULL
+		)
 /*
 ***********************************************************************************************************************************
 
@@ -39,7 +34,6 @@ CREATE	PROCEDURE eLog.log_CatchProcessing
 	@pMessage_aug	nvarchar(2048)	enhanced error message containing name of
 										calling object and line number of error
 	@pErrorData		xml				contains relevant internals from error
-	@p1 - @p6		sql_variant		contains relavant internals from caller
 
 
 	Notes
@@ -74,7 +68,8 @@ BEGIN TRY
 			  , @error_line			int				=	ERROR_LINE()
 			  , @error_severity		int				=	ERROR_SEVERITY()
 			  , @error_state		int				=	ERROR_STATE()
-			  , @temperrno			varchar(9) ;
+			  , @temperrno			varchar(9)
+				;
 
 
 --	1)	Rollback transaction if required ( Sommarskog, Part Three, section 2.3 )
@@ -83,7 +78,8 @@ BEGIN TRY
 
 --	2)	Assign output parameters
 	  SELECT	@pError_Number	=	@error_number
-			  , @pMessage		=	@error_message ;
+			  , @pMessage		=	@error_message
+				;
 
 
 --	3)	Process error, accounting for re-raised errors and original errors
@@ -103,24 +99,18 @@ BEGIN TRY
 					  , @pErrorNumber		=	@error_number
 					  , @pErrorProcedure	=	@error_procedure
 					  , @pErrorLine			=	@error_line
-					  , @p1					=	@p1
-					  , @p2					=	@p2
-					  , @p3					=	@p3
-					  , @p4					=	@p4
-					  , @p5					=	@p5
-					  , @p6					=	@p6
 					  , @pErrorData			=	@pErrorData
-					  ;
+					;
 
 		--	augment error message.	Include message number, procedure and line number
 		  SELECT	@pMessage_aug	=	'{' + LTRIM( STR( @error_number ) ) + '}'
 											+ ISNULL( ' Procedure ' + @error_procedure + ',' , ',' )
 											+ ' Line ' + LTRIM( STR( @error_line ) ) + @crlf
-											+ @error_message ;
+											+ @error_message
+					;
 	END
 
 	ELSE
-
 	BEGIN
 		--	this is NOT an original error, or it is a script error
 		IF	( @error_message LIKE '{[0-9]%}%' + @crlf + '%' )
@@ -135,15 +125,16 @@ BEGIN TRY
 
 		--		Write to the two output variables for the error message.
 			SELECT		@pMessage		=	SUBSTRING( @error_message, CHARINDEX( @crlf, @error_message ) + 2, LEN( @error_message ) )
-					  , @pMessage_aug	=	@error_message ;
+					  , @pMessage_aug	=	@error_message
+						;
 		END
 
 		ELSE
-
 		BEGIN
 		--	Presumably a message raised by calling eLog.log_ProcessEventLog directly.
 			SELECT		@pMessage		=	@error_message
-					  , @pMessage_aug	=	@error_message ;
+					  , @pMessage_aug	=	@error_message
+						;
 		END
 	END
 END TRY
@@ -164,11 +155,13 @@ BEGIN CATCH
 													+ @crlf
 													+ 'Original error: '
 													+ @error_message
-									END ;
+									END
+				;
 
 	--	Set output variables if this has not been done.
 	  SELECT	@pMessage		=	ISNULL( @pMessage, @error_message )
-			  , @pMessage_aug	=	ISNULL( @pMessage_aug, @error_message ) ;
+			  , @pMessage_aug	=	ISNULL( @pMessage_aug, @error_message )
+				;
 
    -- Avoid new error if transaction is doomed.
 	IF	( XACT_STATE() = -1 ) ROLLBACK TRANSACTION ;

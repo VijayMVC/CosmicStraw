@@ -28,7 +28,7 @@
 		  , VersionNumber		int				NOT NULL
 		  , VersionTimestamp	datetime2(3)	NOT NULL
 
-		  , CONSTRAINT	PK_labViewStage_header
+		  , CONSTRAINT	PK_archive_labViewStage_header
 				PRIMARY KEY CLUSTERED( ID ASC, VersionNumber ASC)
 				WITH( DATA_COMPRESSION = PAGE )
 				ON [HWTTables]
@@ -40,7 +40,7 @@
 GO
 
 CREATE INDEX
-	IX_labViewStage_header_OperatorName
+	IX_archive_labViewStage_header_OperatorName
 		ON labViewStage.header
 			( OperatorName ASC )
 

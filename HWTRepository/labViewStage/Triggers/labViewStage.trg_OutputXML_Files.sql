@@ -1,11 +1,12 @@
-﻿  CREATE	TRIGGER	labViewStage.trg_OutputXML_Files
-	  ON	labViewStage.OutputXML_Files
-	 FOR	INSERT
+﻿CREATE TRIGGER
+	labViewStage.trg_OutputXML_Files
+		ON labViewStage.OutputXML_Files
+		AFTER INSERT
 /*
 ***********************************************************************************************************************************
 
 	 Trigger:	labViewStage.trg_OutputXML_Files
-	Abstract:	sends message to CompareXML Services to validate input data 
+	Abstract:	sends message to CompareXML Services to validate input data
 
 	Logic Summary
 	-------------
@@ -29,52 +30,55 @@ AS
 
 SET XACT_ABORT, NOCOUNT ON ;
 
-BEGIN TRY	
+BEGIN TRY
 
- DECLARE	@insertedFiles AS TABLE( FileID uniqueidentifier ) ; 
+ DECLARE	@insertedFiles AS TABLE( FileID uniqueidentifier ) ;
 
- DECLARE	@conversation_handle	uniqueidentifier 
+ DECLARE	@conversation_handle	uniqueidentifier
 		  , @CompareRequestMessage	xml
-		  , @FileID					uniqueidentifier 
-			; 
-			
---	1)	INSERT	FileID(s) from file table into temp storage			
+		  , @FileID					uniqueidentifier
+			;
+
+--	1)	INSERT	FileID(s) from file table into temp storage
 		--	ignores files that may already exist in the system
 
-  INSERT	@insertedFiles 
-  SELECT 	FileID 			=	i.stream_id
-	FROM 	inserted AS i 
-   WHERE	NOT EXISTS ( SELECT 1 FROM xmlStage.InputXMLFile AS x WHERE x.FileID = i.stream_id ) 
-			; 
+  INSERT	@insertedFiles
+  SELECT	FileID			=	i.stream_id
+	FROM	inserted AS i
+   WHERE	NOT EXISTS ( SELECT 1 FROM xmlStage.InputXMLFile AS x WHERE x.FileID = i.stream_id )
+			;
 
---	2)	Iterate over processed files, sending CompareRequest message for each file 
-   WHILE	EXISTS( SELECT 1 FROM @insertedFiles ) 
-				BEGIN 
-				
-					  SELECT	TOP 1
-								@FileID		=	FileID 
-						FROM	@insertedFiles 
-					ORDER BY	FileID
-								; 
-					
-					  SELECT	@CompareRequestMessage	=	( SELECT FileID	= @FileID FOR XML PATH( 'CompareRequest' ) ) ; 
-						  
-					   BEGIN	DIALOG @conversation_handle
-								FROM SERVICE	[//HWTRepository/CompareXML/RequestService]
-								TO SERVICE		N'//HWTRepository/CompareXML/ResponseService'
-								ON CONTRACT		[//HWTRepository/CompareXML/CompareXMLContract]
-								WITH ENCRYPTION = OFF ; 
+--	2)	Iterate over processed files, sending CompareRequest message for each file
+   WHILE	EXISTS( SELECT 1 FROM @insertedFiles )
+			BEGIN
 
-					 SEND ON	CONVERSATION @conversation_handle
-								MESSAGE TYPE [//HWTRepository/CompareXML/Request]
-								( @CompareRequestMessage ) ; 
+				  SELECT	TOP 1
+							@FileID		=	FileID
+					FROM	@insertedFiles
+				ORDER BY	FileID
+							;
 
-					  DELETE	@insertedFiles
-					   WHERE	FileID = @FileID  
-								;
-				END 
+				  SELECT	@CompareRequestMessage	=	( SELECT FileID	= @FileID FOR XML PATH( 'CompareRequest' ) ) ;
+
+				   BEGIN	DIALOG @conversation_handle
+							FROM SERVICE	[//HWTRepository/CompareXML/RequestService]
+							TO SERVICE		N'//HWTRepository/CompareXML/ResponseService'
+							ON CONTRACT		[//HWTRepository/CompareXML/Contract]
+							WITH ENCRYPTION = OFF
+							;
+
+				 SEND ON	CONVERSATION @conversation_handle
+							MESSAGE TYPE [//HWTRepository/CompareXML/Request]
+							( @CompareRequestMessage )
+							;
+
+				  DELETE	@insertedFiles
+				   WHERE	FileID = @FileID
+							;
+			END
 
 END TRY
+
 BEGIN CATCH
 	 DECLARE	@pErrorData xml ;
 

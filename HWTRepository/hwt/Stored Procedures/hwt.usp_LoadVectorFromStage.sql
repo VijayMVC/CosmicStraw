@@ -1,4 +1,5 @@
-﻿CREATE	PROCEDURE hwt.usp_LoadVectorFromStage
+﻿CREATE PROCEDURE 
+	hwt.usp_LoadVectorFromStage
 /*
 ***********************************************************************************************************************************
 
@@ -40,21 +41,8 @@ SET XACT_ABORT, NOCOUNT ON ;
 BEGIN TRY
 
 	IF	( 1 = 0 )
-		CREATE	TABLE #inserted
-					(
-						ID				int
-					  , HeaderID		int
-					  , VectorNum		int
-					  , Loop			int
-					  , ReqID			nvarchar(1000)
-					  , StartTime		nvarchar(50)
-					  , EndTime			nvarchar(50)
-					  , CreatedDate		datetime2(3)
-					)
-				;
-
-
-	CREATE	TABLE #changes
+		CREATE TABLE 
+			#inserted
 				(
 					ID				int
 				  , HeaderID		int
@@ -63,9 +51,24 @@ BEGIN TRY
 				  , ReqID			nvarchar(1000)
 				  , StartTime		nvarchar(50)
 				  , EndTime			nvarchar(50)
-				  , OperatorName	nvarchar(50)
+				  , CreatedDate		datetime2(3)
 				)
 			;
+
+
+	CREATE TABLE 
+		#changes
+			(
+				ID				int
+			  , HeaderID		int
+			  , VectorNum		int
+			  , Loop			int
+			  , ReqID			nvarchar(1000)
+			  , StartTime		nvarchar(50)
+			  , EndTime			nvarchar(50)
+			  , OperatorName	nvarchar(50)
+			)
+		;
 
 
 --	1)	INSERT data from trigger temp storage into temp storage
@@ -87,7 +90,7 @@ BEGIN TRY
 
 --	3)	INSERT vector data from temp storage into hwt.Vector
 	  INSERT	hwt.Vector
-					( VectorID, HeaderID, VectorNumber, LoopNumber, StartTime, EndTime, UpdatedBy, UpdatedDate )
+					( VectorID, HeaderID, VectorNumber, LoopNumber, StartTime, EndTime, CreatedDate )
 
 	  SELECT	VectorID		=	tmp.ID
 			  , HeaderID		=	tmp.HeaderID
@@ -95,8 +98,7 @@ BEGIN TRY
 			  , LoopNumber		=	tmp.Loop
 			  , StartTime		=	CONVERT( datetime2(3), tmp.StartTime )
 			  , EndTime			=	NULLIF( CONVERT( datetime2(3), tmp.EndTime ), '1900-01-01' )
-			  , UpdatedBy		=	tmp.OperatorName
-			  , UpdatedDate		=	SYSDATETIME()
+			  , CreatedDate		=	SYSDATETIME()
 		FROM	#changes AS tmp
 				;
 
@@ -157,21 +159,19 @@ BEGIN TRY
 	  UPDATE	tmp
 		 SET	TagID	=	tag.TagID
 		FROM	#tags AS tmp
-				INNER JOIN hwt.Tag AS tag
-						ON tag.TagTypeID = tmp.TagTypeID
+				INNER JOIN 	hwt.Tag AS tag
+						ON 	tag.TagTypeID = tmp.TagTypeID
 							AND tag.Name = tmp.Name
 				;
 
 --	6)	Load ReqID tags to hwt.VectorRequirement
 	  INSERT	hwt.VectorRequirement
-					( VectorID, TagID, NodeOrder, UpdatedBy, UpdatedDate )
+					( VectorID, TagID, NodeOrder )
 
 	  SELECT	DISTINCT
 				VectorID	=	VectorID
 			  , TagID		=	TagID
 			  , NodeOrder	=	NodeOrder
-			  , UpdatedBy	=	UpdatedBy
-			  , UpdatedDate =	SYSDATETIME()
 		FROM	#tags
 				;
 
@@ -184,43 +184,43 @@ BEGIN TRY
 				;
 
 	WHILE EXISTS ( SELECT 1 FROM #tags )
-		BEGIN
+	BEGIN
 
-			  SELECT	TOP 1
-						@HeaderID		=	HeaderID
-					  , @OperatorName	=	UpdatedBy
-				FROM	#tags
-						;
+		  SELECT	TOP 1
+					@HeaderID		=	HeaderID
+				  , @OperatorName	=	UpdatedBy
+			FROM	#tags
+					;
 
-			  SELECT	@TagID		=	STUFF(
-												(
-												  SELECT	DISTINCT
-															N'|' + CONVERT( nvarchar(20), t.TagID )
-													FROM	#tags AS t
-												   WHERE	t.HeaderID = @HeaderID
-															AND NOT EXISTS
-																(
-																  SELECT	1 FROM hwt.HeaderTag AS ht
-																   WHERE	ht.HeaderID = @HeaderID
-																				AND ht.TagID = t.TagID
-																)
-															FOR XML PATH (''), TYPE
-												).value('.', 'nvarchar(max)'), 1, 1, ''
-											 )
-						;
+		  SELECT	@TagID		=	STUFF(
+											(
+											  SELECT	DISTINCT
+														N'|' + CONVERT( nvarchar(20), t.TagID )
+												FROM	#tags AS t
+											   WHERE	t.HeaderID = @HeaderID
+														AND NOT EXISTS
+															(
+															  SELECT	1 FROM hwt.HeaderTag AS ht
+															   WHERE	ht.HeaderID = @HeaderID
+																			AND ht.TagID = t.TagID
+															)
+														FOR XML PATH (''), TYPE
+											).value('.', 'nvarchar(max)'), 1, 1, ''
+										 )
+					;
 
-			IF	NOT ( @TagID = '' )
-				EXECUTE	hwt.usp_AssignTagsToDatasets
-							@pUserID	= @OperatorName
-						  , @pHeaderID	= @HeaderID
-						  , @pTagID		= @TagID
-						  , @pNotes		= 'Tag assigned during vector load.'
-						;
+		IF	NOT ( @TagID = '' )
+			EXECUTE	hwt.usp_AssignTagsToDatasets
+						@pUserID	= @OperatorName
+					  , @pHeaderID	= @HeaderID
+					  , @pTagID		= @TagID
+					  , @pNotes		= 'Tag assigned during vector load.'
+					;
 
-			  DELETE	#tags
-			   WHERE	HeaderID = @HeaderID
-						;
-		END
+		  DELETE	#tags
+		   WHERE	HeaderID = @HeaderID
+					;
+	END
 
 
 	RETURN 0 ;

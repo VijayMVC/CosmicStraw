@@ -1,24 +1,25 @@
-CREATE	PROCEDURE eLog.log_InsertEvent
-			(
-				@pLogID				bigint OUTPUT
-			  , @pMessageID			varchar(255)
-			  , @pErrorNumber		int
-			  , @pSeverity			tinyint
-			  , @pLoggingProcID		int
-			  , @pMessage			nvarchar(2048)
-			  , @pErrorProcedure	sysname
-			  , @pErrorLine			int
-			  , @pUserName			sysname
-			  , @pAppName			sysname
-			  , @pHostName			sysname
-			  , @p1					nvarchar(4000)
-			  , @p2					nvarchar(4000)
-			  , @p3					nvarchar(4000)
-			  , @p4					nvarchar(4000)
-			  , @p5					nvarchar(4000)
-			  , @p6					nvarchar(4000)
-			  , @pErrorData			xml
-			)
+CREATE PROCEDURE
+	eLog.log_InsertEvent
+		(
+			@pLogID				bigint OUTPUT
+		  , @pMessageID			varchar(255)
+		  , @pErrorNumber		int
+		  , @pSeverity			tinyint
+		  , @pLoggingProcID		int
+		  , @pMessage			nvarchar(2048)
+		  , @pErrorProcedure	sysname
+		  , @pErrorLine			int
+		  , @pUserName			sysname
+		  , @pAppName			sysname
+		  , @pHostName			sysname
+		  , @p1					nvarchar(4000)
+		  , @p2					nvarchar(4000)
+		  , @p3					nvarchar(4000)
+		  , @p4					nvarchar(4000)
+		  , @p5					nvarchar(4000)
+		  , @p6					nvarchar(4000)
+		  , @pErrorData			xml
+		)
 /*
 ***********************************************************************************************************************************
 
@@ -44,8 +45,8 @@ CREATE	PROCEDURE eLog.log_InsertEvent
 	@pErrorProcedure	sysname			procedure name from calling program
 	@pErrorLine			int				line number in proc that threw the error
 	@pUserName			sysname			user name
-	@pAppName			nvarchar(128)	application name
-	@pHostName			nvarchar(128)	computer from which code executed
+	@pAppName			sysname			application name
+	@pHostName			sysname			computer from which code executed
 	@p1					nvarchar(4000)	input parameters for error message, translated to string
 	@p2					nvarchar(4000)	input parameters for error message, translated to string
 	@p3					nvarchar(4000)	input parameters for error message, translated to string
@@ -64,6 +65,7 @@ CREATE	PROCEDURE eLog.log_InsertEvent
 	carsoc3		2018-02-20		Added to alpha release
 	carsoc3		2018-04-27		Original production release
 	carsoc3		2018-08-31		enhanced error handling
+									labVIEW messaging architecture
 
 	Original comments
 
@@ -129,7 +131,8 @@ BEGIN TRY
 						  , ( 5, @p5 )
 						  , ( 6, @p6 )
 				) AS x( paramNum, paramValue )
-	   WHERE	x.paramValue IS NOT NULL ;
+	   WHERE	x.paramValue IS NOT NULL
+				;
 
 	RETURN 0 ;
 
@@ -152,4 +155,3 @@ BEGIN CATCH
 	RAISERROR( '%s', 16, 1, @msg ) ;
 
 END CATCH
-

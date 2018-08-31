@@ -1,4 +1,5 @@
-﻿CREATE	PROCEDURE hwt.usp_LoadHeaderFromStage
+﻿CREATE PROCEDURE 
+	hwt.usp_LoadHeaderFromStage
 /*
 ***********************************************************************************************************************************
 
@@ -39,34 +40,34 @@ SET XACT_ABORT, NOCOUNT ON ;
 BEGIN TRY
 
 	IF	( 1 = 0 )
-		CREATE	TABLE #inserted
-					(
-						ID					int
-					  , ResultFile			nvarchar(1000)
-					  , StartTime			nvarchar(100)
-					  , FinishTime			nvarchar(100)
-					  , TestDuration		nvarchar(100)
-					  , ProjectName			nvarchar(100)
-					  , FirmwareRev			nvarchar(100)
-					  , HardwareRev			nvarchar(100)
-					  , PartSN				nvarchar(100)
-					  , OperatorName		nvarchar(100)
-					  , TestMode			nvarchar(50)
-					  , TestStationID		nvarchar(100)
-					  , TestName			nvarchar(250)
-					  , TestConfigFile		nvarchar(400)
-					  , TestCodePathName	nvarchar(400)
-					  , TestCodeRev			nvarchar(100)
-					  , HWTSysCodeRev		nvarchar(100)
-					  , KdrivePath			nvarchar(400)
-					  , Comments			nvarchar(max)
-					  , ExternalFileInfo	nvarchar(max)
-					  , IsLegacyXML			int
-					  , VectorCount			int
-					  , CreatedDate			datetime2(3)
-					  , UpdatedDate			datetime2(3)
-					)
-				;
+		CREATE TABLE 	#inserted
+							(
+								ID					int
+							  , ResultFile			nvarchar(1000)
+							  , StartTime			nvarchar(100)
+							  , FinishTime			nvarchar(100)
+							  , TestDuration		nvarchar(100)
+							  , ProjectName			nvarchar(100)
+							  , FirmwareRev			nvarchar(100)
+							  , HardwareRev			nvarchar(100)
+							  , PartSN				nvarchar(100)
+							  , OperatorName		nvarchar(100)
+							  , TestMode			nvarchar(50)
+							  , TestStationID		nvarchar(100)
+							  , TestName			nvarchar(250)
+							  , TestConfigFile		nvarchar(400)
+							  , TestCodePathName	nvarchar(400)
+							  , TestCodeRev			nvarchar(100)
+							  , HWTSysCodeRev		nvarchar(100)
+							  , KdrivePath			nvarchar(400)
+							  , Comments			nvarchar(max)
+							  , ExternalFileInfo	nvarchar(max)
+							  , IsLegacyXML			int
+							  , VectorCount			int
+							  , CreatedDate			datetime2(3)
+							  , UpdatedDate			datetime2(3)
+							)
+						;
 
 
 --	1)	UPDATE data changes from temp storage into hwt.Header
@@ -145,7 +146,7 @@ BEGIN TRY
 			  , UpdatedBy	=	i.OperatorName
 			  , TagID		=	CONVERT( int, NULL )
 		FROM	#inserted AS i
-				CROSS JOIN hwt.TagType AS tType
+				CROSS JOIN 	hwt.TagType AS tType
 	   WHERE	tType.Name = 'Operator'
 					AND ISNULL( i.OperatorName, '' ) != ''
 
@@ -184,7 +185,7 @@ BEGIN TRY
 			  , UpdatedBy	=	i.OperatorName
 			  , TagID		=	CONVERT( int, NULL )
 		FROM	#inserted AS i
-				CROSS JOIN hwt.TagType AS tType
+				CROSS JOIN 	hwt.TagType AS tType
 	   WHERE	tType.Name = N'TestMode'
 					AND ISNULL( i.TestMode, '' ) != ''
 				;
@@ -203,7 +204,7 @@ BEGIN TRY
 					  , UpdatedBy	=	i.OperatorName
 					  , TagID		=	CONVERT( int, NULL )
 				FROM	#inserted AS i
-						CROSS JOIN hwt.TagType AS tType
+						CROSS JOIN 	hwt.TagType AS tType
 			   WHERE	tType.Name = 'Project'
 							AND ISNULL( i.ProjectName, '' ) != ''
 							AND i.IsLegacyXML = 1
@@ -216,7 +217,7 @@ BEGIN TRY
 					  , UpdatedBy	=	i.OperatorName
 					  , TagID		=	CONVERT( int, NULL )
 				FROM	#inserted AS i
-						CROSS JOIN hwt.TagType AS tType
+						CROSS JOIN 	hwt.TagType AS tType
 			   WHERE	tType.Name = N'HWIncrement'
 							AND ISNULL( i.HardwareRev, '' ) != ''
 							AND i.IsLegacyXML = 1
@@ -257,10 +258,9 @@ BEGIN TRY
 	  UPDATE	tmp
 		 SET	TagID	=	tag.TagID
 		FROM	#tags AS tmp
-				INNER JOIN
-					hwt.Tag AS tag
-						ON tag.TagTypeID = tmp.TagTypeID
-							AND tag.Name = tmp.Name
+				INNER JOIN	hwt.Tag AS tag
+						ON 	tag.TagTypeID = tmp.TagTypeID
+								AND tag.Name = tmp.Name
 				;
 
 

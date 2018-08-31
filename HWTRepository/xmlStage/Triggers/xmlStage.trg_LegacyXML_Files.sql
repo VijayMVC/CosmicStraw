@@ -41,13 +41,13 @@ BEGIN TRY
 														) ; 
 						  
 				   BEGIN	DIALOG @conversation_handle
-							FROM SERVICE	[//HWTRepository/LegacyXML/ShredRequestService]
-							TO SERVICE		N'//HWTRepository/LegacyXML/ShredResponseService'
-							ON CONTRACT		[//HWTRepository/LegacyXML/ShredderContract]
+							FROM SERVICE	[//HWTRepository/ShredLegacyXML/RequestService]
+							TO SERVICE		N'//HWTRepository/ShredLegacyXML/ResponseService'
+							ON CONTRACT		[//HWTRepository/ShredLegacyXML/Contract]
 							WITH ENCRYPTION = OFF ; 
 
 				 SEND ON	CONVERSATION @conversation_handle
-							MESSAGE TYPE [//HWTRepository/LegacyXML/ShredRequest]
+							MESSAGE TYPE [//HWTRepository/ShredLegacyXML/Request]
 							( @ShredRequestMessage ) ; 
 
 				  DELETE	@insertedFiles

@@ -1,6 +1,7 @@
-﻿CREATE TRIGGER	labViewStage.trg_libraryInfo_file
-			ON	labViewStage.libraryInfo_file
-		 AFTER	INSERT
+﻿CREATE TRIGGER
+	labViewStage.trg_libraryInfo_file
+		ON labViewStage.libraryInfo_file
+		AFTER INSERT
 /*
 ***********************************************************************************************************************************
 
@@ -54,8 +55,8 @@ BEGIN TRY
 				  , @pRecordID	=	@RecordID
 				;
 
-
 END TRY
+
 BEGIN CATCH
 	 DECLARE	@pErrorData xml ;
 
