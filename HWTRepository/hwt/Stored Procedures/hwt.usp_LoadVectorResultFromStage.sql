@@ -1,7 +1,8 @@
 ﻿CREATE PROCEDURE
 	hwt.usp_LoadVectorResultFromStage
 		(
-			@pValueLength	int		=	100
+			@pVectorXML		xml
+		  , @pValueLength	int		=	100
 		)
 /*
 ***********************************************************************************************************************************
@@ -45,16 +46,27 @@ SET XACT_ABORT, NOCOUNT ON ;
 
 BEGIN TRY
 
-	 DECLARE	@objectID		int	=	OBJECT_ID( N'labViewStage.result_element' ) ;
+	 DECLARE	@loadVector		TABLE	( VectorID	int ) ;
+	 DECLARE	@lvsRecord		TABLE	( RecordID	int ) ;
 
-	 DECLARE	@records	TABLE	( RecordID int ) ;
 
---	1)	DELETE processed records from labViewStage.PublishAudit
-	  DELETE	labViewStage.PublishAudit
-	  OUTPUT	deleted.RecordID
-		INTO	@records( RecordID )
-	   WHERE	ObjectID = @objectID
+--	1)	SELECT the HeaderIDs that need to be published
+
+	  INSERT	@loadVector( VectorID )
+	  SELECT	loadVector.xmlData.value( '@value[1]', 'int' )
+		FROM	@pVectorXML.nodes('LoadVector/VectorID') AS loadVector(xmlData)
 				;
+
+
+--	2)	SELECT the labViewStage records that need to be published
+	  INSERT	@lvsRecord( RecordID )
+	  SELECT	ID
+		FROM	labViewStage.result_element AS lvs
+				INNER JOIN	@loadVector AS h
+						ON	h.VectorID = lvs.VectorID
+				;
+
+	IF	( @@ROWCOUNT = 0 ) RETURN ;
 
 
 --	2)	INSERT new Result data from temp storage into hwt
@@ -67,7 +79,7 @@ BEGIN TRY
 			  , CreatedBy	=	FIRST_VALUE( h.OperatorName ) OVER( PARTITION BY lvs.Name, lvs.Type, lvs.Units ORDER BY lvs.ID )
 			  , CreatedDate	=	SYSDATETIME()
 		FROM	labViewStage.result_element AS lvs
-				INNER JOIN	@records
+				INNER JOIN	@lvsRecord
 						ON	RecordID = lvs.ID
 
 				INNER JOIN	labViewStage.vector AS v
@@ -93,7 +105,7 @@ BEGIN TRY
 	  SELECT	DISTINCT
 				VectorID	=	lvs.VectorID
 			  , ResultID	=	r.ResultID
-			  , NodeOrder	=	ISNULL( NULLIF( lvs.NodeOrder, 0 ), ROW_NUMBER() OVER( PARTITION BY lvs.VectorID ORDER BY lvs.ID ) )
+			  , NodeOrder	=	lvs.NodeOrder
 			  , IsArray		=	CONVERT( bit, ISJSON( lvs.Value ) )
 			  , IsExtended	=	CASE ISJSON( lvs.Value )
 									WHEN	1 THEN 1
@@ -103,7 +115,7 @@ BEGIN TRY
 											END
 								END
 		FROM	labViewStage.result_element AS lvs
-				INNER JOIN	@records
+				INNER JOIN	@lvsRecord
 						ON	RecordID = lvs.ID
 
 				INNER JOIN	labViewStage.vector AS v
@@ -140,7 +152,7 @@ BEGIN TRY
 			  , r.ResultID
 			  , vr.VectorResultID
 		FROM	labViewStage.result_element AS i
-				INNER JOIN	@records
+				INNER JOIN	@lvsRecord
 						ON	RecordID = i.ID
 
 				INNER JOIN	labViewStage.vector AS v
@@ -192,6 +204,7 @@ END TRY
 BEGIN CATCH
 	 DECLARE	@pErrorData xml ;
 
+	IF OBJECT_ID( 'tempdb..#changes' ) IS NOT NULL
 	  SELECT	@pErrorData =	(
 								  SELECT	(
 											  SELECT	*

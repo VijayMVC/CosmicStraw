@@ -5,13 +5,17 @@
 /*
 ***********************************************************************************************************************************
 
-	Procedure:	hwt.trg_appConst_element
-	Abstract:	Loads IDs from triggering INSERT into labViewStage.PublishAudit
+	Procedure:	labViewStage.trg_appConst_element
+	Abstract:	Loads HeaderID from triggering INSERT into labViewStage.LoadHWTAudit
 
 	Logic Summary
 	-------------
-	1)	Format IDs from inserted into well-formed XML
-	2)	EXECUTE procedure to load data into labViewStage.PublishAudit
+	1)	INSERT notification into labViewStage.LoadHWTAudit that the header needs to be processed
+
+
+	Notes
+	-----
+	INSERT does not fail if record already exists on labViewStage.LoadHWTAudit because IGNORE_DUP_KEY is set to ON for this table
 
 
 	Revision
@@ -19,7 +23,7 @@
 	carsoc3		2018-04-27		Production release
 	carsoc3		2018-08-31		labViewStage messaging architecture
 								--	changed trigger from INSTEAD OF to AFTER
-								--	call proc that loads labViewStage.PublishAudit
+								--	loads labViewStage.LoadHWTAudit instead of loading data into HWT directly
 
 ***********************************************************************************************************************************
 */
@@ -27,36 +31,17 @@ AS
 
 SET XACT_ABORT, NOCOUNT ON ;
 
+IF	NOT EXISTS( SELECT 1 FROM inserted ) RETURN ;
+
 BEGIN TRY
 
-	 DECLARE	@ObjectID	int	=	OBJECT_ID( N'labViewStage.appConst_element' )
-			  , @RecordID	xml
-				;
-
-	IF	NOT EXISTS( SELECT 1 FROM inserted )
-		RETURN ;
-
-
---	1)	Format IDs from inserted into well-formed XML
-	  SELECT	@RecordID =	(
-							  SELECT	(
-										  SELECT	RecordID	=	ID
-											FROM	inserted
-													FOR XML PATH( 'inserted' ), TYPE
-										)
-											FOR XML PATH( 'root' ), TYPE
-							)
-				;
-
-
---	2)	EXECUTE procedure to load data into labViewStage.PublishAudit
-	 EXECUTE	labViewStage.usp_Load_PublishAudit
-					@pObjectID	=	@ObjectID
-				  , @pRecordID	=	@RecordID
+--	1)	INSERT notification into labViewStage.LoadHWTAudit that the header needs to be processed
+	  INSERT	labViewStage.LoadHWTHeader
+	  SELECT	HeaderID
+		FROM	inserted
 				;
 
 END TRY
-
 BEGIN CATCH
 	 DECLARE	@pErrorData xml ;
 

@@ -5,20 +5,25 @@
 /*
 ***********************************************************************************************************************************
 
-	Procedure:	hwt.trg_equipment_element
-	Abstract:	Loads IDs from triggering INSERT into labViewStage.PublishAudit
+	Procedure:	labViewStage.trg_equipment_element
+	Abstract:	Loads HeaderID from triggering INSERT into labViewStage.LoadHWTAudit
 
 	Logic Summary
 	-------------
-	1)	Load IDs from inserted into labViewStage.PublishAudit
+	1)	INSERT notification into labViewStage.LoadHWTAudit that the header needs to be processed
+
+
+	Notes
+	-----
+	INSERT does not fail if record already exists on labViewStage.LoadHWTAudit because IGNORE_DUP_KEY is set to ON for this table
 
 
 	Revision
 	--------
 	carsoc3		2018-04-27		Production release
-	carsoc3		2018-08-31		Enhanced messaging architecture
+	carsoc3		2018-08-31		labViewStage messaging architecture
 								--	changed trigger from INSTEAD OF to AFTER
-								--	write IDs from INSERT into PublishAudit table
+								--	loads labViewStage.LoadHWTAudit instead of loading data into HWT directly
 
 ***********************************************************************************************************************************
 */
@@ -26,24 +31,17 @@ AS
 
 SET XACT_ABORT, NOCOUNT ON ;
 
+IF	NOT EXISTS( SELECT 1 FROM inserted ) RETURN ;
+
 BEGIN TRY
 
-	 DECLARE	@ObjectID	int	=	OBJECT_ID( N'labViewStage.equipment_element' ) ;
-
-	IF	NOT EXISTS( SELECT 1 FROM inserted )
-		RETURN ;
-
-
---	1)	Load IDs from inserted into labViewStage.PublishAudit
-	  INSERT	labViewStage.PublishAudit
-					( ObjectID, RecordID )
-	  SELECT	ObjectID	=	@ObjectID
-			  , RecordID	=	ID
+--	1)	INSERT notification into labViewStage.LoadHWTAudit that the header needs to be processed
+	  INSERT	labViewStage.LoadHWTHeader
+	  SELECT	HeaderID
 		FROM	inserted
 				;
 
 END TRY
-
 BEGIN CATCH
 	 DECLARE	@pErrorData xml ;
 

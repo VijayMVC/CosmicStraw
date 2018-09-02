@@ -1,5 +1,8 @@
 ﻿CREATE PROCEDURE
 	hwt.usp_LoadLibraryFileFromStage
+		(
+			@pHeaderXML		xml
+		)
 /*
 ***********************************************************************************************************************************
 
@@ -40,20 +43,27 @@ SET XACT_ABORT, NOCOUNT ON ;
 
 BEGIN TRY
 
-	 DECLARE	@objectID	int	=	OBJECT_ID( N'labViewStage.libraryInfo_file' ) ;
+	 DECLARE	@loadHeader		TABLE	( HeaderID	int ) ;
+	 DECLARE	@lvsRecord		TABLE	( RecordID	int ) ;
 
-	 DECLARE	@records	TABLE	( RecordID int ) ;
 
+--	1)	SELECT the HeaderIDs that need to be published
 
---	7)	DELETE processed records from labViewStage.PublishAudit
-	  DELETE	labViewStage.PublishAudit
-	  OUTPUT	deleted.RecordID
-		INTO	@records( RecordID )
-	   WHERE	ObjectID = @objectID
+	  INSERT	@loadHeader( HeaderID )
+	  SELECT	loadHeader.xmlData.value( '@value[1]', 'int' )
+		FROM	@pHeaderXML.nodes('LoadHeader/HeaderID') AS loadHeader(xmlData)
 				;
 
-	IF	( @@ROWCOUNT = 0 )
-		RETURN 0 ;
+
+--	2)	SELECT the labViewStage records that need to be published
+	  INSERT	@lvsRecord( RecordID )
+	  SELECT	ID
+		FROM	labViewStage.libraryInfo_file AS lvs
+				INNER JOIN	@loadHeader AS h
+						ON	h.HeaderID = lvs.HeaderID
+				;
+
+	IF	( @@ROWCOUNT = 0 ) RETURN ;
 
 
 --	2)	INSERT new Library File data from temp storage into hwt.LibraryFile
@@ -74,7 +84,7 @@ BEGIN TRY
 
 			  , CreatedDate		=	SYSDATETIME()
 		FROM	labViewStage.libraryInfo_file AS lvs
-				INNER JOIN	@records
+				INNER JOIN	@lvsRecord
 						ON	RecordID = lvs.ID
 
 				INNER JOIN	labViewStage.header AS h
@@ -99,7 +109,7 @@ BEGIN TRY
 			  , lf.LibraryFileID
 			  , i.NodeOrder
 		FROM	labViewStage.libraryInfo_file AS i
-				INNER JOIN	@records
+				INNER JOIN	@lvsRecord
 						ON	RecordID = i.ID
 
 				INNER JOIN	hwt.LibraryFile AS lf
@@ -119,7 +129,7 @@ BEGIN CATCH
 								  SELECT	(
 											  SELECT	i.*
 												FROM	labViewStage.libraryInfo_file AS i
-														INNER JOIN	@records
+														INNER JOIN	@lvsRecord
 																ON	RecordID = i.ID
 														FOR XML PATH( 'changes' ), TYPE, ELEMENTS XSINIL
 											)

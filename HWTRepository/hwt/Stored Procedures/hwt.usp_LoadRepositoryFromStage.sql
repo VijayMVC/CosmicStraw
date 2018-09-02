@@ -9,8 +9,9 @@
 	Logic Summary
 	-------------
 	1)	EXECUTE sp_getapplock to ensure single-threading for procedure
-	2)	EXECUTE each procedure to extract data from labViewStage schema and publish to hwt schema
-	3)	EXECUTE sp_releaseapplock to release lock
+	2)	EXECUTE procedures to load hwt Header data if required
+	3)	EXECUTE procedures to load hwt Vector data if required
+	4)	EXECUTE sp_releaseapplock to release lock
 
 	Parameters
 	----------
@@ -34,7 +35,11 @@ SET XACT_ABORT, NOCOUNT ON ;
 
 BEGIN TRY
 
+	 DECLARE	@loadHeader		TABLE	( HeaderID	int ) ;
+	 DECLARE	@loadHeaderXML	xml ;
 
+	 DECLARE	@loadVector		TABLE	( VectorID	int ) ;
+	 DECLARE	@loadVectorXML	xml ;
 
 --	1)	EXECUTE sp_getapplock to ensure single-threading for procedure
 		--	if lock cannot be acquired, procedure is already running from another transaction in the database
@@ -53,30 +58,59 @@ BEGIN TRY
 		RETURN 0 ;
 
 
---	2)	EXECUTE procedures sequentially to extract data from labViewStage schema and apply to hwt schema
-	--	should execute every five seconds while data exists.
-	--	if no data exists, break and end processing
+--	2)	EXECUTE procedures to load hwt Header data if required
+	IF	EXISTS(	SELECT 1 FROM labViewStage.LoadHWTHeader )
+	BEGIN
 
-	--EXECUTE hwt.usp_LoadHeaderFromStage ;		--	This proc is executed in trigger on labViewStage.header
+		  DELETE	labViewStage.LoadHWTHeader
+		  OUTPUT	deleted.HeaderID
+			INTO	@loadHeader( HeaderID )
+					;
 
-	--EXECUTE hwt.usp_LoadVectorFromStage ;		--	This proc is executed in trigger on labViewStage.vector
+		  SELECT	@loadHeaderXML	=	(
+										  SELECT	(
+													  SELECT	[@value] = HeaderID
+														FROM	@loadHeader
+																FOR XML PATH( 'HeaderID' ), TYPE
+													)
+													FOR XML PATH( 'LoadHeader' ), TYPE
+										)
+					;
 
-	EXECUTE hwt.usp_LoadEquipmentFromStage ;
-
-	EXECUTE hwt.usp_LoadAppConstFromStage ;
-
-	EXECUTE hwt.usp_LoadOptionFromStage ;
-
-	EXECUTE hwt.usp_LoadLibraryFileFromStage ;
-
-	EXECUTE hwt.usp_LoadVectorElementFromStage ;
-
-	EXECUTE hwt.usp_LoadVectorResultFromStage ;
-
-	EXECUTE hwt.usp_LoadVectorErrorFromStage ;
+		 EXECUTE hwt.usp_LoadEquipmentFromStage		@pHeaderXML	=	@loadHeaderXML ;
+		 EXECUTE hwt.usp_LoadAppConstFromStage		@pHeaderXML	=	@loadHeaderXML ;
+		 EXECUTE hwt.usp_LoadOptionFromStage		@pHeaderXML	=	@loadHeaderXML ;
+		 EXECUTE hwt.usp_LoadLibraryFileFromStage	@pHeaderXML	=	@loadHeaderXML ;
+	END
 
 
---	3)	EXECUTE sp_releaseapplock to release lock
+--	3)	EXECUTE procedures to load hwt Vector data if required
+	IF	EXISTS(	SELECT 1 FROM labViewStage.LoadHWTVector )
+	BEGIN
+
+		  DELETE	labViewStage.LoadHWTVector
+		  OUTPUT	deleted.VectorID
+			INTO	@loadVector( VectorID )
+					;
+
+		  SELECT	@loadVectorXML	=	(
+										  SELECT	(
+													  SELECT	[@value] = VectorID
+														FROM	@loadVector
+																FOR XML PATH( 'VectorID' ), TYPE
+													)
+													FOR XML PATH( 'LoadVector' ), TYPE
+										)
+					;
+
+		 EXECUTE	hwt.usp_LoadVectorElementFromStage		@pVectorXML	=	@loadVectorXML ;
+		 EXECUTE	hwt.usp_LoadVectorResultFromStage		@pVectorXML	=	@loadVectorXML ;
+		 EXECUTE	hwt.usp_LoadVectorErrorFromStage		@pVectorXML	=	@loadVectorXML ;
+
+	END
+
+
+--	4)	EXECUTE sp_releaseapplock to release lock
 	EXECUTE	sp_releaseapplock	@Resource	=	@procedureName ;
 
 
@@ -86,9 +120,21 @@ END TRY
 
 BEGIN CATCH
 
+	 DECLARE	@pErrorData xml ;
+
+	  SELECT	@pErrorData =	(
+								  SELECT	( SELECT @loadHeaderXML )
+										  , ( SELECT @loadVectorXML )
+											FOR XML PATH( 'usp_LoadRepositoryFromStage' ), TYPE
+								)
+				;
+
 	IF	( @@TRANCOUNT > 0 ) ROLLBACK TRANSACTION ;
 
-	EXECUTE	eLog.log_CatchProcessing @pProcID = @@PROCID ;
+	 EXECUTE	eLog.log_CatchProcessing
+					@pProcID	=	@@PROCID
+				  , @pErrorData	=	@pErrorData
+				;
 
 	RETURN 55555 ;
 

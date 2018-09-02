@@ -2,3 +2,10 @@
 	[//HWTRepository/LabVIEW/SQLMessage]
 		VALIDATION = NONE
 	;
+	
+GO
+
+CREATE MESSAGE TYPE
+	[//HWTRepository/LabVIEW/SQLResponse]
+		VALIDATION = WELL_FORMED_XML
+	;	

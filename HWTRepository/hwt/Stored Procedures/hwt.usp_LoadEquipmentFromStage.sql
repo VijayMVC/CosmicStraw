@@ -1,5 +1,8 @@
 ﻿CREATE PROCEDURE
 	hwt.usp_LoadEquipmentFromStage
+		(
+			@pHeaderXML		xml
+		)
 /*
 ***********************************************************************************************************************************
 
@@ -38,20 +41,27 @@ SET XACT_ABORT, NOCOUNT ON ;
 
 BEGIN TRY
 
-	 DECLARE	@objectID	int	=	OBJECT_ID( N'labViewStage.equipment_element' ) ;
+	 DECLARE	@loadHeader		TABLE	( HeaderID	int ) ;
+	 DECLARE	@lvsRecord		TABLE	( RecordID	int ) ;
 
-	 DECLARE	@records	TABLE	( RecordID int ) ;
 
+--	1)	SELECT the HeaderIDs that need to be published
 
---	4)	DELETE processed records from labViewStage.PublishAudit
-	  DELETE	labViewStage.PublishAudit
-	  OUTPUT	deleted.RecordID
-		INTO	@records( RecordID )
-	   WHERE	ObjectID = @objectID
+	  INSERT	@loadHeader( HeaderID )
+	  SELECT	loadHeader.xmlData.value( '@value[1]', 'int' )
+		FROM	@pHeaderXML.nodes('LoadHeader/HeaderID') AS loadHeader(xmlData)
 				;
 
-	IF	( @@ROWCOUNT = 0 )
-		RETURN 0 ;
+
+--	2)	SELECT the labViewStage records that need to be published
+	  INSERT	@lvsRecord( RecordID )
+	  SELECT	ID
+		FROM	labViewStage.equipment_element AS lvs
+				INNER JOIN	@loadHeader AS h
+						ON	h.HeaderID = lvs.HeaderID
+				;
+
+	IF	( @@ROWCOUNT = 0 ) RETURN ;
 
 
 --	1)	INSERT new Equipment data from temp storage into hwt
@@ -64,7 +74,7 @@ BEGIN TRY
 			  , CreatedBy			=	FIRST_VALUE( h.OperatorName ) OVER( PARTITION BY lvs.Asset, lvs.Description, lvs.CostCenter ORDER BY lvs.ID )
 			  , CreatedDate			=	SYSDATETIME()
 		FROM	labViewStage.equipment_element AS lvs
-				INNER JOIN	@records
+				INNER JOIN	@lvsRecord
 						ON	RecordID = lvs.ID
 
 				INNER JOIN	labViewStage.header AS h
@@ -92,7 +102,7 @@ BEGIN TRY
 														ELSE CONVERT( datetime, '1900-01-01' )
 										END
 		FROM	labViewStage.equipment_element AS i
-				INNER JOIN	@records
+				INNER JOIN	@lvsRecord
 						ON	RecordID = i.ID
 
 				INNER JOIN	hwt.Equipment AS e
@@ -114,7 +124,7 @@ BEGIN CATCH
 											(
 											  SELECT	lvs.*
 												FROM	labViewStage.equipment_element AS lvs
-														INNER JOIN	@records
+														INNER JOIN	@lvsRecord
 																ON	RecordID = lvs.ID
 														FOR XML PATH( 'changes' ), TYPE, ELEMENTS XSINIL
 											)

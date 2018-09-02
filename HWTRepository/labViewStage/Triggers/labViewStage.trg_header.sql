@@ -26,10 +26,9 @@ AS
 
 SET XACT_ABORT, NOCOUNT ON ;
 
-BEGIN TRY
+IF	NOT EXISTS( SELECT 1 FROM inserted ) RETURN ;
 
-	IF	NOT EXISTS( SELECT 1 FROM inserted )
-		RETURN ;
+BEGIN TRY
 
 
 --	1)	Load trigger data into temp storage

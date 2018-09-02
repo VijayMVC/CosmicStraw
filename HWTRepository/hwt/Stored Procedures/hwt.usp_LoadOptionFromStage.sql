@@ -1,5 +1,8 @@
 ﻿CREATE PROCEDURE
 	hwt.usp_LoadOptionFromStage
+		(
+			@pHeaderXML		xml
+		)
 /*
 ***********************************************************************************************************************************
 
@@ -39,19 +42,27 @@ SET XACT_ABORT, NOCOUNT ON ;
 
 BEGIN TRY
 
-	 DECLARE	@objectID	int	=	OBJECT_ID( N'labViewStage.option_element' ) ;
+	 DECLARE	@loadHeader		TABLE	( HeaderID	int ) ;
+	 DECLARE	@lvsRecord		TABLE	( RecordID	int ) ;
 
-	 DECLARE	@records	TABLE	( RecordID int ) ;
 
---	7)	DELETE processed records from labViewStage.PublishAudit
-	  DELETE	labViewStage.PublishAudit
-	  OUTPUT	deleted.RecordID
-		INTO	@records( RecordID )
-	   WHERE	ObjectID = @objectID
+--	1)	SELECT the HeaderIDs that need to be published
+
+	  INSERT	@loadHeader( HeaderID )
+	  SELECT	loadHeader.xmlData.value( '@value[1]', 'int' )
+		FROM	@pHeaderXML.nodes('LoadHeader/HeaderID') AS loadHeader(xmlData)
 				;
 
-	IF	( @@ROWCOUNT = 0 )
-		RETURN 0 ;
+
+--	2)	SELECT the labViewStage records that need to be published
+	  INSERT	@lvsRecord( RecordID )
+	  SELECT	ID
+		FROM	labViewStage.option_element AS lvs
+				INNER JOIN	@loadHeader AS h
+						ON	h.HeaderID = lvs.HeaderID
+				;
+
+	IF	( @@ROWCOUNT = 0 ) RETURN ;
 
 
 --	1)	INSERT new Option data from temp storage into hwt
@@ -64,7 +75,7 @@ BEGIN TRY
 			  , CreatedBy		=	FIRST_VALUE( h.OperatorName ) OVER( PARTITION BY lvs.Name, lvs.Type, lvs.Units ORDER BY lvs.ID )
 			  , CreatedDate		=	SYSDATETIME()
 		FROM	labViewStage.option_element AS lvs
-				INNER JOIN	@records
+				INNER JOIN	@lvsRecord
 						ON	RecordID = lvs.ID
 
 				INNER JOIN	labViewStage.header AS h
@@ -90,7 +101,7 @@ BEGIN TRY
 			  , NodeOrder		=	i.NodeOrder
 			  , OptionValue		=	i.Value
 		FROM	labViewStage.option_element AS i
-				INNER JOIN	@records
+				INNER JOIN	@lvsRecord
 						ON	RecordID = i.ID
 
 				INNER JOIN	hwt.[Option] AS o
@@ -110,7 +121,7 @@ BEGIN CATCH
 								  SELECT	(
 											  SELECT	i.*
 												FROM	labViewStage.option_element AS i
-														INNER JOIN	@records
+														INNER JOIN	@lvsRecord
 																ON	RecordID = i.ID
 														FOR XML PATH( 'changes' ), TYPE, ELEMENTS XSINIL
 											)

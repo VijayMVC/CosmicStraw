@@ -1,5 +1,8 @@
 ﻿CREATE PROCEDURE
 	hwt.usp_LoadVectorErrorFromStage
+		(
+			@pVectorXML		xml
+		)
 /*
 ***********************************************************************************************************************************
 
@@ -36,16 +39,27 @@ SET XACT_ABORT, NOCOUNT ON ;
 
 BEGIN TRY
 
-	 DECLARE	@objectID	int	=	OBJECT_ID( N'labViewStage.error_element' ) ;
+	 DECLARE	@loadVector		TABLE	( VectorID	int ) ;
+	 DECLARE	@lvsRecord		TABLE	( RecordID	int ) ;
 
-	 DECLARE	@records	TABLE	( RecordID int ) ;
 
---	7)	DELETE processed records from labViewStage.PublishAudit
-	  DELETE	labViewStage.PublishAudit
-	  OUTPUT	deleted.RecordID
-		INTO	@records( RecordID )
-	   WHERE	ObjectID = @objectID
+--	1)	SELECT the HeaderIDs that need to be published
+
+	  INSERT	@loadVector( VectorID )
+	  SELECT	loadVector.xmlData.value( '@value[1]', 'int' )
+		FROM	@pVectorXML.nodes('LoadVector/VectorID') AS loadVector(xmlData)
 				;
+
+
+--	2)	SELECT the labViewStage records that need to be published
+	  INSERT	@lvsRecord( RecordID )
+	  SELECT	ID
+		FROM	labViewStage.error_element AS lvs
+				INNER JOIN	@loadVector AS h
+						ON	h.VectorID = lvs.VectorID
+				;
+
+	IF	( @@ROWCOUNT = 0 ) RETURN ;
 
 
 --	2)	INSERT error data from labViewStage into hwt.VectorError
@@ -61,7 +75,7 @@ BEGIN TRY
 			  , i.ErrorText
 			  , ErrorSequenceNumber	=	i.NodeOrder
 		FROM	labViewStage.error_element AS i
-				INNER JOIN	@records
+				INNER JOIN	@lvsRecord
 						ON	RecordID = i.ID
 
 				INNER JOIN
@@ -80,7 +94,7 @@ BEGIN CATCH
 								  SELECT	(
 											  SELECT	lvs.*
 												FROM	labViewStage.error_element AS lvs
-														INNER JOIN	@records
+														INNER JOIN	@lvsRecord
 																ON	RecordID = lvs.ID
 														FOR XML PATH( 'inserted' ), TYPE, ELEMENTS XSINIL
 											)

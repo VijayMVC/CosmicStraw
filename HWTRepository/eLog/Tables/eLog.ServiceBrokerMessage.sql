@@ -26,9 +26,9 @@ GO
 
 CREATE INDEX
 	IX_eLog_ServiceBrokerMessage_ConversationHandle
-		ON 		eLog.ServiceBrokerMessage
-					( 
-						MessageProcessor ASC, ConversationHandle ASC, MessageSequenceNumber ASC 
+		ON		eLog.ServiceBrokerMessage
+					(
+						MessageProcessor ASC, ConversationHandle ASC, MessageSequenceNumber ASC
 					)
 					INCLUDE ( ErrorCode )
 		WITH	( DATA_COMPRESSION = PAGE )

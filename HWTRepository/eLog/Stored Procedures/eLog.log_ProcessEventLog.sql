@@ -93,20 +93,21 @@ SET XACT_ABORT, NOCOUNT ON ;
 
 BEGIN TRY
 
-	 DECLARE	@str1		nvarchar(4000)
-			  , @str2		nvarchar(4000)
-			  , @str3		nvarchar(4000)
-			  , @str4		nvarchar(4000)
-			  , @str5		nvarchar(4000)
-			  , @str6		nvarchar(4000)
-			  , @username	sysname
-			  , @appname	nvarchar(128)	=	APP_NAME()
-			  , @hostname	nvarchar(128)	=	HOST_NAME()
-			  , @dbname		sysname			=	DB_NAME()
-			  , @logSPName	nvarchar(200)	=	'LOOPBACK.' + QUOTENAME( DB_NAME() ) + '.eLog.log_InsertEvent'
-			  , @userlang	smallint
-			  , @syslang	smallint
-			  , @usermsg	nvarchar(2048)
+	 DECLARE	@str1			nvarchar(4000)
+			  , @str2			nvarchar(4000)
+			  , @str3			nvarchar(4000)
+			  , @str4			nvarchar(4000)
+			  , @str5			nvarchar(4000)
+			  , @str6			nvarchar(4000)
+			  , @username		sysname
+			  , @appname		nvarchar(128)	=	APP_NAME()
+			  , @hostname		nvarchar(128)	=	HOST_NAME()
+			  , @dbname			sysname			=	DB_NAME()
+			  , @logSPName		nvarchar(200)	=	'LOOPBACK.' + QUOTENAME( DB_NAME() ) + '.eLog.log_InsertEvent'
+			  , @userlang		smallint
+			  , @syslang		smallint
+			  , @usermsg		nvarchar(2048)
+			  , @pErrorDataStr	nvarchar(4000)	=	CONVERT( nvarchar(4000), @pErrorData )
 				;
 
 
@@ -157,7 +158,7 @@ BEGIN TRY
 	END
 
 	ELSE
-	BEGIN 
+	BEGIN
 		  SELECT @pMessage = 'Error has occurred, but there is no error message provided' ;
 	END
 
@@ -218,7 +219,6 @@ BEGIN TRY
 					  , @p4					=	@str4
 					  , @p5					=	@str5
 					  , @p6					=	@str6
-					  , @pErrorData			=	@pErrorData
 					;
 	END
 

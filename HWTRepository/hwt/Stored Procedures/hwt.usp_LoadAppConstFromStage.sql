@@ -1,5 +1,8 @@
 ﻿CREATE PROCEDURE
 	hwt.usp_LoadAppConstFromStage
+		(
+			@pHeaderXML		xml
+		)
 /*
 ***********************************************************************************************************************************
 
@@ -16,6 +19,8 @@
 
 	Parameters
 	----------
+	@pHeaderXML		xml			describes the HeaderID for which data needs to be published to hwt schema
+
 
 	Notes
 	-----
@@ -38,23 +43,30 @@ SET XACT_ABORT, NOCOUNT ON ;
 
 BEGIN TRY
 
-	 DECLARE	@objectID	int	=	OBJECT_ID( N'labViewStage.appConst_element' ) ;
+	 DECLARE	@loadHeader		TABLE	( HeaderID	int ) ;
+	 DECLARE	@lvsRecord		TABLE	( RecordID	int ) ;
 
-	 DECLARE	@records	TABLE	( RecordID int ) ;
 
+--	1)	SELECT the HeaderIDs that need to be published
 
---	4)	DELETE processed records from labViewStage.PublishAudit
-	  DELETE	labViewStage.PublishAudit
-	  OUTPUT	deleted.RecordID
-		INTO	@records( RecordID )
-	   WHERE	ObjectID = @objectID
+	  INSERT	@loadHeader( HeaderID )
+	  SELECT	loadHeader.xmlData.value( '@value[1]', 'int' )
+		FROM	@pHeaderXML.nodes('LoadHeader/HeaderID') AS loadHeader(xmlData)
 				;
 
-	IF	( @@ROWCOUNT = 0 )
-		RETURN 0 ;
+
+--	2)	SELECT the labViewStage records that need to be published
+	  INSERT	@lvsRecord( RecordID )
+	  SELECT	ID
+		FROM	labViewStage.appConst_element AS lvs
+				INNER JOIN	@loadHeader AS h
+						ON	h.HeaderID = lvs.HeaderID
+				;
+
+	IF	( @@ROWCOUNT = 0 ) RETURN ;
 
 
---	1)	INSERT new AppConst data from temp storage into hwt
+--	3)	INSERT new AppConst data from temp storage into hwt
 	  INSERT	hwt.AppConst
 					( Name, DataType, Units, CreatedBy, CreatedDate )
 	  SELECT	DISTINCT
@@ -64,7 +76,7 @@ BEGIN TRY
 			  , CreatedBy	=	FIRST_VALUE( h.OperatorName ) OVER( PARTITION BY lvs.Name, lvs.Type, lvs.Units ORDER BY lvs.ID )
 			  , CreatedDate	=	SYSDATETIME()
 		FROM	labViewStage.appConst_element AS lvs
-				INNER JOIN	@records
+				INNER JOIN	@lvsRecord
 						ON	RecordID = lvs.ID
 
 				INNER JOIN	labViewStage.header AS h
@@ -81,7 +93,7 @@ BEGIN TRY
 				;
 
 
---	3)	INSERT header AppConst data from temp storage into hwt.HeaderAppConst
+--	4)	INSERT header AppConst data from temp storage into hwt.HeaderAppConst
 	  INSERT	hwt.HeaderAppConst
 					( HeaderID, AppConstID, NodeOrder, AppConstValue )
 	  SELECT	HeaderID		=	i.HeaderID
@@ -89,7 +101,7 @@ BEGIN TRY
 			  , NodeOrder		=	i.NodeOrder
 			  , AppConstValue	=	i.Value
 		FROM	labViewStage.appConst_element AS i
-				INNER JOIN	@records
+				INNER JOIN	@lvsRecord
 						ON	RecordID = i.ID
 
 				INNER JOIN	hwt.AppConst AS ac
@@ -110,7 +122,7 @@ BEGIN CATCH
 								  SELECT	(
 											  SELECT	lvs.*
 												FROM	labViewStage.appConst_element AS lvs
-														INNER JOIN	@records
+														INNER JOIN	@lvsRecord
 																ON	RecordID = lvs.ID
 														FOR XML PATH( 'changes' ), TYPE, ELEMENTS XSINIL
 											)

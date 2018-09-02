@@ -18,7 +18,8 @@ CREATE PROCEDURE
 		  , @p4					nvarchar(4000)
 		  , @p5					nvarchar(4000)
 		  , @p6					nvarchar(4000)
-		  , @pErrorData			xml
+		  , @pErrorData			xml				=	NULL
+		  , @pErrorDataStr		nvarchar(max)	=	NULL
 		)
 /*
 ***********************************************************************************************************************************
@@ -110,7 +111,7 @@ BEGIN TRY
 			  , UserName	=	COALESCE( @pUserName, SYSTEM_USER )
 			  , AppName		=	@pAppName
 			  , HostName	=	@pHostName
-			  , ErrorData	=	@pErrorData
+			  , ErrorData	=	COALESCE( @pErrorData, CONVERT( xml, @pErrorDataStr ) )
 				;
 
 	  SELECT @pLogID = SCOPE_IDENTITY() ;

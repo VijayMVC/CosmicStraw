@@ -36,15 +36,7 @@ AS
 
 SET NOCOUNT, XACT_ABORT ON ;
 
- DECLARE	@p1					sql_variant
-		  , @p2					sql_variant
-		  , @p3					sql_variant
-		  , @p4					sql_variant
-		  , @p5					sql_variant
-		  , @p6					sql_variant
-
-		  , @pInputParameters	nvarchar(4000)
-			;
+ DECLARE	@pInputParameters	nvarchar(4000) ;
 
   SELECT	@pInputParameters	=	(
 										SELECT	[usp_ScrubSearchInput.@pSearchField]	=	@pSearchField

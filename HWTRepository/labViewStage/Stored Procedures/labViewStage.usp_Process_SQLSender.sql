@@ -88,7 +88,6 @@ BEGIN TRY
 		ELSE IF ( @message_type_name = N'http://schemas.microsoft.com/SQL/ServiceBroker/EndDialog' )
 		BEGIN
 			END CONVERSATION @conversation_handle ;
-			CONTINUE ;
 		END
 
 
@@ -133,11 +132,10 @@ BEGIN TRY
 						;
 
 			END	CONVERSATION @conversation_handle ;
-			CONTINUE ;
 		END
 
-		--	Message Type:	Any other message type here is an error ( unexpected message error ) 
-		--					Note:	The SQLMessage contract is a monolog, there is no message sent 
+		--	Message Type:	Any other message type here is an error ( unexpected message error )
+		--					Note:	The SQLMessage contract is a monolog, there is no message sent
 		--								from the SQLMessage service
 		--	Req'd Action:	log error message
 		--					record message in permanent storage
@@ -166,7 +164,6 @@ BEGIN TRY
 						;
 
 			END CONVERSATION @conversation_handle ;
-			CONTINUE ;
 		END
 
 --	4)	COMMIT transaction and iterate for next message

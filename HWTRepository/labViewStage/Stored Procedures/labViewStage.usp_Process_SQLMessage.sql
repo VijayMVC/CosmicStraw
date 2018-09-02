@@ -34,48 +34,60 @@ AS
 
 SET XACT_ABORT, NOCOUNT ON ;
 
-  DECLARE	@conversation_handle		uniqueidentifier
-		  , @message_sequence_number	bigint
-		  , @message_type_name			sysname
-		  , @binary_message				varbinary(max)
-		  , @message_body				xml
-		  , @SQLStatement				nvarchar(max)
-		  , @message_enqueue_time		datetime
-		  , @errorCode					int
-		  , @error_message				nvarchar(2048)
-		  , @error_number				int
-		  , @pErrorData					xml
-		  , @procedureName				sysname				=	N'usp_Process_SQLMessage'
+  DECLARE	@conversation_handle			uniqueidentifier
+		  , @conversation_group_id			uniqueidentifier
+		  , @message_sequence_number		bigint
+		  , @message_type_name				sysname
+		  , @binary_message					varbinary(max)
+		  , @message_body					xml
+		  , @SQLStatement					nvarchar(max)
+		  , @message_enqueue_time			datetime
+		  , @errorCode						int
+		  , @error_message					nvarchar(2048)
+		  , @error_number					int
+		  , @pErrorData						xml
+		  , @pLogID							int
+		  , @procedureName					sysname				=	N'usp_Process_SQLMessage'
+		  , @setXACT_ABORT					nvarchar(50)		=	N'SET XACT_ABORT, NOCOUNT ON ;'
+		;
+
+  DECLARE	@batch_message_limit			int					=	5
+		  , @batch_message_count			int					=	0
+		  , @batch_conversation_group_id	uniqueidentifier	=	NULL
 			;
+
 
 
 --	1)	Begin Loop to process all enqueued messages
 WHILE	( 1 = 1 )
 BEGIN TRY
 
+IF	( @batch_message_count = 0 ) BEGIN TRANSACTION ;
 
---	2)	Initialize variables
+--	2)	Initialize message variables
   SELECT	@conversation_handle		=	NULL
+		  , @conversation_group_id		=	NULL
 		  , @message_sequence_number	=	NULL
 		  , @message_type_name			=	NULL
 		  , @binary_message				=	NULL
 		  , @message_body				=	NULL
 		  , @SQLStatement				=	NULL
 		  , @error_number				=	NULL
+		  , @error_message				=	NULL
 			;
 
 --	3)	RECEIVE messages from labViewStage.SQLMessageQueue
-	BEGIN TRANSACTION ;
 
 		 WAITFOR	(
 					 RECEIVE	TOP( 1 )
 								@conversation_handle		=	conversation_handle
+							  , @conversation_group_id		=	conversation_group_id
 							  , @message_sequence_number	=	message_sequence_number
 							  , @binary_message				=	message_body
 							  , @message_type_name			=	message_type_name
 							  , @message_enqueue_time		=	message_enqueue_time
 						FROM	labViewStage.SQLMessageQueue
-					), TIMEOUT 3000
+					), TIMEOUT 1000
 					;
 
 		--	no more messages, clean up and end
@@ -91,9 +103,7 @@ BEGIN TRY
 		--	Req'd Action:	end conversation
 		ELSE IF ( @message_type_name = N'http://schemas.microsoft.com/SQL/ServiceBroker/EndDialog' )
 		BEGIN
-			END CONVERSATION @conversation_handle ;
-			COMMIT TRANSACTION ;
-			CONTINUE ;
+			BREAK ;
 		END
 
 
@@ -120,12 +130,13 @@ BEGIN TRY
 						  , @pMessage	=	N'Service Broker error!	 Error code: %1	 Description: %2'
 						  , @p1			=	@error
 						  , @p2			=	@description
+						  , @pLogID		=	@pLogID			OUTPUT
 						;
 
 			  INSERT	eLog.ServiceBrokerMessage
 							(
 								MessageProcessor, MessageType, ConversationHandle, MessageSequenceNumber
-									, MessageBody, MessageQueued, ErrorCode, MessageProcessed
+									, MessageBody, MessageQueued, ErrorCode, ErrorMessage, MessageProcessed
 							)
 			  SELECT	MessageProcessor		=	@ProcedureName
 					  , MessageType				=	@message_type_name
@@ -134,12 +145,11 @@ BEGIN TRY
 					  , MessageBody				=	convert( nvarchar(max), @binary_message )
 					  , MessageQueued			=	@message_enqueue_time
 					  , ErrorCode				=	@error
+					  , ErrorMessage			=	N'EventLog ID: ' + convert( nvarchar(20), @pLogID )
 					  , MessageProcessed		=	SYSDATETIME()
 						;
 
-			END	CONVERSATION @conversation_handle ;
-			COMMIT TRANSACTION ;
-			CONTINUE ;
+			BREAK ;
 		END
 
 
@@ -153,12 +163,13 @@ BEGIN TRY
 							@pProcID	=	@@PROCID
 						  , @pMessage	=	N'Service Broker unexpected message type!  Message Type: %1'
 						  , @p1			=	@message_type_name
+						  , @pLogID		=	@pLogID				OUTPUT
 						;
 
 			  INSERT	eLog.ServiceBrokerMessage
 							(
 								MessageProcessor, MessageType, ConversationHandle, MessageSequenceNumber
-									, MessageBody, MessageQueued, ErrorCode, MessageProcessed
+									, MessageBody, MessageQueued, ErrorCode, ErrorMessage, MessageProcessed
 							)
 			  SELECT	MessageProcessor		=	@ProcedureName
 					  , MessageType				=	@message_type_name
@@ -167,70 +178,59 @@ BEGIN TRY
 					  , MessageBody				=	convert( nvarchar(max), @binary_message )
 					  , MessageQueued			=	@message_enqueue_time
 					  , ErrorCode				=	@error
+					  , ErrorMessage			=	N'EventLog ID: ' + convert( nvarchar(20), @pLogID )
 					  , MessageProcessed		=	SYSDATETIME()
 						;
 
-			END CONVERSATION @conversation_handle ;
-			COMMIT TRANSACTION ;
-			CONTINUE ;
+			BREAK ;
 		END
 
 --	4)	Process SQLMessage message type
 		--	Req'd Action:	Determine whether or not message has already been processed
 		--					process message appropriately depending on whether found or not
 		--					end the conversation
-		
+
 		--	Check for poison message that has been previously processed and error was thrown
+		--	Use table hint WITH ( NOLOCK )
+		--		This gives visibility to a poison message that may not yet be committed in another queue readers
+		--		Prevents this proc from reprocessing a poison message
+
 		ELSE IF	EXISTS	(
 						SELECT	1
 						FROM	eLog.ServiceBrokerMessage WITH ( NOLOCK )
-						WHERE	MessageProcessor = @ProcedureName 
+						WHERE	MessageProcessor = @ProcedureName
 									AND ConversationHandle = @conversation_handle
 									AND MessageSequenceNumber = @message_sequence_number
 					)
 		BEGIN
-			--	clean up conversation and COMMIT
-			END CONVERSATION @conversation_handle ;
-			COMMIT TRANSACTION ;
-			CONTINUE ;
+			BREAK
 		END
 
-		--	Message has not been processed successfully, but it may have been deadlocked
-		ELSE IF	EXISTS
-				(
-					  SELECT	1
-						FROM	eLog.EventLog WITH ( NOLOCK )
-								CROSS APPLY ErrorData.nodes( 'usp_Process_SQLMessage/message_data' ) AS e(xmldata)
-					   WHERE	@conversation_handle = e.xmldata.value( 'conversation_handle[1]', 'uniqueidentifier' )
-				)
-		--	record has been previously deadlocked, delay processing
+		ELSE
 		BEGIN
-			WAITFOR	DELAY '00:00:00:500' ;
-		END
+			BEGIN TRY
+				--	Load SQLStatment message payload
+				--	Un-escape any XML characters embedded in message payload
+				--	Execute SQL Message
 
-		--	Message was not found, process message
-		ELSE 
-		BEGIN TRY
+				  SELECT	@SQLStatement	=	CONVERT( nvarchar(max), @binary_message ) ;
+				  SELECT	@SQLStatement	=	@setXACT_ABORT + REPLACE( REPLACE( REPLACE( REPLACE( REPLACE( @SQLStatement, '&apos;', '''' ), '&lt;', '<' ), '&gt;', '>' ), '&quot;', '"' ), '&amp;', '&' )
+				 EXECUTE	( @SQLStatement ) ;
 
-			--	Load SQLStatment message payload
-			  SELECT	@SQLStatement	=	CONVERT( nvarchar(max), @binary_message ) ;
+				--	Load HWT Repository with data after successful execution of SQL
+				 EXECUTE	hwt.usp_LoadRepositoryFromStage ;
 
-			--	Un-escape any XML characters embedded in message payload
-			  SELECT	@SQLStatement	=	REPLACE( REPLACE( REPLACE( REPLACE( REPLACE( @SQLStatement, '&apos;', '''' ), '&lt;', '<' ), '&gt;', '>' ), '&quot;', '"' ), '&amp;', '&' )
+			END TRY
+			BEGIN CATCH
+				--	delay processing for 50ms if the error is a deadlock
+				--	ROLLBACK
+				--	execute error handler
+				--	write poison message ( exclude 1205 errors )
+				--		note that 1205 is a deadlock that can be reprocessed
 
-			--	Execute SQL Message 
-			 EXECUTE	( @SQLStatement ) ;
+				IF	( ERROR_NUMBER() = 1205 ) WAITFOR DELAY '00:00:00.050' ;
 
-			--	Load HWT Repository with data after successful execution of SQL 
-			 EXECUTE	hwt.usp_LoadRepositoryFromStage ;
-
-		END TRY
-
-		--	CATCH SQL errors thrown from payload processing
-		BEGIN CATCH
-			--	ROLLBACK
-			--	log the error ( set @pReraise = 0, we want only to log the error )
-			IF	( @@trancount > 0 ) ROLLBACK TRANSACTION ;
+				IF	( @@trancount > 0 ) ROLLBACK TRANSACTION ;
 
 				  SELECT	@pErrorData =	(
 											  SELECT	(
@@ -241,17 +241,15 @@ BEGIN TRY
 											)
 							;
 
-			 EXECUTE	eLog.log_CatchProcessing
-							@pProcID		=	@@PROCID
-						  , @pReraise		=	0
-						  , @pError_Number	=	@error_number OUTPUT
-						  , @pErrorData		=	@pErrorData
-						;
+				 EXECUTE	eLog.log_CatchProcessing
+								@pProcID		=	@@PROCID
+							  , @pReraise		=	0
+							  , @pError_Number	=	@error_number	OUTPUT
+							  , @pMessage_aug	=	@error_message	OUTPUT
+							  , @pErrorData		=	@pErrorData
+							;
 
-			--	Write poison messages to ServiceBrokerMessage table
-				--	this prevents further processing of the message
-				--	1205 errors are deadlocks, do not write those they are eligible for reprocessing
-			IF	( @error_number <> 1205 )
+				IF	( @error_number <> 1205 )
 				  INSERT	eLog.ServiceBrokerMessage
 								(
 									MessageProcessor, MessageType, ConversationHandle
@@ -268,38 +266,39 @@ BEGIN TRY
 						  , ErrorMessage			=	@error_message
 						  , MessageProcessed		=	SYSDATETIME()
 							;
-		END CATCH
-
-		--	If message processed correctly, finish processing here
-			--	Record message in eLog.ServiceBrokerMessage
-			--	End conversation
-			--	COMMIT
-		IF 	ISNULL( @error_number, 0 ) = 0 
-		BEGIN 
+			END CATCH
+			IF	( @@TRANCOUNT > 0 )
 			  INSERT	eLog.ServiceBrokerMessage
 							(
 								MessageProcessor, MessageType, ConversationHandle
-									, MessageSequenceNumber, MessageBody, MessageQueued
-									, ErrorCode, ErrorMessage, MessageProcessed
+									, MessageSequenceNumber, MessageQueued, ErrorCode
+									, ErrorMessage, MessageProcessed
 							)
 			  SELECT	MessageProcessor		=	@ProcedureName
 					  , MessageType				=	@message_type_name
 					  , ConversationHandle		=	@conversation_handle
 					  , MessageSequenceNumber	=	@message_sequence_number
-					  , MessageBody				=	convert( nvarchar(max), @binary_message )
 					  , MessageQueued			=	@message_enqueue_time
 					  , ErrorCode				=	ISNULL( @error_number, 0 )
 					  , ErrorMessage			=	@error_message
 					  , MessageProcessed		=	SYSDATETIME()
 						;
-
-			END CONVERSATION @conversation_handle ;
-
-			COMMIT TRANSACTION ;
 		END
 
-END TRY
+	IF	( @@TRANCOUNT > 0 )
+	BEGIN
 
+		END CONVERSATION @conversation_handle ;
+		SELECT	@batch_message_count += 1 ;
+
+		IF	( @batch_message_count	=	@batch_message_limit )
+		BEGIN
+			SELECT	@batch_message_count = 0 ;
+			COMMIT TRANSACTION ;
+		END
+	END
+
+END TRY
 BEGIN CATCH
 
 	IF	( @@TRANCOUNT > 0 ) ROLLBACK TRANSACTION ;

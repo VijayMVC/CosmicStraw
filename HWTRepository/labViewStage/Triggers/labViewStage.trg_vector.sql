@@ -5,7 +5,7 @@
 /*
 ***********************************************************************************************************************************
 
-	Procedure:	hwt.trg_vector
+	Procedure:	labViewStage.trg_vector
 	Abstract:	Loads vector records from labViewStage into repository
 
 	Logic Summary
@@ -28,46 +28,45 @@ SET XACT_ABORT, NOCOUNT ON ;
 
 BEGIN TRY
 
+	IF NOT EXISTS( SELECT 1 FROM inserted ) RETURN ; 
+	
+	 DECLARE	@pInsertXML		xml ; 
+
 --	1)	Load trigger data into temp storage
-	  SELECT	i.ID
-			  , i.HeaderID
-			  , i.VectorNum
-			  , i.Loop
-			  , i.ReqID
-			  , i.StartTime
-			  , i.EndTime
-			  , i.CreatedDate
-		INTO	#inserted
-		FROM	inserted AS i
+	  SELECT	@pInsertXML	=	(
+								  SELECT	( 
+											  SELECT 	i.ID
+													  , i.HeaderID
+													  , i.VectorNum
+													  , i.Loop
+													  , i.ReqID
+													  , i.StartTime
+													  , i.EndTime
+													  , i.CreatedDate
+												FROM	inserted AS i
+														FOR XML PATH( 'inserted' ), TYPE, ELEMENTS XSINIL 
+											)
+											FOR XML PATH( 'trg_vector' ), TYPE 
+								)
 				;
 
 
 --	2)	EXECUTE proc that loads vector data into repository
-	 EXECUTE	hwt.usp_LoadVectorFromStage ;
+	 EXECUTE	hwt.usp_LoadVectorFromStage	
+					@pInsertXML = @pInsertXML 
+				;
 
 	RETURN ;
 
 END TRY
 
 BEGIN CATCH
-	 DECLARE	@pErrorData xml ;
-
-	  SELECT	@pErrorData =	(
-								  SELECT
-											(
-											  SELECT	*
-												FROM	inserted
-														FOR XML PATH( 'inserted' ), TYPE, ELEMENTS XSINIL
-											)
-											FOR XML PATH( 'trg_vector' ), TYPE
-								)
-				;
 
 	IF	( @@TRANCOUNT > 0 ) ROLLBACK TRANSACTION ;
 
 	 EXECUTE	eLog.log_CatchProcessing
 					@pProcID	=	@@PROCID
-				  , @pErrorData =	@pErrorData
+				  , @pErrorData =	@pInsertXML
 				;
 
 END CATCH

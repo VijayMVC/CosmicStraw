@@ -1,5 +1,8 @@
 ﻿CREATE PROCEDURE
 	hwt.usp_LoadVectorElementFromStage
+		(
+			@pVectorXML		xml
+		)
 /*
 ***********************************************************************************************************************************
 
@@ -36,16 +39,28 @@ SET XACT_ABORT, NOCOUNT ON ;
 
 BEGIN TRY
 
-	 DECLARE	@objectID	int	=	OBJECT_ID( N'labViewStage.vector_element' ) ;
+	 DECLARE	@loadVector		TABLE	( VectorID	int ) ;
+	 DECLARE	@lvsRecord		TABLE	( RecordID	int ) ;
 
-	 DECLARE	@records	TABLE	( RecordID int ) ;
 
---	7)	DELETE processed records from labViewStage.PublishAudit
-	  DELETE	labViewStage.PublishAudit
-	  OUTPUT	deleted.RecordID
-		INTO	@records( RecordID )
-	   WHERE	ObjectID = @ObjectID
+--	1)	SELECT the HeaderIDs that need to be published
+
+	  INSERT	@loadVector( VectorID )
+	  SELECT	loadVector.xmlData.value( '@value[1]', 'int' )
+		FROM	@pVectorXML.nodes('LoadVector/VectorID') AS loadVector(xmlData)
 				;
+
+
+--	2)	SELECT the labViewStage records that need to be published
+	  INSERT	@lvsRecord( RecordID )
+	  SELECT	ID
+		FROM	labViewStage.vector_element AS lvs
+				INNER JOIN	@loadVector AS h
+						ON	h.VectorID = lvs.VectorID
+				;
+
+	IF	( @@ROWCOUNT = 0 ) RETURN ;
+
 
 --	3)	INSERT new Element data from temp storage into hwt.Element
 	  INSERT	hwt.Element
@@ -57,7 +72,7 @@ BEGIN TRY
 			  , CreatedBy	=	FIRST_VALUE( h.OperatorName ) OVER( PARTITION BY lvs.Name, lvs.Type, lvs.Units ORDER BY lvs.ID )
 			  , CreatedDate =	SYSDATETIME()
 		FROM	labViewStage.vector_element AS lvs
-				INNER JOIN	@records
+				INNER JOIN	@lvsRecord
 						ON	RecordID = lvs.ID
 
 				INNER JOIN	labViewStage.vector AS v
@@ -77,51 +92,15 @@ BEGIN TRY
 				;
 
 
---	2)	INSERT data into temp storage from PublishAudit
-	CREATE TABLE
-		#changes
-			(
-				ID				int
-			  , VectorID		int
-			  , Value			nvarchar(1000)
-			  , NodeOrder		int
-			  , ElementID		int
-			)
-		;
-
-	  INSERT	INTO #changes
-					( ID, VectorID, Value, NodeOrder, ElementID )
-	  SELECT	i.ID
-			  , i.VectorID
-			  , i.Value
-			  , i.NodeOrder
-			  , e.ElementID
-		FROM	labViewStage.vector_element AS i
-				INNER JOIN	@records
-						ON	RecordID = i.ID
-
-				INNER JOIN	labViewStage.vector AS v
-						ON	v.ID = i.VectorID
-
-				INNER JOIN	hwt.Element AS e
-						ON	e.Name = i.Name
-								AND e.DataType = i.Type
-								AND e.Units = i.Units
-				;
-
-	IF	( @@ROWCOUNT = 0 )
-		RETURN 0 ;
-
-
 --	5)	INSERT vector element data from temp storage into hwt.VectorElement
 	  INSERT	hwt.VectorElement
 					( VectorID, ElementID, NodeOrder, ElementValue )
-	  SELECT	VectorID        =	i.VectorID        
-			  , ElementID       =	e.ElementID       
-			  , NodeOrder       =	i.NodeOrder       
-			  , ElementValue	=	i.Value	
+	  SELECT	VectorID		=	i.VectorID
+			  , ElementID		=	e.ElementID
+			  , NodeOrder		=	i.NodeOrder
+			  , ElementValue	=	i.Value
 		FROM	labViewStage.vector_element AS i
-				INNER JOIN	@records
+				INNER JOIN	@lvsRecord
 						ON	RecordID = i.ID
 
 				INNER JOIN	hwt.Element AS e
@@ -142,7 +121,7 @@ BEGIN CATCH
 								  SELECT	(
 											  SELECT	i.*
 												FROM	labViewStage.vector_element AS i
-														INNER JOIN	@records
+														INNER JOIN	@lvsRecord
 																ON	RecordID = i.ID
 														FOR XML PATH( 'changes' ), TYPE, ELEMENTS XSINIL
 											)
