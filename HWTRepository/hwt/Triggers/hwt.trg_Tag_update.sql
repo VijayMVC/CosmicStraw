@@ -73,5 +73,3 @@ BEGIN CATCH
 				;
 
 END CATCH
-
-

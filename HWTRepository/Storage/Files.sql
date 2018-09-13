@@ -45,6 +45,27 @@
 			;
 	GO  
 
+
+   ALTER 	DATABASE [$(DatabaseName)]
+	 ADD	FILE
+				(
+					NAME		=	[HWTRepository_HWTValues1]
+				  , FILENAME	=	'$(DataRoot)\$(DatabaseName)_HWTValues1.ndf'
+				  , SIZE		=	256MB
+				  , FILEGROWTH	=	256MB
+				  , MAXSIZE		=	UNLIMITED
+				) 
+			  , (
+					NAME		=	[HWTRepository_HWTValues2]
+				  , FILENAME	=	'$(DataRoot)\$(DatabaseName)_HWTValues2.ndf'
+				  , SIZE		=	256MB
+				  , FILEGROWTH	=	256MB
+				  , MAXSIZE		=	UNLIMITED
+				) 
+
+	  TO 	FILEGROUP [HWTValues] 
+			;
+	GO  
   
    ALTER 	DATABASE [$(DatabaseName)]
 	 ADD	FILE

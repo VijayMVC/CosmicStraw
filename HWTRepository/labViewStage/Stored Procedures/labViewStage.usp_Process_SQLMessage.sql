@@ -1,4 +1,4 @@
-﻿CREATE PROCEDURE labViewStage.usp_Process_SQLMessage
+﻿CREATE PROCEDURE [labViewStage].[usp_Process_SQLMessage]
 /*
 ***********************************************************************************************************************************
 
@@ -277,7 +277,7 @@ BEGIN TRY
 						  , MessageType				=	@message_type_name
 						  , ConversationHandle		=	@conversation_handle
 						  , MessageSequenceNumber	=	@message_sequence_number
-						  , MessageBody				=	N''
+						  , MessageBody				=	convert( nvarchar(max), @binary_message )
 						  , MessageQueued			=	@message_enqueue_time
 						  , ErrorCode				=	ISNULL( @error_number, 0 )
 						  , ErrorMessage			=	@error_message
@@ -300,4 +300,4 @@ BEGIN CATCH
 
 	RETURN 55555 ;
 
-END CATCH
+END CATCH 

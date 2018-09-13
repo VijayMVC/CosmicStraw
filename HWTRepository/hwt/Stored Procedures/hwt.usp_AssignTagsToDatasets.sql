@@ -1,4 +1,5 @@
-﻿CREATE	PROCEDURE [hwt].[usp_AssignTagsToDatasets]
+﻿CREATE	PROCEDURE
+	[hwt].[usp_AssignTagsToDatasets]
 			(
 				@pUserID	sysname			=	NULL
 			  , @pHeaderID	nvarchar(max)
@@ -37,14 +38,15 @@ AS
 
 SET NOCOUNT, XACT_ABORT ON ;
 
- DECLARE	@p1					sql_variant
-		  , @p2					sql_variant
-		  , @p3					sql_variant
-		  , @p4					sql_variant
-		  , @p5					sql_variant
-		  , @p6					sql_variant
+ DECLARE	@pInputParameters	nvarchar(4000) ;
 
-		  , @pInputParameters	nvarchar(4000)
+ DECLARE	@headerTag	TABLE	(
+									HeaderID			int
+									, TagID				int
+									, TagTypeName		nvarchar(50)
+									, TagName			nvarchar(50)
+									, IsTagAssigned		int
+								)
 			;
 
   SELECT	@pInputParameters	=	(
@@ -59,20 +61,16 @@ SET NOCOUNT, XACT_ABORT ON ;
 
 BEGIN TRY
 
-	DROP TABLE IF EXISTS #HeaderTags ;
-	DROP TABLE IF EXISTS #ExistingHeaderTags ;
-	DROP TABLE IF EXISTS #headerTag ;
-	DROP TABLE IF EXISTS #existingHeaderTag ;
-	DROP TABLE IF EXISTS #newHeaderTag ;
-	
 
 --	1)	SELECT input parameters into temp storage
 		--	use string splitter utility to parse out inbound parameters
-	  SELECT	HeaderID	=	CONVERT( int, h.Item )
-			  , TagID 		=	CONVERT( int, t.Item ) 	
-			  , TagTypeName	=	v.TagTypeName
-			  , TagName		=	v.TagName
-		INTO	#HeaderTags
+	  INSERT	@headerTag
+					( HeaderID, TagID, TagTypeName, TagName, IsTagAssigned )
+	  SELECT	HeaderID		=	CONVERT( int, h.Item )
+			  , TagID			=	CONVERT( int, t.Item )
+			  , TagTypeName		=	v.TagTypeName
+			  , TagName			=	v.TagName
+			  , IsTagAssigned	=	0
 		FROM	hwt.vw_AllTags AS v
 				INNER JOIN utility.ufn_SplitString( @pTagID, '|' ) AS t
 						ON t.Item = v.TagID
@@ -80,172 +78,136 @@ BEGIN TRY
 				CROSS JOIN utility.ufn_SplitString( @pHeaderID, '|' ) AS h
 				;
 
-
---	1)	SELECT hwt.HeaderTag data into temp storage
-	  INSERT 	#HeaderTags
-	  SELECT	HeaderID		=	CONVERT( int, h.Item )
-			  , TagID 			=	ht.TagID 
-			  , TagTypeName 	=	v.TagTypeName
-			  , TagName			=	v.TagName
-		FROM	hwt.HeaderTag  AS ht 
-				INNER JOIN hwt.vw_AllTags v 
-						ON v.TagID = ht.TagID 
-				
-				INNER JOIN utility.ufn_SplitString( @pHeaderID, '|' ) AS h
-						ON h.Item = ht.HeaderID 
-
-	  EXCEPT	
-	  SELECT 	HeaderID
-			  , TagID 
-			  , TagTypeName 
-			  , TagName
-		FROM 	#HeaderTags 
-				; 
+--	1)	UPDATE tags that have already been assigned
+	  UPDATE	tmp
+		 SET	IsTagAssigned	=	1
+		FROM	@headerTag AS tmp
+	   WHERE	EXISTS	(
+						  SELECT	1
+							FROM	hwt.HeaderTag AS ht
+						   WHERE	ht.HeaderID = tmp.HeaderID
+										AND ht.TagID = tmp.TagID
+						)
+				;
 
 
---	2)	Validation for more than one of given tag types 
-	IF	EXISTS(	  SELECT	HeaderID
+--	2)	Validation for more than one of given tag types
+
+	 DECLARE	@headerID			int ;
+	 DECLARE	@tagTypeName		nvarchar(20) ;
+	 DECLARE	@existingTagName	nvarchar(100) ;
+	 DECLARE	@newTagNames		nvarchar(100) ;
+	 DECLARE	@errorMessage		nvarchar(2048) ;
+
+	 DECLARE	headerTagCursor
+	  CURSOR	LOCAL FORWARD_ONLY STATIC READ_ONLY
+		 FOR	  SELECT	HeaderID
 						  , TagTypeName
-						  , COUNT(*)
-					FROM	#HeaderTags
-				   WHERE	TagTypeName IN( 'Project'
-										  , 'Operator'
-										  , 'TestMode'
-										  , 'DataStatus'
-										  , 'FunctionBlock'
-										  , 'DeviceModel'
-										  , 'Procedure' )
+					FROM	(
+							  SELECT	HeaderID, TagTypeName
+								FROM	@headerTag
+							   WHERE	TagTypeName IN( N'Project', N'Operator', N'TestMode', N'DataStatus'
+															, N'FunctionBlock', N'DeviceModel', N'Procedure' )
+											AND IsTagAssigned = 0 
+							   UNION ALL
+							  SELECT	ht.HeaderID, ht.TagTypeName
+								FROM	hwt.vw_HeaderTag_expanded AS ht
+										INNER JOIN	@headerTag AS tmp
+												ON	tmp.HeaderID = ht.HeaderID
+													AND tmp.TagTypeName = ht.TagTypeName
+							) as x
 				GROUP BY	HeaderID, TagTypeName
 				  HAVING	COUNT(*) > 1
-			 )
-	BEGIN
-				
-		 DECLARE	@HeaderID			int ;
-		 DECLARE	@TagTypeName		nvarchar(20) ;
-		 DECLARE	@ExistingTagName	nvarchar(100) ;
-		 DECLARE	@NewTagNames		nvarchar(100) ;
-		 DECLARE	@ErrorMessage		nvarchar(2048) ;
+				;
 
-			WHILE EXISTS ( 
-							  SELECT 	1
-								FROM	#HeaderTags 
-							   WHERE	TagTypeName IN( 	'Project'
-														  , 'Operator'
-														  , 'TestMode'
-														  , 'DataStatus'
-														  , 'FunctionBlock'
-														  , 'DeviceModel'
-														  , 'Procedure' )
-							GROUP BY	HeaderID, TagTypeName
-							  HAVING	COUNT(*) > 1			
-				) 
-			BEGIN 
-	
-				  SELECT	TOP 1
-							@HeaderID		=	HeaderID
-						  , @TagTypeName	=	TagTypeName
-					FROM	#HeaderTags
-				   WHERE	TagTypeName IN ( 	'Project'
-											  , 'Operator'
-											  , 'TestMode'
-											  , 'DataStatus'
-											  , 'FunctionBlock'
-											  , 'DeviceModel'
-											  , 'Procedure' )
-				GROUP BY	HeaderID, TagTypeName
-				  HAVING	COUNT(*) > 1
-							;
+		OPEN	headerTagCursor ;
 
-				  SELECT	@ExistingTagName	=	t.Name
-					FROM	hwt.Tag AS t
-							INNER JOIN hwt.HeaderTag AS ht
-									ON ht.TagID = t.TagID
-									
-							INNER JOIN hwt.TagType AS tType 
-									ON tType.TagTypeID = t.TagTypeID 
-								
-				   WHERE	tType.Name = @TagTypeName
-								AND ht.HeaderID = @HeaderID
-							;
+	   FETCH	NEXT FROM headerTagCursor
+		INTO	@headerID, @tagTypeName
+				;
 
-				  SELECT	@NewTagNames	=	STUFF
-													( 	
-														(  SELECT	', ' + t.TagName
-															FROM	hwt.Tag AS t
-																	INNER JOIN #HeaderTags AS ht
-																			ON ht.TagID = t.TagID
-															
-																	INNER JOIN hwt.TagType AS tType
-																			ON tType.TagTypeID = t.TagTypeID 
-																			
-														   WHERE	ht.TagTypeName = @TagTypeName
-																		AND ht.HeaderID = @HeaderID
-														ORDER BY	t.TagName
-																	FOR XML PATH (''), TYPE
-														).value('.', 'nvarchar(max)'), 1, 2, ''
-													)
-							;
+	   WHILE	@@FETCH_STATUS = 0
+				BEGIN
 
-				  SELECT	@ErrorMessage	=	CASE
-													WHEN @ExistingTagName IS NULL
-														THEN N'The %1 tags %2 cannot be assigned to dataset %3.  Only one %1 tag is allowed.'
-													WHEN ( PATINDEX( '%,%', @NewTagNames ) > 0 )
-														THEN N'Cannot assign %1 tags %2 to dataset %3.	%1 tag %4 is already assigned.'
-													ELSE
-														N'Cannot assign %1 tag %2 to dataset %3.  %1 tag %4 is already assigned.'
-												END
+					  SELECT	@existingTagName	=	TagName
+						FROM	hwt.vw_HeaderTag_expanded
+					   WHERE	TagTypeName = @TagTypeName
+									AND HeaderID = @HeaderID
+								;
 
-				 EXECUTE	eLog.log_ProcessEventLog
-								@pProcID	=	@@PROCID
-							  , @pMessage	=	@ErrorMessage
-							  , @p1			=	@TagTypeName
-							  , @p2			=	@NewTagNames
-							  , @p3			=	@HeaderID
-							  , @p4			=	@ExistingTagName
-							  , @p5			=	@pInputParameters
-							;
-				
-				  DELETE	#HeaderTags WHERE HeaderID =  @HeaderID AND TagTypeName = @TagTypeName ; 
-			END
-		
-		IF 	NOT EXISTS( SELECT 1 FROM #HeaderTag ) 
+					  SELECT	@newTagNames	=	STUFF
+														(
+															(
+															  SELECT	', ' + TagName
+																FROM	@headerTag
+															   WHERE	TagTypeName = @tagTypeName
+																			AND HeaderID = @headerID
+																			AND	IsTagAssigned = 0
+
+															ORDER BY	TagName
+																		FOR XML PATH (''), TYPE
+															).value('.', 'nvarchar(max)'), 1, 2, ''
+														)
+								;
+
+					  SELECT	@errorMessage	=	CASE
+														WHEN @existingTagName IS NULL
+															THEN N'The %1 tags %2 cannot be assigned to dataset %3.	 Only one %1 tag is allowed.'
+														WHEN ( PATINDEX( '%,%', @newTagNames ) > 0 )
+															THEN N'Cannot assign %1 tags %2 to dataset %3.	%1 tag %4 is already assigned.'
+														ELSE
+															N'Cannot assign %1 tag %2 to dataset %3.  %1 tag %4 is already assigned.'
+													END
+								;
+
+					 EXECUTE	eLog.log_ProcessEventLog
+									@pProcID	=	@@PROCID
+								  , @pRaiserror	=	0
+								  , @pMessage	=	@errorMessage
+								  , @p1			=	@tagTypeName
+								  , @p2			=	@newTagNames
+								  , @p3			=	@headerID
+								  , @p4			=	@existingTagName
+								;
+
+					   FETCH	NEXT FROM headerTagCursor
+						INTO	@headerID, @tagTypeName
+								;
+
+				END
+
+		IF	@errorMessage IS NOT NULL
 			 EXECUTE	eLog.log_ProcessEventLog
 							@pProcID	=	@@PROCID
-						  , @pMessage	=	N'Error Assigning Tags to Header -- check error logs.'
+						  , @pMessage	=	N'Error Assigning Tags to Header -- check error log for details.  Input Parameters: %1 '
 						  , @p1			=	@pInputParameters
 						;
-	END
 
 
---	3)	Load hwt.HeaderTag with tag assignments 
-	  INSERT 	hwt.HeaderTag
-				( HeaderID, TagID, Notes, UpdatedBy, UpdatedDate ) 
-		
-	  SELECT 	HeaderID
-			  , TagID 
-			  , Notes		=	ISNULL( @pNotes, '' )
-			  , UpdatedBy	=	ISNULL( @pUserID, CURRENT_USER )
-			  , UpdatedDate =	SYSDATETIME() 
-	    FROM 	#HeaderTags 
-		
-	  EXCEPT 
-	  SELECT 	HeaderID 
-			  , TagID 
-			  , Notes		=	ISNULL( @pNotes, '' )
-			  , UpdatedBy	=	ISNULL( @pUserID, CURRENT_USER )
-			  , UpdatedDate =	SYSDATETIME() 
-		FROM 	hwt.HeaderTag
-				; 
+--	3)	Load hwt.HeaderTag with tag assignments
+	  INSERT	hwt.HeaderTag
+				( HeaderID, TagID, Notes, UpdatedBy, UpdatedDate )
 
-	  UPDATE 	hTag 
-	     SET	Notes		=	ISNULL( @pNotes, '' )
+	  SELECT	HeaderID
+			  , TagID
+			  , Notes		=	ISNULL( @pNotes, N'' )
 			  , UpdatedBy	=	ISNULL( @pUserID, CURRENT_USER )
-			  , UpdatedDate =	SYSDATETIME() 
-		FROM	hwt.HeaderTag AS hTag 
-				INNER JOIN #HeaderTags AS tmp
-					ON tmp.HeaderID = hTag.HeaderID 
-						AND tmp.TagID = hTag.TagID 
-				; 
+			  , UpdatedDate =	SYSDATETIME()
+		FROM	@headerTag
+	   WHERE	IsTagAssigned = 0
+				;
+
+
+	  UPDATE	hTag
+		 SET	Notes		=	ISNULL( @pNotes, N'' )
+			  , UpdatedBy	=	ISNULL( @pUserID, CURRENT_USER )
+			  , UpdatedDate =	SYSDATETIME()
+		FROM	hwt.HeaderTag AS hTag
+				INNER JOIN @headerTag AS tmp
+					ON tmp.HeaderID = hTag.HeaderID
+						AND tmp.TagID = hTag.TagID
+	   WHERE	IsTagAssigned = 1
+				;
 
 	RETURN 0 ;
 
@@ -257,7 +219,7 @@ BEGIN CATCH
 
 	 EXECUTE	eLog.log_CatchProcessing
 					@pProcID	=	@@PROCID
-				  , @p1			=	@pInputParameters
+				  , @pErrorData	=	@pInputParameters
 				;
 
 	RETURN 55555 ;

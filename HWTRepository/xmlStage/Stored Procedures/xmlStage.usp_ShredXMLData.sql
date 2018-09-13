@@ -1,4 +1,4 @@
-﻿CREATE PROCEDURE	xmlStage.usp_ShredXMLData
+﻿CREATE PROCEDURE	[xmlStage].[usp_ShredXMLData]
 						(
 							@pInputXML 	xml( CONTENT xmlStage.LabViewXSD )
 						  , @pHeaderID	int OUTPUT
@@ -88,16 +88,39 @@ BEGIN TRY
 
 	
 	--	Shred AppConst data 
+		WITH	cte_AppConst_element AS 
+					(
+					  SELECT	HeaderID	=	@HeaderID
+							  , Name		=	appConst.xmlData.value( 'name[1]', 'nvarchar(250)' )
+							  , Type		=	appConst.xmlData.value( 'type[1]', 'nvarchar(50)' )
+							  , Units		=	appConst.xmlData.value( 'units[1]', 'nvarchar(250)' )
+							  , Value		=	CASE	LEFT( appConst.xmlData.value( 'type[1]', 'nvarchar(50)' ), 3 ) 
+														WHEN 'ARR' 
+															THEN '[' +	( SELECT	ISNULL( 
+																							STUFF
+																								( 
+																									REPLACE( REPLACE( CONVERT( nvarchar(max), appConst.xmlData.query('./value') ), '<value>', ',"' ), '</value>', '"'  )
+																									, 1, 1, '' 
+																								)
+																						   , '')
+																		) + ']'
+															ELSE REPLACE( REPLACE( CONVERT( nvarchar(max), appConst.xmlData.query('./value') ), '<value>', '' ), '</value>', ''  ) 
+												END 
+					
+							  , NodeOrder	=	DENSE_RANK() OVER( ORDER BY appConst.xmlData ) 
+					FROM	@pInputXML.nodes( 'root/header/options/AppConst_element' ) AS appConst( xmlData ) 
+					)
 	  INSERT 	xmlStage.appConst_element
 					( HeaderID, Name, Type, Units, Value, NodeOrder )
-	  SELECT 	HeaderID	=	@HeaderID
-			  , Name		=	appConst.xmlData.value( 'name[1]', 'nvarchar(100)' )
-			  , Type		=	appConst.xmlData.value( 'type[1]', 'nvarchar(50)' )
-			  , Units		=	appConst.xmlData.value( 'units[1]', 'nvarchar(50)' )
-			  , Value		=	appConst.xmlData.value( 'value[1]', 'nvarchar(1000)' )
-			  , NodeOrder	=	DENSE_RANK() OVER ( ORDER BY appConst.xmlData )
+	  SELECT 	HeaderID	=	HeaderID
+			  , Name		=	Name
+			  , Type		=	Type
+			  , Units		=	Units
+			  , Value		=	REPLACE( REPLACE( REPLACE( REPLACE( REPLACE( REPLACE( [Value], CHAR(10), CHAR(13) + CHAR(10) ), '&apos;', '''' ), '&lt;', '<' ), '&gt;', '>' ), '&quot;', '"' ), '&amp;', '&' )
+			  , NodeOrder	=	NodeOrder
 
-		FROM	@pInputXML.nodes( 'root/header/options/AppConst_element' ) AS appConst( xmlData ) ; 
+		FROM	cte_AppConst_element 
+				; 
 
 		
 	   
@@ -206,11 +229,13 @@ BEGIN TRY
 							  , Units		=	result_element.xmlData.value( 'units[1]', 'nvarchar(100)' )
 							  , Value		=	CASE	LEFT( result_element.xmlData.value( 'type[1]', 'nvarchar(100)' ), 3 ) 
 														WHEN 'ARR' 
-															THEN '[' +	( SELECT	STUFF
-																				( 
-																					REPLACE( REPLACE( CONVERT( nvarchar(max), result_element.xmlData.query('./value') ), '<value>', ',"' ), '</value>', '"'  )
-																					, 1, 1, '' 
-																				)
+															THEN '[' +	( SELECT	ISNULL( 
+																							STUFF
+																								( 
+																									REPLACE( REPLACE( CONVERT( nvarchar(max), result_element.xmlData.query('./value') ), '<value>', ',"' ), '</value>', '"'  )
+																									, 1, 1, '' 
+																								)
+																						   , '')
 																		) + ']'
 															ELSE REPLACE( REPLACE( CONVERT( nvarchar(max), result_element.xmlData.query('./value') ), '<value>', '' ), '</value>', ''  ) 
 												END 
@@ -233,7 +258,8 @@ BEGIN TRY
 						ON v.HeaderID = cte.HeaderID 
 							AND v.VectorNum = cte.VectorNum 
 							AND v.Loop = cte.Loop 
-							AND v.StartTime = cte.StartTime ; 
+							AND v.StartTime = cte.StartTime 
+				; 
 
 
 	--	Shred error_element data 
@@ -245,7 +271,7 @@ BEGIN TRY
 							  , StartTime	=	vector.xmlData.value( 'Timestamp/StartTime[1]', 'nvarchar(50)' )	
 							  , ErrorType	=	1									  
 							  , ErrorCode	=	error_element.xmlData.value( ' ( test_error/@code ) [1]', 'int' )
-							  , ErrorText	=	error_element.xmlData.value( 'test_error[1]', 'nvarchar(max)' )
+							  , ErrorText	=	REPLACE( REPLACE( REPLACE( REPLACE( REPLACE( REPLACE( error_element.xmlData.value( 'test_error[1]', 'nvarchar(max)' ), CHAR(10), CHAR(13) + CHAR(10) ), '&apos;', '''' ), '&lt;', '<' ), '&gt;', '>' ), '&quot;', '"' ), '&amp;', '&' )
 							  , NodeOrder	=	DENSE_RANK() OVER( PARTITION BY vector.xmlData ORDER BY error_element.xmlData ) 
 						FROM	@pInputXML.nodes( 'root/vector' ) AS vector( xmlData )
 								CROSS APPLY vector.xmlData.nodes('error_element') AS error_element( xmlData )
@@ -257,7 +283,7 @@ BEGIN TRY
 							  , StartTime	=	vector.xmlData.value( 'Timestamp/StartTime[1]', 'nvarchar(50)' )	
 							  , ErrorType	=	2
 							  , ErrorCode	=	error_element.xmlData.value( ' ( data_error/@num) [1]', 'int' )
-							  , ErrorText	=	error_element.xmlData.value( 'data_error[1]', 'nvarchar(max)' )
+							  , ErrorText	=	REPLACE( REPLACE( REPLACE( REPLACE( REPLACE( REPLACE( error_element.xmlData.value( 'data_error[1]', 'nvarchar(max)' ), CHAR(10), CHAR(13) + CHAR(10) ), '&apos;', '''' ), '&lt;', '<' ), '&gt;', '>' ), '&quot;', '"' ), '&amp;', '&' )
 							  , NodeOrder	=	DENSE_RANK() OVER( PARTITION BY vector.xmlData ORDER BY error_element.xmlData ) 
 						FROM	@pInputXML.nodes( 'root/vector' ) AS vector( xmlData )
 								CROSS APPLY vector.xmlData.nodes('error_element') AS error_element( xmlData )
@@ -268,7 +294,7 @@ BEGIN TRY
 							  , StartTime	=	vector.xmlData.value( 'Timestamp/StartTime[1]', 'nvarchar(50)' )	
 							  , ErrorType	=	3
 							  , ErrorCode	=	error_element.xmlData.value( ' ( input_param_error/@num) [1]', 'int' )
-							  , ErrorText	=	error_element.xmlData.value( 'input_param_error[1]', 'nvarchar(max)' )
+							  , ErrorText	=	REPLACE( REPLACE( REPLACE( REPLACE( REPLACE( REPLACE( error_element.xmlData.value( 'input_param_error[1]', 'nvarchar(max)' ), CHAR(10), CHAR(13) + CHAR(10) ), '&apos;', '''' ), '&lt;', '<' ), '&gt;', '>' ), '&quot;', '"' ), '&amp;', '&' )
 							  , NodeOrder	=	DENSE_RANK() OVER( PARTITION BY vector.xmlData ORDER BY error_element.xmlData ) 
 						FROM	@pInputXML.nodes( 'root/vector' ) AS vector( xmlData )
 								CROSS APPLY vector.xmlData.nodes('error_element') AS error_element( xmlData )

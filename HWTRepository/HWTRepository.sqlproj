@@ -345,6 +345,7 @@
     <Build Include="xmlStage\Tables\xmlStage.SQLMessage.sql" />
     <Build Include="xmlStage\Tables\xmlStage.XMLOutputCache.sql" />
     <Build Include="xmlStage\Stored Procedures\xmlStage.usp_ShredXMLData.sql" />
+    <Build Include="hwt\Views\hwt.vw_HeaderTag_expanded.sql" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Publish Scripts\HWTRepositoryD.local.publish.xml" />
@@ -357,6 +358,7 @@
     <None Include="ErrorHandlerSource\sqleventlog\build_sqleventlog_2005.bat" />
     <None Include="ErrorHandlerSource\sqleventlog\keypair.snk" />
     <None Include="ErrorHandlerSource\sqleventlog\slog_loopback.dll" />
+    <None Include="Unused Scripts\Default Schema Compare.scmp" />
   </ItemGroup>
   <ItemGroup>
     <SqlCmdVariable Include="DataRoot">

@@ -1,4 +1,4 @@
-﻿CREATE	PROCEDURE hwt.usp_LoadVectorFromStage
+﻿CREATE	PROCEDURE [hwt].[usp_LoadVectorFromStage]
 /*
 ***********************************************************************************************************************************
 
@@ -117,7 +117,6 @@ BEGIN TRY
 				OUTER APPLY utility.ufn_SplitString( tmp.ReqID, ',' ) AS x
 	   WHERE	tType.Name = 'ReqID'
 					AND ISNULL( tmp.ReqID, '' ) != ''
-					AND LTRIM( RTRIM( x.Item ) ) NOT IN( N'NA', N'N/A' )
 				;
 
 

@@ -88,7 +88,7 @@ BEGIN TRY
 					  , Name			nvarchar(250)
 					  , Type			nvarchar(50)
 					  , Units			nvarchar(250)
-					  , Value			nvarchar(1000)
+					  , Value			nvarchar(max)
 					  , NodeOrder		int
 					  , OperatorName	nvarchar(50)
 					  , AppConstID		int

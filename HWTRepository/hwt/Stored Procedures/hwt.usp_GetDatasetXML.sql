@@ -1,4 +1,4 @@
-﻿CREATE PROCEDURE	hwt.usp_GetDatasetXML
+﻿CREATE PROCEDURE	[hwt].[usp_GetDatasetXML]
 						(
 							@pHeaderID		nvarchar(max)
 						  , @pCreateOutput	int 			=	1
@@ -173,6 +173,7 @@ BEGIN TRY
 	    FROM 	xmlStage.XMLOutputCache AS x 
 				; 
 				
+
 				
 --	5)	Load tags for selected headers into temporary storage
 	DROP TABLE IF EXISTS #Tags ;
@@ -223,13 +224,13 @@ BEGIN TRY
 											  SELECT	[@ID]				=	h2.HeaderID
 													  , Result_File			=	h2.ResultFileName
 													  , Start_Time			=	FORMAT( h2.StartTime, 'MMM dd, yyyy HH:mm' )
-													  , Finish_Time			=	FORMAT( h2.FinishTime, 'MMM dd, yyyy HH:mm' )
+													  , Finish_Time			=	ISNULL( FORMAT( h2.FinishTime, 'MMM dd, yyyy HH:mm' ), '' )
 													  , Test_Duration		=	h2.Duration
-													  , Project_Name		=	p.TagName
-													  , Firmware_Rev		=	fw.TagName
-													  , Hardware_Rev		=	hw.TagName
-													  , Part_SN				=	sn.TagName
-													  , Operator_Name		=	o.TagName
+													  , Project_Name		=	ISNULL( p.TagName, '' )
+													  , Firmware_Rev		=	ISNULL( fw.TagName, '' )
+													  , Hardware_Rev		=	ISNULL( hw.TagName, '' )
+													  , Part_SN				=	ISNULL( sn.TagName, '' )
+													  , Operator_Name		=	ISNULL( o.TagName, '' )
 													  , Test_Station_ID		=	h2.TestStationName
 													  , Test_Name			=	h2.TestName
 													  , Test_Config_File	=	h2.TestConfigFile
@@ -316,10 +317,33 @@ BEGIN TRY
 																		  SELECT	name	=	ac.Name
 																				  , type	=	ac.DataType
 																				  , units	=	ac.Units
-																				  , value	=	ha.AppConstValue
+																	  			  , ( SELECT value.xmlData )
 																			FROM	hwt.AppConst AS ac
 																					INNER JOIN	hwt.HeaderAppConst AS ha
 																							ON	ha.AppConstID = ac.AppConstID
+																							
+																					OUTER APPLY
+																					(
+																					  SELECT	value	
+																						FROM
+																							(
+																								  SELECT 	value	=	ha.AppConstValue
+																								   WHERE	ISJSON( ha.AppConstValue ) = 0 
+																							   
+																							   UNION ALL
+																								  SELECT 	value
+																									FROM 	( 
+																												  SELECT 	TOP 100 PERCENT 
+																															x.[Key]
+																														  , x.Value 
+																													FROM 	OPENJSON( ha.AppConstValue ) AS x
+																													
+																												   WHERE	ISJSON( ha.AppConstValue ) = 1
+																												ORDER BY	x.[Key] 
+																											)  AS y 
+																							) as z
+																							FOR XML PATH( '' ), TYPE
+																			) AS value( xmlData )
 																		   WHERE	ha.HeaderID = h2.HeaderID
 																		ORDER BY	ha.NodeOrder
 																					FOR XML PATH( 'AppConst_element' ), TYPE
@@ -492,7 +516,7 @@ BEGIN TRY
 															) AS Timestamp( xmlData )
 
 											   WHERE	v.HeaderID = h.HeaderID
-											ORDER BY	v.VectorNumber
+											ORDER BY	v.HeaderID, v.VectorNumber, v.LoopNumber, v.StartTime
 														FOR XML PATH( 'vector' ), TYPE
 											)
 											FOR XML PATH( 'root' ), TYPE
@@ -525,7 +549,7 @@ BEGIN TRY
 				; 
 				
 				
---	9)	Output dataset if desired 
+--	9)	Return output dataset to User Interface
 	IF( @pCreateOutput	=	1 ) 
 	
 		SELECT	DatasetName, DatasetXML FROM @DatasetXML 	
@@ -538,8 +562,8 @@ BEGIN TRY
 							  SELECT 	HeaderID FROM @Headers 
 							) AS h
 						ON	h.HeaderID = x.HeaderID 
-				; 
-							    
+				; 	
+							
 
 	RETURN 0 ;
 
@@ -557,4 +581,3 @@ BEGIN CATCH
 	RETURN 55555 ;
 
 END CATCH
-

@@ -1,29 +1,14 @@
-﻿  CREATE	TABLE xmlStage.error_element
-				(
-					ID				int				NOT NULL	IDENTITY
-				  , VectorID		int				NOT NULL
-				  , ErrorType		int				NOT NULL	DEFAULT 1
-						--	ErrorType 1:  test error
-						--	ErrorType 2:  data error
-						--	ErrorType 3:  input parameter error
+﻿  CREATE TABLE [xmlStage].[error_element] (
+    [ID]          INT            IDENTITY (1, 1) NOT NULL,
+    [VectorID]    INT            NOT NULL,
+    [ErrorType]   INT            DEFAULT ((1)) NOT NULL,
+    [ErrorCode]   INT            NOT NULL,
+    [ErrorText]   NVARCHAR (MAX) NOT NULL,
+    [NodeOrder]   INT            DEFAULT ((0)) NOT NULL,
+    [CreatedDate] DATETIME2 (3)  DEFAULT (sysdatetime()) NOT NULL,
+    CONSTRAINT [PK_xmlStage_error_element] PRIMARY KEY CLUSTERED ([ID] ASC) WITH (DATA_COMPRESSION = PAGE),
+    CONSTRAINT [CK_xmlStage_VectorError_ErrorType] CHECK ([ErrorType]=(3) OR [ErrorType]=(2) OR [ErrorType]=(1)),
+    CONSTRAINT [FK_xmlStage_error_element_vector] FOREIGN KEY ([VectorID]) REFERENCES [xmlStage].[vector] ([ID])
+);
 
-				  , ErrorCode		int				NOT NULL
-				  , ErrorText		nvarchar(max)	NOT NULL
-				  , NodeOrder		int				NOT NULL	DEFAULT 0
-				  , CreatedDate		datetime2(3)	NOT NULL	DEFAULT SYSDATETIME()
 
-				  , CONSTRAINT PK_xmlStage_error_element
-						PRIMARY KEY CLUSTERED( ID ASC )
-						WITH( DATA_COMPRESSION = PAGE )
-						ON [HWTTables]
-
-				  , CONSTRAINT FK_xmlStage_error_element_vector
-						FOREIGN KEY( VectorID )
-						REFERENCES xmlStage.vector( ID )
-
-				  , CONSTRAINT	CK_xmlStage_VectorError_ErrorType
-						CHECK( ErrorType IN ( 1, 2, 3 ) )
-				)
-				ON	[HWTTables]
-				TEXTIMAGE_ON [HWTTables]
-			;
