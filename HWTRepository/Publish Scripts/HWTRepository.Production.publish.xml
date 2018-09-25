@@ -15,7 +15,7 @@
   </PropertyGroup>
   <ItemGroup>
     <SqlCmdVariable Include="DataRoot">
-      <Value>D:\SQL\MSSQL13.DB01\MSSQL\DATA</Value>
+      <Value>D:\SQL\MSSQL13.DB01</Value>
     </SqlCmdVariable>
     <SqlCmdVariable Include="FileStreamFolder">
       <Value>HWTFiles</Value>
@@ -30,7 +30,7 @@
       <Value>1234</Value>
     </SqlCmdVariable>
     <SqlCmdVariable Include="LogFileRoot">
-      <Value>D:\SQL\MSSQL13.DB01\MSSQL\DATA</Value>
+      <Value>E:\SQL\MSSQL13.DB01</Value>
     </SqlCmdVariable>
     <SqlCmdVariable Include="Production">
       <Value>Production</Value>

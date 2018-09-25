@@ -54,22 +54,33 @@ BEGIN TRY
 				;
 
 
-	CREATE	TABLE #changes
-				(
-					ID				int
-				  , HeaderID		int
-				  , VectorNum		int
-				  , Loop			int
-				  , ReqID			nvarchar(1000)
-				  , StartTime		nvarchar(50)
-				  , EndTime			nvarchar(50)
-				  , OperatorName	nvarchar(50)
-				)
-			;
+	DECLARE		@changes		TABLE	(
+											ID				int
+										  , HeaderID		int
+										  , VectorNum		int
+										  , Loop			int
+										  , ReqID			nvarchar(1000)
+										  , StartTime		nvarchar(50)
+										  , EndTime			nvarchar(50)
+										  , OperatorName	nvarchar(50)
+										)
+				;
+
+
+	 DECLARE	@requirement	TABLE	(
+											VectorID		int
+										  , HeaderID		int
+										  , NodeOrder		int
+										  , TagName			nvarchar(50)
+										  , UpdatedBy		sysname
+										  , TagExists		tinyint			DEFAULT 0
+										  , TagID			int
+										)
+				;
 
 
 --	1)	INSERT data from trigger temp storage into temp storage
-	  INSERT	INTO #changes
+	  INSERT	INTO @changes
 					( ID, HeaderID, VectorNum, Loop, ReqID, StartTime, EndTime, OperatorName )
 	  SELECT	i.ID
 			  , i.HeaderID
@@ -97,130 +108,135 @@ BEGIN TRY
 			  , EndTime			=	NULLIF( CONVERT( datetime2(3), tmp.EndTime ), '1900-01-01' )
 			  , UpdatedBy		=	tmp.OperatorName
 			  , UpdatedDate		=	SYSDATETIME()
-		FROM	#changes AS tmp
+		FROM	@changes AS tmp
 				;
 
 
 --	4)	Insert requirements tags from vector into temp storage
-	DROP TABLE IF EXISTS #tags ;
-	  SELECT	VectorID	=	tmp.ID
-			  , HeaderID	=	tmp.HeaderID
-			  , TagTypeID	=	tType.TagTypeID
-			  , NodeOrder	=	x.ItemNumber
-			  , Name		=	LTRIM( RTRIM( x.Item ) )
-			  , UpdatedBy	=	tmp.OperatorName
-			  , TagID		=	CONVERT( int, NULL )
-		INTO	#tags
-		FROM	#changes AS tmp
-				CROSS JOIN hwt.TagType AS tType
-
+	  INSERT	@requirement
+					( VectorID, HeaderID, NodeOrder, TagName, UpdatedBy )
+	  SELECT	VectorID		=	tmp.ID
+			  , HeaderID		=	tmp.HeaderID
+			  , NodeOrder		=	x.ItemNumber
+			  , Name			=	LTRIM( RTRIM( x.Item ) )
+			  , UpdatedBy		=	tmp.OperatorName
+		FROM	@changes AS tmp
 				OUTER APPLY utility.ufn_SplitString( tmp.ReqID, ',' ) AS x
-	   WHERE	tType.Name = 'ReqID'
-					AND ISNULL( tmp.ReqID, '' ) != ''
+	   WHERE	ISNULL( tmp.ReqID, '' ) != ''
+				;
+
+	IF	( @@ROWCOUNT = 0 ) RETURN 0 ;
+
+
+--	5)	Find requirement tags that already exist
+	 DECLARE	@tagTypeID	int ;
+
+	  SELECT	@tagTypeID	=	TagTypeID
+		FROM	hwt.TagType
+	   WHERE	Name = N'ReqID'
+				;
+
+	  UPDATE	r
+		 SET	TagExists	=	1
+		FROM	@requirement AS r
+	   WHERE	EXISTS
+					(
+					  SELECT	1
+						FROM	hwt.Tag AS t
+					   WHERE	t.TagTypeID =	@TagTypeID
+									AND t.Name = r.TagName
+					)
 				;
 
 
---	5)	INSERT tags from temp storage into hwt.Tag
-		WITH	newTags AS
-				(
-				  SELECT	TagTypeID
-						  , Name
-					FROM	#tags AS tmp
 
-				  EXCEPT
-				  SELECT	TagTypeID
-						  , Name
-					FROM	hwt.Tag AS tag
-				)
 	  INSERT	INTO hwt.Tag
 					( TagTypeID, Name, Description, IsDeleted, UpdatedBy, UpdatedDate )
-	  SELECT	nt.TagTypeID
-			  , nt.Name
-			  , Description	=	'Requirement extracted from vector'
-			  , IsDeleted	=	0
-			  , UpdatedBy	=	tags.UpdatedBy
-			  , UpdatedDate =	SYSDATETIME()
-		FROM	newTags AS nt
-				CROSS APPLY
-					(
-						  SELECT	TOP 1
-									UpdatedBy
-							FROM	#tags AS t
-						   WHERE	t.TagTypeID = nt.TagTypeID
-										AND t.Name = nt.Name
-						ORDER BY	t.HeaderID
-					) AS tags
+	  SELECT	DISTINCT
+				@TagTypeID
+			  , r.TagName
+			  , Description		=	'Requirement extracted from vector'
+			  , IsDeleted		=	0
+			  , UpdatedBy		=	FIRST_VALUE( r.UpdatedBy ) OVER( PARTITION BY TagName ORDER BY HeaderID )
+			  , UpdatedDate		=	SYSDATETIME()
+		FROM	@requirement AS r
+	   WHERE	r.TagExists = 0
 				;
 
 	--	Apply new TagID back into temp storage
-	  UPDATE	tmp
+	  UPDATE	r
 		 SET	TagID	=	tag.TagID
-		FROM	#tags AS tmp
-				INNER JOIN hwt.Tag AS tag
-						ON tag.TagTypeID = tmp.TagTypeID
-							AND tag.Name = tmp.Name
+		FROM	@requirement AS r
+				INNER JOIN	hwt.Tag AS tag
+						ON	tag.TagTypeID = @TagTypeID
+							AND tag.Name = r.TagName
 				;
+
 
 --	6)	Load ReqID tags to hwt.VectorRequirement
 	  INSERT	hwt.VectorRequirement
-					( VectorID, TagID, NodeOrder, UpdatedBy, UpdatedDate )
+					( VectorID, TagID, NodeOrder )
 
 	  SELECT	DISTINCT
 				VectorID	=	VectorID
 			  , TagID		=	TagID
 			  , NodeOrder	=	NodeOrder
-			  , UpdatedBy	=	UpdatedBy
-			  , UpdatedDate =	SYSDATETIME()
-		FROM	#tags
+		FROM	@requirement
 				;
-
 
 
 --	7)	INSERT ReqID tags into hwt.HeaderTag
-	DECLARE		@HeaderID		int ;
-	DECLARE		@TagID			nvarchar(max) ;
-	DECLARE		@OperatorName	sysname ;
+	 DECLARE	@pHeaderID		nvarchar(max)
+			  , @pTagID			nvarchar(max)
+			  , @pOperatorName	sysname
 				;
 
-	WHILE EXISTS ( SELECT 1 FROM #tags )
+	 DECLARE	cursorTags
+	  CURSOR	LOCAL FORWARD_ONLY STATIC READ_ONLY
+		 FOR	  SELECT	HeaderID		=	CONVERT( nvarchar(20), HeaderID )
+						  , OperatorName	=	UpdatedBy
+						  , TagId			=	STUFF
+													(
+														(
+														  SELECT	DISTINCT
+																	'|' + ISNULL( CONVERT( nvarchar(20), TagID ) , '' )
+															FROM	@requirement AS a
+														   WHERE	a.HeaderID = b.HeaderID
+																		AND NOT EXISTS	(
+																						  SELECT	1
+																							FROM	hwt.HeaderTag AS ht WITH (NOLOCK)
+																						   WHERE	ht.HeaderID = a.HeaderID
+																										AND ht.TagID = a.TagID
+																						)
+
+																	FOR XML PATH(''), TYPE
+														).value( '.', 'nvarchar(max) ' ), 1, 1, ''
+													)
+					FROM	@requirement AS b
+				GROUP BY	HeaderID, UpdatedBy
+				;
+
+		OPEN	cursorTags ;
+
+		WHILE ( 1 = 1 )
 		BEGIN
 
-			  SELECT	TOP 1
-						@HeaderID		=	HeaderID
-					  , @OperatorName	=	UpdatedBy
-				FROM	#tags
-						;
+			   FETCH	cursorTags
+				INTO	@pHeaderID, @pOperatorName, @pTagID ;
 
-			  SELECT	@TagID		=	STUFF(
-												(
-												  SELECT	DISTINCT
-															N'|' + CONVERT( nvarchar(20), t.TagID )
-													FROM	#tags AS t
-												   WHERE	t.HeaderID = @HeaderID
-															AND NOT EXISTS
-																(
-																  SELECT	1 FROM hwt.HeaderTag AS ht
-																   WHERE	ht.HeaderID = @HeaderID
-																				AND ht.TagID = t.TagID
-																)
-															FOR XML PATH (''), TYPE
-												).value('.', 'nvarchar(max)'), 1, 1, ''
-											 )
-						;
+				IF	( @@FETCH_STATUS != 0 ) BREAK ;
 
-			IF	NOT ( @TagID = '' )
-				EXECUTE	hwt.usp_AssignTagsToDatasets
-							@pUserID	= @OperatorName
-						  , @pHeaderID	= @HeaderID
-						  , @pTagID		= @TagID
+				IF	( @pTagID != N'' )
+					EXECUTE	hwt.usp_AssignTagsToDatasets
+							@pUserID	= @pOperatorName
+						  , @pHeaderID	= @pHeaderID
+						  , @pTagID		= @pTagID
 						  , @pNotes		= 'Tag assigned during vector load.'
-						;
-
-			  DELETE	#tags
-			   WHERE	HeaderID = @HeaderID
 						;
 		END
 
+		CLOSE cursorTags ;
+		DEALLOCATE cursorTags ;
 
 	RETURN 0 ;
 
@@ -232,7 +248,7 @@ BEGIN CATCH
 	  SELECT	@pErrorData =	(
 								  SELECT	(
 											  SELECT	*
-												FROM	#changes
+												FROM	@changes
 														FOR XML PATH( 'changes' ), TYPE, ELEMENTS XSINIL
 											)
 											FOR XML PATH( 'usp_LoadVectorFromStage' ), TYPE
