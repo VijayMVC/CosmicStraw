@@ -17,7 +17,7 @@
 			;
 GO
 
-  CREATE 	UNIQUE INDEX UX_hwt_Result_Name 
+  CREATE 	INDEX IX_hwt_Result_Name 
 				ON hwt.Result
 					( Name ASC, DataType ASC, Units ASC ) 
 	WITH	( DATA_COMPRESSION = PAGE ) 

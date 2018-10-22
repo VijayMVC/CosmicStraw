@@ -1,4 +1,4 @@
-CREATE VIEW		xmlStage.vw_error_element_Compare
+CREATE 	VIEW xmlStage.vw_error_element_Compare
 /*
 ***********************************************************************************************************************************
 
@@ -13,6 +13,7 @@ CREATE VIEW		xmlStage.vw_error_element_Compare
 	Revision
 	--------
 	carsoc3		2018-08-31		labVIEW messaging architecture
+	carsoc3		2018-10-31		Revision -- Transform data in repository, accounting for differences in LabVIEW outputs
 
 ***********************************************************************************************************************************
 */
@@ -21,7 +22,9 @@ AS
   SELECT	TableName = 'labViewStage.error_element', *
 	FROM	(
 			  SELECT	v.HeaderID, v.VectorNum, v.Loop, v.StartTime
-							, e.ErrorType, e.ErrorCode, e.ErrorText, e.NodeOrder
+							, e.ErrorType, e.ErrorCode
+							, ErrorText = REPLACE( REPLACE( e.ErrorText, NCHAR(13)+ NCHAR(10), NCHAR(10) ), NCHAR(13), NCHAR(10) )
+							, e.NodeOrder
 				FROM	labViewStage.error_element AS e
 						INNER JOIN	labViewStage.vector AS v
 								ON	v.ID = e.VectorID
@@ -45,9 +48,11 @@ AS
 
 			  EXCEPT
 			  SELECT	v.HeaderID, v.VectorNum, v.Loop, v.StartTime
-							, e.ErrorType, e.ErrorCode, e.ErrorText, e.NodeOrder
+							, e.ErrorType, e.ErrorCode
+							, ErrorText = REPLACE( REPLACE( e.ErrorText, NCHAR(13)+ NCHAR(10), NCHAR(10) ), NCHAR(13), NCHAR(10) )
+							, e.NodeOrder
 				FROM	labViewStage.error_element AS e
 						INNER JOIN	labViewStage.vector AS v
 								ON	v.ID = e.VectorID
 			) AS x
-			;
+;

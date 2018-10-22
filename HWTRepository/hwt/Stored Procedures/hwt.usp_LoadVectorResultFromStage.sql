@@ -35,21 +35,20 @@
 */
 AS
 
-SET XACT_ABORT, NOCOUNT ON ;
-
+SET XACT_ABORT, NOCOUNT ON 
+;
 BEGIN TRY
-
-	 DECLARE	@ObjectID	int	=	OBJECT_ID( N'labViewStage.result_element' ) ;
-	 
-	 DECLARE	@Records 	TABLE	( RecordID int ) ; 
+	 DECLARE	@ObjectID	int	=	OBJECT_ID( N'labViewStage.result_element' ) 
+;
+ 	 DECLARE	@Records 	TABLE	( RecordID int ) 
+; 
 
 --	1)	DELETE processed records from labViewStage.PublishAudit
 	  DELETE	labViewStage.PublishAudit
 	  OUTPUT 	deleted.RecordID 
 	    INTO	@Records( RecordID ) 
 	   WHERE	ObjectID = @ObjectID
-				;
-	 
+;
 	 
 --	2)	INSERT new Result data from temp storage into hwt
 	  INSERT	hwt.Result
@@ -69,19 +68,17 @@ BEGIN TRY
 							
 				INNER JOIN	labViewStage.header AS h
 						ON	h.ID = v.HeaderID
-
 	   WHERE	NOT EXISTS
 					(
 					  SELECT	1
 						FROM	hwt.Result AS r
-					   WHERE	r.Name = lvs.Name
+					   WHERE	r.Name = lvs.Name COLLATE SQL_Latin1_General_CP1_CS_AS 
 									AND r.DataType = lvs.Type
-									AND r.Units = lvs.Units
+									AND r.Units = lvs.Units COLLATE SQL_Latin1_General_CP1_CS_AS 
 					)
-				;
-
+;
 	 
---	2)	INSERT new VectorResult data from temp storage into hwt
+--	3)	INSERT new VectorResult data from temp storage into hwt
 	  INSERT	hwt.VectorResult
 					( VectorID, ResultID, NodeOrder, IsArray, IsExtended, UpdatedBy, UpdatedDate ) 
 	  SELECT	DISTINCT
@@ -109,13 +106,12 @@ BEGIN TRY
 						ON	h.ID = v.HeaderID
 
 				INNER JOIN 	hwt.Result AS r 
-					   ON	r.Name = lvs.Name
+					   ON	r.Name = lvs.Name COLLATE SQL_Latin1_General_CP1_CS_AS 
 								AND r.DataType = lvs.Type
-								AND r.Units = lvs.Units
-				;
+								AND r.Units = lvs.Units COLLATE SQL_Latin1_General_CP1_CS_AS 
+;
 					
-					
---	3)	INSERT data into temp storage from PublishAudit
+--	4)	INSERT data into temp storage from PublishAudit
 	  CREATE TABLE	#changes
 					(
 						ID					int
@@ -129,8 +125,7 @@ BEGIN TRY
 					  , ResultID			int
 					  , VectorResultID		int
 					)
-					;
-
+;
 	  INSERT	#changes
 					( ID, VectorID, Name, Type, Units, Value, NodeOrder, OperatorName, ResultID, VectorResultID )
 	  SELECT	i.ID
@@ -154,51 +149,45 @@ BEGIN TRY
 						ON	h.ID = v.HeaderID
 						
 				INNER JOIN	hwt.Result AS r
-						ON	r.Name = i.Name
+						ON	r.Name = i.Name COLLATE SQL_Latin1_General_CP1_CS_AS 
 								AND r.DataType = i.Type
-								AND r.Units = i.Units
+								AND r.Units = i.Units COLLATE SQL_Latin1_General_CP1_CS_AS 
 								
 				INNER JOIN	hwt.VectorResult AS vr 
 						ON	vr.VectorID = i.VectorID 
 								AND vr.ResultID = r.ResultID 
 								AND vr.NodeOrder = i.NodeOrder
-				;
-
+;
 	IF	( @@ROWCOUNT = 0 )
-		RETURN 0 ;
-
+		RETURN 0 
+;
 
 --	4)	INSERT non-JSON values data FROM temp storage
 		--	LEN( Value ) < 100 
 	  INSERT	hwt.VectorResultValue 
 					( VectorResultID, ResultValue )
-	  SELECT	VectorResultID	=	i.VectorResultID
+	  SELECT	DISTINCT 
+				VectorResultID	=	i.VectorResultID
 			  , ResultValue		=	i.Value
 		FROM	#changes AS i
-
 	   WHERE	ISJSON( i.Value ) = 0 
 					AND LEN( i.Value ) < = 100 
-				;
-				
+;
 		--	LEN( Value ) > 100 
 	  INSERT	hwt.VectorResultExtended
 					( VectorResultID, ResultValue )
-		
-	  SELECT	VectorResultID	=	i.VectorResultID
+	  SELECT	DISTINCT 
+				VectorResultID	=	i.VectorResultID
 			  , ResultValue		=	i.Value
 		FROM	#changes AS i
-
 	   WHERE	ISJSON( i.Value ) = 1 OR LEN( i.Value ) > 100 
-				;
-				
-				
-	RETURN 0 ;
-
+;
+	RETURN 0 
+;
 END TRY
-
 BEGIN CATCH
-	 DECLARE	@pErrorData xml ;
-
+	 DECLARE	@pErrorData xml 
+;
 	  SELECT	@pErrorData =	(
 								  SELECT	(
 											  SELECT	*
@@ -207,16 +196,13 @@ BEGIN CATCH
 											)
 											FOR XML PATH( 'usp_LoadVectorResultFromStage' ), TYPE
 								)
-				;
-
-	IF	( @@TRANCOUNT > 0 ) ROLLBACK TRANSACTION ;
-
+;
+	IF	( @@TRANCOUNT > 0 ) ROLLBACK TRANSACTION 
+;
 	 EXECUTE	eLog.log_CatchProcessing
 					@pProcID	=	@@PROCID
 				  , @pErrorData =	@pErrorData
-				;
-
-	RETURN 55555 ;
-
+;
+	RETURN 55555 
+;
 END CATCH
-

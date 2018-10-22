@@ -33,27 +33,26 @@
 ***********************************************************************************************************************************
 */
 AS
-
-SET XACT_ABORT, NOCOUNT ON ;
+SET XACT_ABORT, NOCOUNT ON 
+;
 
 BEGIN TRY
+	 DECLARE	@ObjectID	int	=	OBJECT_ID( N'labViewStage.option_element' ) 
+;
+	 DECLARE 	@Records	TABLE	( RecordID int ) 
+;
 
-	 DECLARE	@ObjectID	int	=	OBJECT_ID( N'labViewStage.option_element' ) ;
-	 
-	 DECLARE 	@Records	TABLE	( RecordID int ) ; 
-
---	7)	DELETE processed records from labViewStage.PublishAudit
+--	1)	DELETE processed records from labViewStage.PublishAudit
 	  DELETE	labViewStage.PublishAudit 
 	  OUTPUT	deleted.RecordID 
 	    INTO	@Records( RecordID )
 	   WHERE 	ObjectID = @ObjectID
-				;
-
+;
 	IF	( @@ROWCOUNT = 0 )
-		RETURN 0 ;
-
+		RETURN 0 
+;
 				
---	1)	INSERT new Option data from temp storage into hwt
+--	2)	INSERT new Option data from temp storage into hwt
 	  INSERT	hwt.[Option]
 					( Name, DataType, Units, UpdatedBy, UpdatedDate )
 	  SELECT	DISTINCT 
@@ -73,14 +72,13 @@ BEGIN TRY
 					(
 					  SELECT	1
 						FROM	hwt.[Option] AS o
-					   WHERE	o.Name = lvs.Name
+					   WHERE	o.Name = lvs.Name COLLATE SQL_Latin1_General_CP1_CS_AS 
 								AND o.DataType = lvs.Type
-								AND o.Units = lvs.Units
+								AND o.Units = lvs.Units COLLATE SQL_Latin1_General_CP1_CS_AS 
 					)
-				;
-
+;
 				
---	2)	INSERT data into temp storage from PublishAudit
+--	3)	INSERT data into temp storage from PublishAudit
 	CREATE TABLE	#changes
 					(
 						ID				int
@@ -93,8 +91,7 @@ BEGIN TRY
 					  , OperatorName	nvarchar(50)
 					  , OptionID		int
 					)
-					;
-
+;
 	  INSERT	INTO #changes
 					( ID, HeaderID, Name, Type, Units, Value, NodeOrder, OperatorName, OptionID )
 	  SELECT	i.ID
@@ -114,34 +111,30 @@ BEGIN TRY
 						ON h.ID = i.HeaderID
 
 				INNER JOIN	hwt.[Option] AS o
-						ON	o.Name = i.Name
+						ON	o.Name = i.Name COLLATE SQL_Latin1_General_CP1_CS_AS 
 								AND o.DataType = i.Type
-								AND o.Units = i.Units
-				;
+								AND o.Units = i.Units COLLATE SQL_Latin1_General_CP1_CS_AS 
+;
 
-
-
---	5)	INSERT header OptionID data from temp storage into hwt.HeaderOptionID
+--	4)	INSERT header OptionID data from temp storage into hwt.HeaderOptionID
 	  INSERT	hwt.HeaderOption
 					( HeaderID, OptionID, NodeOrder, OptionValue, UpdatedBy, UpdatedDate )
 
-	  SELECT	HeaderID
+	  SELECT	DISTINCT 
+				HeaderID
 			  , OptionID
 			  , NodeOrder
 			  , Value
 			  , OperatorName
 			  , SYSDATETIME()
 		FROM	#changes AS tmp
-				;
-
-
-	RETURN 0 ;
-
+;
+	RETURN 0 
+;
 END TRY
-
 BEGIN CATCH
-	 DECLARE	@pErrorData xml ;
-
+	 DECLARE	@pErrorData xml 
+;
 	  SELECT	@pErrorData =	(
 								  SELECT	(
 											  SELECT	*
@@ -150,15 +143,13 @@ BEGIN CATCH
 											)
 											FOR XML PATH( 'usp_LoadOptionFromStage' ), TYPE
 								)
-				;
-
-	IF	( @@TRANCOUNT > 0 ) ROLLBACK TRANSACTION ;
-
+;
+	IF	( @@TRANCOUNT > 0 ) ROLLBACK TRANSACTION 
+;
 	 EXECUTE	eLog.log_CatchProcessing
 					@pProcID	=	@@PROCID
 				  , @pErrorData =	@pErrorData
-				;
-
-	RETURN 55555 ;
-
+;
+	RETURN 55555 
+;
 END CATCH

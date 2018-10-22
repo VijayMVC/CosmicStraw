@@ -25,8 +25,8 @@
 */
 AS
 
-SET XACT_ABORT, NOCOUNT ON ;
-
+SET XACT_ABORT, NOCOUNT ON 
+;
   DECLARE	@conversation_handle		uniqueidentifier
 		  , @message_sequence_number	bigint
 		  , @message_type_name			sysname
@@ -47,13 +47,12 @@ SET XACT_ABORT, NOCOUNT ON ;
 
 		  , @inProcessTagID				nvarchar(20)
 		  , @procedureName				sysname				=	N'usp_CompareXML_Response'
-			;
-
+;
   SELECT	@inProcessTagID	=	TagID
 	FROM	hwt.vw_AllTags
    WHERE	TagTypeName = N'Modifier'
 			AND TagName = N'In-Progress'
-			;
+;
 
 --	1)	Begin Loop to process all enqueued messages
 WHILE	( 1 = 1 )
@@ -67,11 +66,11 @@ BEGIN TRY
 		  , @request_message_body		=	NULL
 		  , @response_message_body		=	NULL
 		  , @error_number				=	NULL
-			;
+;
 
 --	3)	RECEIVE messages from xmlStage.CompareXML_RequestQueue
-	BEGIN TRANSACTION ;
-
+	BEGIN TRANSACTION 
+;
 		 WAITFOR	(
 					 RECEIVE	TOP( 1 )
 								@conversation_handle		=	conversation_handle
@@ -81,26 +80,24 @@ BEGIN TRY
 							  , @message_enqueue_time		=	message_enqueue_time
 						FROM	xmlStage.CompareXML_ResponseQueue
 					), TIMEOUT 3000
-					;
-
+;
 		--	no more messages, clean up and end
 		--	COMMIT is required here to prevent transaction mismatch error 266
 		IF	( @conversation_handle IS NULL )
 			BEGIN
-				COMMIT TRANSACTION ;
-				RETURN ;
-			END
+				COMMIT TRANSACTION 
+;				RETURN 
+;			END
 
 --	4)	Process messages that are non-contract message types
 		--	Message Type:	end dialog
 		--	Req'd Action:	end conversation
 		IF ( @message_type_name = N'http://schemas.microsoft.com/SQL/ServiceBroker/EndDialog' )
 			BEGIN
-				END CONVERSATION @conversation_handle ;
-				COMMIT TRANSACTION ;
-				CONTINUE ;
-			END
-
+				END CONVERSATION @conversation_handle 
+;				COMMIT TRANSACTION 
+;				CONTINUE 
+;			END
 
 		--	Message Type:	Service Broker error
 		--	Req'd Action:	shred error data from SB Error message
@@ -111,22 +108,19 @@ BEGIN TRY
 			BEGIN
 				 DECLARE	@error			int
 						  , @description	nvarchar(4000)
-							;
-
-				  SELECT	@request_message_body = CONVERT( xml, @binary_message ) ;
-
+;
+				  SELECT	@request_message_body = CONVERT( xml, @binary_message ) 
+;
 					WITH	XMLNAMESPACES ( 'http://schemas.microsoft.com/SQL/ServiceBroker/Error' AS ssb )
 				  SELECT	@error			=	@request_message_body.value('(//ssb:Error/ssb:Code)[1]', 'int' )
 						  , @description	=	@request_message_body.value('(//ssb:Error/ssb:Description)[1]', 'nvarchar(4000)' )
-							;
-
+;
 				 EXECUTE	eLog.log_ProcessEventLog
 								@pProcID	=	@@PROCID
 							  , @pMessage	=	N'Service Broker error!	 Error code: %1	 Description: %2'
 							  , @p1			=	@error
 							  , @p2			=	@description
-							;
-
+;
 				  INSERT	xmlStage.SQLMessage
 								(
 									MessageProcessor, MessageType, ConversationHandle, MessageSequenceNumber
@@ -140,12 +134,11 @@ BEGIN TRY
 						  , MessageQueued			=	@message_enqueue_time
 						  , ErrorCode				=	@error
 						  , MessageProcessed		=	SYSDATETIME()
-							;
-
-				END	CONVERSATION @conversation_handle ;
-				COMMIT TRANSACTION ;
-				CONTINUE ;
-			END
+;
+				END	CONVERSATION @conversation_handle
+;				COMMIT TRANSACTION 
+;				CONTINUE 
+;			END
 
 
 		--	Message Type:	Any other message type EXCEPT Request ( unexpected message type error )

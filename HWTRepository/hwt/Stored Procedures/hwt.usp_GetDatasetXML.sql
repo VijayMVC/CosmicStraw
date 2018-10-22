@@ -99,7 +99,7 @@ BEGIN TRY
 				
 --	1)	Parse input parameter into temp storage
 	DROP TABLE IF EXISTS #headers ;
-
+										
 	  SELECT	HeaderID = TRY_CONVERT( int, LTRIM( RTRIM( x.Item ) ) )
 		INTO	#headers
 		FROM	utility.ufn_SplitString( @pHeaderID, '|' ) AS x
@@ -240,9 +240,9 @@ BEGIN TRY
 													  , Kdrive_Path			=	h2.KdrivePath
 													  , equipment			=	ISNULL( equipment.xmlData, '' )
 													  , External_File_Info	=	h2.ExternalFileInfo
-													  , options				=	options.xmlData
+													  , options				=	ISNULL( options.xmlData, '' ) 
 													  , Comments			=	h2.Comments
-													  , LibraryInfo			=	LibraryInfo.xmlData
+													  , LibraryInfo			=	ISNULL( LibraryInfo.xmlData, '' ) 
 												FROM	hwt.Header AS h2
 														-- Apply tagged data to header attributes
 														OUTER APPLY

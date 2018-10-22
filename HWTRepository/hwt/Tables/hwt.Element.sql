@@ -17,7 +17,7 @@
 			;
 GO
 
-  CREATE	UNIQUE INDEX UX_hwt_Element_Name
+  CREATE	INDEX IX_hwt_Element_Name
 				ON hwt.Element
 					( Name ASC, DataType ASC, Units ASC )
 	WITH	( DATA_COMPRESSION = PAGE )

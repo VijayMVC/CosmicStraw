@@ -17,7 +17,7 @@
 			;
 GO
 
-  CREATE 	UNIQUE INDEX UX_hwt_AppConst_Name 
+  CREATE 	INDEX IX_hwt_AppConst_Name 
 				ON hwt.AppConst
 					( Name ASC, DataType ASC, Units ASC ) 
 	WITH	( DATA_COMPRESSION = PAGE ) 

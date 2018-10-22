@@ -31,21 +31,22 @@
 */
 AS
 
-SET XACT_ABORT, NOCOUNT ON ;
+SET XACT_ABORT, NOCOUNT ON 
+;
 
 BEGIN TRY
 
-	 DECLARE	@ObjectID	int	=	OBJECT_ID( N'labViewStage.error_element' ) ;
+	 DECLARE	@ObjectID	int	=	OBJECT_ID( N'labViewStage.error_element' ) 
+;
+	 DECLARE 	@Records	TABLE	( RecordID int ) 
+; 
 
-	 DECLARE 	@Records	TABLE	( RecordID int ) ; 
-
---	7)	DELETE processed records from labViewStage.PublishAudit
+--	1)	DELETE processed records from labViewStage.PublishAudit
 	  DELETE	labViewStage.PublishAudit
 	  OUTPUT	deleted.RecordID 
 	    INTO	@Records( RecordID ) 
 	   WHERE	ObjectID = @ObjectID
-				;
-
+;
 				
 --	2)	INSERT error data from labViewStage into hwt.VectorError
 	  INSERT	hwt.VectorError
@@ -53,8 +54,8 @@ BEGIN TRY
 						VectorErrorID, VectorID, ErrorType, ErrorCode, ErrorText
 							, ErrorSequenceNumber, UpdatedBy, UpdatedDate 
 					)
-
-	  SELECT	i.ID
+	  SELECT	DISTINCT 
+				i.ID
 			  , i.VectorID
 			  , i.ErrorType
 			  , i.ErrorCode
@@ -66,22 +67,18 @@ BEGIN TRY
 				INNER JOIN	@Records 
 						ON	RecordID = i.ID
 
-				INNER JOIN
-					labViewStage.vector AS v
-						ON v.ID = i.VectorID
+				INNER JOIN	labViewStage.vector AS v
+						ON 	v.ID = i.VectorID
 
-				INNER JOIN
-					labViewStage.header AS h
+				INNER JOIN	labViewStage.header AS h
 						ON h.ID = v.HeaderID
-				;
-
-	RETURN 0 ;
-
+;
+	RETURN 0 
+;
 END TRY
-
 BEGIN CATCH
-	 DECLARE	@pErrorData xml ;
-
+	 DECLARE	@pErrorData xml 
+;
 	  SELECT	@pErrorData =	(
 								  SELECT	(
 											  SELECT	lvs.*
@@ -92,15 +89,13 @@ BEGIN CATCH
 											)
 											FOR XML PATH( 'usp_LoadVectorErrorFromStage' ), TYPE
 								)
-				;
-
-	IF	( @@TRANCOUNT > 0 ) ROLLBACK TRANSACTION ;
-
+;
+	IF	( @@TRANCOUNT > 0 ) ROLLBACK TRANSACTION 
+;
 	 EXECUTE	eLog.log_CatchProcessing
 					@pProcID	=	@@PROCID
 				  , @pErrorData =	@pErrorData
-				;
-
-	RETURN 55555 ;
-
+;
+	RETURN 55555 
+;
 END CATCH

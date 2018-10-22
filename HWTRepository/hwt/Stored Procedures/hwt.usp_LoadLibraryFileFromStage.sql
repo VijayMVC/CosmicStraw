@@ -35,25 +35,23 @@
 */
 AS
 
-SET XACT_ABORT, NOCOUNT ON ;
-
+SET XACT_ABORT, NOCOUNT ON 
+;
 BEGIN TRY
-
-	 DECLARE	@ObjectID	int	=	OBJECT_ID( N'labViewStage.libraryInfo_file' ) ;
+	 DECLARE	@ObjectID	int	=	OBJECT_ID( N'labViewStage.libraryInfo_file' ) 
+;
+	 DECLARE 	@Records	TABLE	( RecordID int ) 
+;
 	 
-	 DECLARE 	@Records	TABLE	( RecordID int ) ; 
-
-	 
---	7)	DELETE processed records from labViewStage.PublishAudit
+--	1)	DELETE processed records from labViewStage.PublishAudit
 	  DELETE	labViewStage.PublishAudit
 	  OUTPUT 	deleted.RecordID 	  
 	    INTO	@Records( RecordID ) 
 	   WHERE 	ObjectID = @ObjectID
-				;
-
+;
 	IF	( @@ROWCOUNT = 0 )
-		RETURN 0 ;
-
+		RETURN 0 
+;
 		
 --	2)	INSERT new Library File data from temp storage into hwt.LibraryFile
 	  INSERT	hwt.LibraryFile
@@ -88,10 +86,9 @@ BEGIN TRY
 								AND lf.Status = lvs.Status
 								AND lf.HashCode = lvs.HashCode
 					)
-				;
+;
 
-
---	2)	INSERT data into temp storage from PublishAudit
+--	3)	INSERT data into temp storage from PublishAudit
 	CREATE TABLE	#changes
 					(
 						ID				int
@@ -103,9 +100,8 @@ BEGIN TRY
 					  , OperatorName	nvarchar(50)
 					  , NodeOrder		int
 					  , LibraryFileID	int
-					) ;
-
-
+					) 
+;
 	  INSERT	INTO #changes
 					( ID, HeaderID, FileName, FileRev, Status, HashCode, NodeOrder, OperatorName, LibraryFileID )
 	  SELECT	i.ID
@@ -129,29 +125,26 @@ BEGIN TRY
 								AND lf.FileRev = i.FileRev
 								AND lf.Status = i.Status
 								AND lf.HashCode = i.HashCode
-				;
+;
 
 --	4)	INSERT header libraryFile data from temp storage into hwt.HeaderLibraryFile
 	  INSERT	hwt.HeaderLibraryFile
 					( HeaderID, LibraryFileID, NodeOrder, UpdatedBy, UpdatedDate )
-	  SELECT	HeaderID
+	  SELECT	DISTINCT 
+				HeaderID
 			  , LibraryFileID
 			  , NodeOrder
 			  , OperatorName
 			  , SYSDATETIME()
 		FROM	#changes
-				;
-
-
-
-
-	RETURN 0 ;
+;
+	RETURN 0 
+;
 
 END TRY
-
 BEGIN CATCH
-	 DECLARE	@pErrorData	xml ;
-
+	 DECLARE	@pErrorData	xml 
+;
 	  SELECT	@pErrorData	=	(
 								  SELECT	(
 											  SELECT	*
@@ -160,15 +153,13 @@ BEGIN CATCH
 											)
 											FOR XML PATH( 'usp_LoadLibraryFileFromStage' ), TYPE
 								)
-				;
-
-	IF	( @@TRANCOUNT > 0 ) ROLLBACK TRANSACTION ;
-
+;
+	IF	( @@TRANCOUNT > 0 ) ROLLBACK TRANSACTION 
+;
 	 EXECUTE	eLog.log_CatchProcessing
 					@pProcID	=	@@PROCID
 				  , @pErrorData	=	@pErrorData
-				;
-
-	RETURN 55555 ;
-
+;
+	RETURN 55555 
+;
 END CATCH

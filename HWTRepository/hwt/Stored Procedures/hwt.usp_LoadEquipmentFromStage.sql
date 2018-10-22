@@ -33,27 +33,26 @@
 */
 AS
 
-SET XACT_ABORT, NOCOUNT ON ;
-
+SET XACT_ABORT, NOCOUNT ON 
+;
 BEGIN TRY
+	 DECLARE	@ObjectID	int	=	OBJECT_ID( N'labViewStage.equipment_element' ) 
+;
+	 DECLARE	@Records	TABLE	( RecordID int ) 
+;
 
-	 DECLARE	@ObjectID	int	=	OBJECT_ID( N'labViewStage.equipment_element' ) ;
-
-	 DECLARE	@Records	TABLE	( RecordID int ) ;
-
-
---	4)	DELETE processed records from labViewStage.PublishAudit
+--	1)	DELETE processed records from labViewStage.PublishAudit
 	  DELETE	labViewStage.PublishAudit
 	  OUTPUT	deleted.RecordID
 		INTO	@Records( RecordID )
 	   WHERE	ObjectID = @ObjectID
-				;
+;
 
 	IF	( @@ROWCOUNT = 0 )
-		RETURN 0 ;
+		RETURN 0 
+;
 
-
---	1)	INSERT new Equipment data from temp storage into hwt
+--	2)	INSERT new Equipment data from temp storage into hwt
 	  INSERT	hwt.Equipment
 					( Asset, Description, CostCenter, UpdatedBy, UpdatedDate )
 	  SELECT	DISTINCT
@@ -77,10 +76,9 @@ BEGIN TRY
 								AND e.Description = lvs.Description
 								AND e.CostCenter = lvs.CostCenter
 					)
-				;
+;
 
-
---	2)	INSERT data into temp storage from PublishAudit
+--	3)	INSERT data into temp storage from PublishAudit
 	  CREATE	TABLE #changes
 				(
 					ID					int
@@ -94,8 +92,7 @@ BEGIN TRY
 				  , OperatorName		nvarchar(50)
 				  , EquipmentID			int
 				)
-				;
-
+;
 	  INSERT	#changes
 					(
 						ID, HeaderID, Description, Asset, CalibrationDueDate, CostCenter
@@ -125,29 +122,26 @@ BEGIN TRY
 						ON	e.Asset = i.Asset
 							AND e.Description = i.Description
 							AND e.CostCenter = i.CostCenter
-				;
+;
 
-
---	3)	INSERT header equipment from temp storage into hwt.HeaderEquipment
+--	4)	INSERT header equipment from temp storage into hwt.HeaderEquipment
 	  INSERT	hwt.HeaderEquipment
 					( HeaderID, EquipmentID, NodeOrder, CalibrationDueDate, UpdatedBy, UpdatedDate )
-	  SELECT	HeaderID
+	  SELECT	DISTINCT 
+				HeaderID
 			  , EquipmentID
 			  , NodeOrder
 			  , CalibrationDueDate
 			  , OperatorName
 			  , SYSDATETIME()
 		FROM	#changes
-				;
-
-
-	RETURN 0 ;
-
+;
+	RETURN 0 
+;
 END TRY
-
 BEGIN CATCH
-	 DECLARE	@pErrorData xml ;
-
+	 DECLARE	@pErrorData xml 
+;
 	  SELECT	@pErrorData =	(
 								  SELECT
 											(
@@ -157,15 +151,13 @@ BEGIN CATCH
 											)
 											FOR XML PATH( 'usp_LoadEquipmentFromStage' ), TYPE
 								)
-				;
-
-	IF	( @@TRANCOUNT > 0 ) ROLLBACK TRANSACTION ;
-
+;
+	IF	( @@TRANCOUNT > 0 ) ROLLBACK TRANSACTION 
+;
 	 EXECUTE	eLog.log_CatchProcessing
 					@pProcID	=	@@PROCID
 				  , @pErrorData =	@pErrorData
-				;
-
-	RETURN 55555 ;
-
+;
+	RETURN 55555 
+;
 END CATCH

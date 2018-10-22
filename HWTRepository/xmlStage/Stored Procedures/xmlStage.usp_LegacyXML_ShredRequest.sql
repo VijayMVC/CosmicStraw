@@ -1,4 +1,4 @@
-﻿CREATE PROCEDURE	[xmlStage].[usp_LegacyXML_ShredRequest]
+﻿CREATE PROCEDURE	xmlStage.usp_LegacyXML_ShredRequest
 
 /*
 ***********************************************************************************************************************************

@@ -1,58 +1,87 @@
-﻿CREATE PROCEDURE	[xmlStage].[usp_ShredXMLData]
-						(
-							@pInputXML 	xml( CONTENT xmlStage.LabViewXSD )
-						  , @pHeaderID	int OUTPUT
-						)
+﻿CREATE	PROCEDURE xmlStage.usp_ShredXMLData
+	(
+		@pInputXML	xml( CONTENT xmlStage.LabViewXSD )
+	  , @pHeaderID	int OUTPUT
+	)
 /*
 ***********************************************************************************************************************************
 
-    Procedure:  xmlStage.usp_ShredXMLData
-    Abstract:   shreds XML data into xmlStage tables
+	Procedure:	xmlStage.usp_ShredXMLData
+	Abstract:	shreds XML data into xmlStage tables
 
-    Logic Summary
-    -------------
+	Logic Summary
+	-------------
+	1)	Shred header Data into xmlStage schema
+	2)	Shred AppConst_element data into xmlStage schema
+	3)	Shred equipment data into xmlStage schema
+	4)	Shred LibraryInfo data into xmlStage schema
+	5)	Shred option_element data into xmlStage schema
+	6)	Shred vector data into xmlStage schema
+	7)	Shred vector_element data into xmlStage schema
+	8)	Shred result_element data into xmlStage schema
+	9)	Shred error_element data into xmlStage schema
 
+	Parameters
+	----------
+	@pInputXML		xml		contains the XML that is going to be shredded
+	@pHeaderID		int		contains the headerID for the data, if the field is NULL will contain the dataset ID on output
 
-    Parameters
-    ----------
+	Notes
+	-----
+	Please review the detailed comments in the proc for specialized construction of different fields
 
-    Notes
-    -----
-
-
-    Revision
-    --------
-    carsoc3     2018-02-01      alpha release
+	Revision
+	--------
+	carsoc3		2018-08-31		labVIEW messaging architecture
+	carsoc3		2018-10-04		remove logic that replaces LF with CR/LF ( for comparison of XML file with labViewStage data )
 
 ***********************************************************************************************************************************
 */
 AS
 
-SET XACT_ABORT, NOCOUNT ON ;
+SET XACT_ABORT, NOCOUNT ON
+;
 
 BEGIN TRY
-	  
-	 DECLARE	@HeaderID	int	
-	  
+
+	 DECLARE	@HeaderID	int
+;
 	  SELECT	@pHeaderID	=	header.xmlData.value( '@ID', 'int' )
-	    FROM	@pInputXML.nodes( 'root/header' ) AS header( xmlData ) 
-				; 
-				
-	IF(	@pHeaderID IS NULL ) 
-		SELECT @pHeaderID = ISNULL( MAX( ID ), 0 ) + 1 FROM labViewStage.header ;
-		
-	  SELECT @HeaderID = @pHeaderID ;
-	   
-	SET IDENTITY_INSERT xmlStage.header ON ; 
-	--	Shred Header Data 
-	  INSERT 	xmlStage.header
-					(	
+		FROM	@pInputXML.nodes( 'root/header' ) AS header( xmlData )
+;
+	IF	( @pHeaderID IS NULL )
+	BEGIN
+		  SELECT	@pHeaderID = ISNULL( MAX( ID ), 0 ) + 1 FROM labViewStage.header
+;
+	END
+
+	  SELECT	@HeaderID = @pHeaderID
+;
+	IF EXISTS( SELECT 1 FROM xmlStage.header WHERE ID = @HeaderID )
+	BEGIN
+		DELETE	xmlStage.appConst_element	WHERE HeaderID = @HeaderID
+;		DELETE	xmlStage.equipment_element	WHERE HeaderID = @HeaderID
+;		DELETE	xmlStage.option_element		WHERE HeaderID = @HeaderID
+;		DELETE	xmlStage.libraryInfo_file	WHERE HeaderID = @HeaderID
+;		DELETE	xmlStage.error_element		WHERE VectorID IN ( SELECT ID FROM xmlStage.vector WHERE HeaderID = @HeaderID )
+;		DELETE	xmlStage.result_element		WHERE VectorID IN ( SELECT ID FROM xmlStage.vector WHERE HeaderID = @HeaderID )
+;		DELETE	xmlStage.vector_element		WHERE VectorID IN ( SELECT ID FROM xmlStage.vector WHERE HeaderID = @HeaderID )
+;		DELETE	xmlStage.vector				WHERE HeaderID = @HeaderID
+;		DELETE	xmlStage.header				WHERE ID = @HeaderID
+;
+	END
+
+	SET	IDENTITY_INSERT xmlStage.header ON
+;
+
+--	1)	Shred header data into xmlStage schema
+	  INSERT	xmlStage.header
+					(
 						ID, ResultFile, StartTime, FinishTime, TestDuration, ProjectName, FirmwareRev
 							, HardwareRev, PartSN, OperatorName, TestMode, TestStationID, TestName
 							, TestConfigFile, TestCodePathName, TestCodeRev, HWTSysCodeRev, KdrivePath
 							, Comments, ExternalFileInfo, IsLegacyXML, VectorCount
 					)
-	
 	  SELECT	ID					=	@HeaderID
 			  , ResultFile			=	header.xmlData.value( 'Result_File[1]', 'nvarchar(1000)' )
 			  , StartTime			=	header.xmlData.value( 'Start_Time[1]', 'nvarchar(100)' )
@@ -66,10 +95,10 @@ BEGIN TRY
 			  , TestMode			=	CASE
 											WHEN CHARINDEX( 'Verification', header.xmlData.value( 'Comments[1]', 'nvarchar(max)' ) ) > 0  THEN 'Verification'
 											WHEN CHARINDEX( 'Characterization', header.xmlData.value( 'Comments[1]', 'nvarchar(max)' ) ) > 0  THEN 'Characterization'
-											WHEN CHARINDEX( 'Evaluation', header.xmlData.value( 'Comments[1]', 'nvarchar(max)' ) ) > 0  THEN 'Evaluation'
-											WHEN CHARINDEX( 'Simulation', header.xmlData.value( 'Comments[1]', 'nvarchar(max)' ) ) > 0  THEN 'Simulation'
-											WHEN CHARINDEX( 'Development', header.xmlData.value( 'Comments[1]', 'nvarchar(max)' ) ) > 0  THEN 'Development'
-										END 
+											WHEN CHARINDEX( 'Evaluation', header.xmlData.value( 'Comments[1]', 'nvarchar(max)' ) ) > 0	THEN 'Evaluation'
+											WHEN CHARINDEX( 'Simulation', header.xmlData.value( 'Comments[1]', 'nvarchar(max)' ) ) > 0	THEN 'Simulation'
+											WHEN CHARINDEX( 'Development', header.xmlData.value( 'Comments[1]', 'nvarchar(max)' ) ) > 0	 THEN 'Development'
+										END
 			  , TestStationID		=	header.xmlData.value( 'Test_Station_ID[1]', 'nvarchar(100)' )
 			  , TestName			=	header.xmlData.value( 'Test_Name[1]', 'nvarchar(250)' )
 			  , TestConfigFile		=	header.xmlData.value( 'Test_Config_File[1]', 'nvarchar(400)' )
@@ -79,114 +108,110 @@ BEGIN TRY
 			  , KdrivePath			=	header.xmlData.value( 'Kdrive_Path[1]', 'nvarchar(400)' )
 			  , Comments			=	header.xmlData.value( 'Comments[1]', 'nvarchar(max)' )
 			  , ExternalFileInfo	=	header.xmlData.value( 'External_File_Info[1]', 'nvarchar(max)' )
-			  , IsLegacyXML			=	1 
+			  , IsLegacyXML			=	1
 			  , VectorCount			=	( SELECT @pInputXML.value('count(root/vector)', 'int') )
+		FROM	@pInputXML.nodes( 'root/header' ) AS header( xmlData )
+;
+	SET IDENTITY_INSERT xmlStage.header OFF
+;
 
-		FROM	@pInputXML.nodes( 'root/header' ) AS header( xmlData ) ; 
-
-	SET IDENTITY_INSERT xmlStage.header OFF ; 
-
-	
-	--	Shred AppConst data 
-		WITH	cte_AppConst_element AS 
+--	2)	Shred AppConst_element data into xmlStage schema
+	--	construction for the Value field
+	--		use the query() method to extract the individual <value> nodes into a comma-separated string
+	--		if the type is Array, create a JSON string from the use the comma-separated string
+	--		if the type is not array, use the comma-separated string
+		WITH	cte_AppConst_element AS
 					(
 					  SELECT	HeaderID	=	@HeaderID
 							  , Name		=	appConst.xmlData.value( 'name[1]', 'nvarchar(250)' )
 							  , Type		=	appConst.xmlData.value( 'type[1]', 'nvarchar(50)' )
 							  , Units		=	appConst.xmlData.value( 'units[1]', 'nvarchar(250)' )
-							  , Value		=	CASE	LEFT( appConst.xmlData.value( 'type[1]', 'nvarchar(50)' ), 3 ) 
-														WHEN 'ARR' 
-															THEN '[' +	( SELECT	ISNULL( 
+							  , Value		=	CASE	LEFT( appConst.xmlData.value( 'type[1]', 'nvarchar(50)' ), 3 )
+														WHEN 'ARR'
+															THEN '[' +	( SELECT	ISNULL(
 																							STUFF
-																								( 
+																								(
 																									REPLACE( REPLACE( CONVERT( nvarchar(max), appConst.xmlData.query('./value') ), '<value>', ',"' ), '</value>', '"'  )
-																									, 1, 1, '' 
+																									, 1, 1, ''
 																								)
 																						   , '')
 																		) + ']'
-															ELSE REPLACE( REPLACE( CONVERT( nvarchar(max), appConst.xmlData.query('./value') ), '<value>', '' ), '</value>', ''  ) 
-												END 
-					
-							  , NodeOrder	=	DENSE_RANK() OVER( ORDER BY appConst.xmlData ) 
-					FROM	@pInputXML.nodes( 'root/header/options/AppConst_element' ) AS appConst( xmlData ) 
+															ELSE REPLACE( REPLACE( CONVERT( nvarchar(max), appConst.xmlData.query('./value') ), '<value>', '' ), '</value>', ''	 )
+												END
+							  , NodeOrder	=	DENSE_RANK() OVER( ORDER BY appConst.xmlData )
+						FROM	@pInputXML.nodes( 'root/header/options/AppConst_element' ) AS appConst( xmlData )
 					)
-	  INSERT 	xmlStage.appConst_element
+	  INSERT	xmlStage.appConst_element
 					( HeaderID, Name, Type, Units, Value, NodeOrder )
-	  SELECT 	HeaderID	=	HeaderID
+	  SELECT	HeaderID	=	HeaderID
 			  , Name		=	Name
 			  , Type		=	Type
 			  , Units		=	Units
-			  , Value		=	REPLACE( REPLACE( REPLACE( REPLACE( REPLACE( REPLACE( [Value], CHAR(10), CHAR(13) + CHAR(10) ), '&apos;', '''' ), '&lt;', '<' ), '&gt;', '>' ), '&quot;', '"' ), '&amp;', '&' )
+			  , Value		=	REPLACE( REPLACE( REPLACE( REPLACE( REPLACE( [Value], '&apos;', '''' ), '&lt;', '<' ), '&gt;', '>' ), '&quot;', '"' ), '&amp;', '&' )
 			  , NodeOrder	=	NodeOrder
+		FROM	cte_AppConst_element
+;
 
-		FROM	cte_AppConst_element 
-				; 
-
-		
-	   
-	--	Shred equipment data 
-	  INSERT 	xmlStage.equipment_element
+--	3)	Shred equipment data into xmlStage schema
+	  INSERT	xmlStage.equipment_element
 					( HeaderID, Description, Asset, CalibrationDueDate, CostCenter, NodeOrder )
-	  SELECT 	HeaderID			=	@HeaderID
+	  SELECT	HeaderID			=	@HeaderID
 			  , Description			=	equipment.xmlData.value( 'Description[1]', 'nvarchar(100)' )
 			  , Asset				=	equipment.xmlData.value( 'Asset[1]', 'nvarchar(50)' )
 			  , CalibrationDueDate	=	equipment.xmlData.value( 'Calibration_Due_Date[1]', 'nvarchar(50)' )
 			  , CostCenter			=	equipment.xmlData.value( 'Cost_Center[1]', 'nvarchar(50)' )
 			  , NodeOrder			=	DENSE_RANK() OVER ( ORDER BY equipment.xmlData )
-			  
-		FROM	@pInputXML.nodes( 'root/header/equipment/equipment_element' ) AS equipment( xmlData ) ;
+		FROM	@pInputXML.nodes( 'root/header/equipment/equipment_element' ) AS equipment( xmlData )
+;
 
-
-
-	--	Shred LibraryFile data 
-	  INSERT 	xmlStage.libraryInfo_file
+--	4)	Shred LibraryInfo data into xmlStage schema
+	  INSERT	xmlStage.libraryInfo_file
 					( HeaderID, FileName, FileRev, Status, HashCode, NodeOrder )
-	  SELECT 	HeaderID	=	@HeaderID
+	  SELECT	HeaderID	=	@HeaderID
 			  , FileName	=	libraryInfo.xmlData.value( '@name[1]', 'nvarchar(400)' )
 			  , FileRev		=	libraryInfo.xmlData.value( '@rev[1]', 'nvarchar(50)' )
 			  , Status		=	libraryInfo.xmlData.value( '@status[1]', 'nvarchar(50)' )
 			  , HashCode	=	libraryInfo.xmlData.value( '@HashCode[1]', 'nvarchar(100)' )
 			  , NodeOrder	=	DENSE_RANK() OVER ( ORDER BY libraryInfo.xmlData )
-			  
-		FROM	@pInputXML.nodes( 'root/header/LibraryInfo/file' ) AS libraryInfo( xmlData ) ;
+		FROM	@pInputXML.nodes( 'root/header/LibraryInfo/file' ) AS libraryInfo( xmlData )
+;
 
-	--	Shred options data 
-	  INSERT 	xmlStage.option_element
+--	5)	Shred option_element data into xmlStage schema
+	  INSERT	xmlStage.option_element
 					( HeaderID, Name, Type, Units, Value, NodeOrder )
-	  SELECT 	HeaderID	=	@HeaderID
+	  SELECT	HeaderID	=	@HeaderID
 			  , Name		=	options.xmlData.value( 'name[1]', 'nvarchar(100)' )
 			  , Type		=	options.xmlData.value( 'type[1]', 'nvarchar(50)' )
 			  , Units		=	options.xmlData.value( 'units[1]', 'nvarchar(50)' )
-			  , Value		=	options.xmlData.value( 'value[1]', 'nvarchar(1000)' )
+			  , Value		=	REPLACE( REPLACE( REPLACE( REPLACE( REPLACE( options.xmlData.value( 'value[1]', 'nvarchar(1000)' ), '&apos;', '''' ), '&lt;', '<' ), '&gt;', '>' ), '&quot;', '"' ), '&amp;', '&' )
 			  , NodeOrder	=	DENSE_RANK() OVER ( ORDER BY options.xmlData )
-			  
-		FROM	@pInputXML.nodes( 'root/header/options/option_element' ) AS options( xmlData ) ;
+		FROM	@pInputXML.nodes( 'root/header/options/option_element' ) AS options( xmlData )
+;
 
+--	6)	Shred vector data into xmlStage schema
+	--	construction for the ReqID field
+	--		there are zero-to-many <ReqID> nodes underneath a given vector
+	--		use the query() method to extract <ReqID> nodes into a comma-separated string
+	--		replace the opening <ReqID> tag with a comma, remove the closing </ReqID> tag
 
-	   
-	--	Shred vector data 
-	--		For detailed description of ReqID construction, see notes at top of proc
-	
-	--	Build temp table to hold vector output data 
-	  INSERT 	xmlStage.vector
+	  INSERT	xmlStage.vector
 					( HeaderID, VectorNum, Loop, ReqID, StartTime, EndTime )
-	  SELECT 	HeaderID	=	@HeaderID
+	  SELECT	HeaderID	=	@HeaderID
 			  , VectorNum	=	vector.xmlData.value( 'num[1]', 'int' )
 			  , Loop		=	ISNULL( vector.xmlData.value( 'Loop[1]', 'int' ), 0 )
 			  , ReqID		=	STUFF
-								( 
-									REPLACE( REPLACE( CONVERT( nvarchar(max), vector.xmlData.query('ReqID') ) , '<ReqID>', ','  ) , '</ReqID>' , ''  )
-									, 1, 1, '' 
+								(
+									REPLACE( REPLACE( CONVERT( nvarchar(max), vector.xmlData.query('ReqID') ), '<ReqID>', ','	) , '</ReqID>' , ''	 )
+									, 1, 1, ''
 								)
 			  , StartTime	=	vector.xmlData.value( 'Timestamp/StartTime[1]', 'nvarchar(50)' )
 			  , EndTime		=	vector.xmlData.value( 'Timestamp/EndTime[1]', 'nvarchar(50)' )
-			  
-		FROM	@pInputXML.nodes( 'root/vector' ) AS vector( xmlData ) ;
+		FROM	@pInputXML.nodes( 'root/vector' ) AS vector( xmlData )
+;
 
-
-	--	Shred vector_element data 
+--	7)	Shred vector_element data into xmlStage schema
 		WITH	cte_vector_element AS
-					(	
+					(
 					  SELECT	HeaderID	=	@HeaderID
 							  , VectorNum	=	vector.xmlData.value( 'num[1]', 'int' )
 							  , Loop		=	ISNULL( vector.xmlData.value( 'Loop[1]', 'int' ), 0 )
@@ -195,138 +220,140 @@ BEGIN TRY
 							  , Type		=	vector_element.xmlData.value( 'type[1]', 'nvarchar(100)' )
 							  , Units		=	vector_element.xmlData.value( 'units[1]', 'nvarchar(100)' )
 							  , Value		=	vector_element.xmlData.value( 'value[1]', 'nvarchar(100)' )
-							  , NodeOrder	=	DENSE_RANK() OVER( PARTITION BY vector.xmlData ORDER BY vector_element.xmlData ) 
+							  , NodeOrder	=	DENSE_RANK() OVER( PARTITION BY vector.xmlData ORDER BY vector_element.xmlData )
 						FROM	@pInputXML.nodes( 'root/vector' ) AS vector( xmlData )
 								CROSS APPLY vector.xmlData.nodes( 'vector_element' ) AS vector_element( xmlData )
 					)
-
-	  INSERT 	xmlStage.vector_element
-					( VectorID, Name, Type, Units, Value, NodeOrder )
-	  SELECT 	VectorID	=	v.ID
-			  , Name		=	cte.Name
-			  , Type		=	cte.Type
-			  , Units		=	cte.Units
-			  , Value		=	cte.Value
-			  , NodeOrder	=	cte.NodeOrder
-		FROM	cte_vector_element AS cte 
-				INNER JOIN xmlStage.vector AS v 
-						ON v.HeaderID = cte.HeaderID 
-							AND v.VectorNum = cte.VectorNum 
-							AND v.Loop = cte.Loop 
-							AND v.StartTime = cte.StartTime ; 
-
-
-	--	Shred result_element data 
-	--		For detailed description of Value construction, see notes at top of proc
-		WITH	cte_result_element AS 
-					(
-					  SELECT	HeaderID	=	@HeaderID
-							  , VectorNum	=	vector.xmlData.value( 'num[1]', 'int' )
-							  , Loop		=	ISNULL( vector.xmlData.value( 'Loop[1]', 'int' ), 0 )
-							  , StartTime	=	vector.xmlData.value( 'Timestamp/StartTime[1]', 'nvarchar(50)' )									  
-							  , Name		=	result_element.xmlData.value( 'name[1]', 'nvarchar(250)' )
-							  , Type		=	result_element.xmlData.value( 'type[1]', 'nvarchar(100)' )
-							  , Units		=	result_element.xmlData.value( 'units[1]', 'nvarchar(100)' )
-							  , Value		=	CASE	LEFT( result_element.xmlData.value( 'type[1]', 'nvarchar(100)' ), 3 ) 
-														WHEN 'ARR' 
-															THEN '[' +	( SELECT	ISNULL( 
-																							STUFF
-																								( 
-																									REPLACE( REPLACE( CONVERT( nvarchar(max), result_element.xmlData.query('./value') ), '<value>', ',"' ), '</value>', '"'  )
-																									, 1, 1, '' 
-																								)
-																						   , '')
-																		) + ']'
-															ELSE REPLACE( REPLACE( CONVERT( nvarchar(max), result_element.xmlData.query('./value') ), '<value>', '' ), '</value>', ''  ) 
-												END 
-					
-							  , NodeOrder	=	DENSE_RANK() OVER( PARTITION BY vector.xmlData ORDER BY result_element.xmlData ) 
-						FROM	@pInputXML.nodes( 'root/vector' ) AS vector( xmlData )
-								CROSS APPLY vector.xmlData.nodes( 'result_element' ) AS result_element( xmlData )
-					)
-	
-	  INSERT 	INTO xmlStage.result_element
+	  INSERT	xmlStage.vector_element
 					( VectorID, Name, Type, Units, Value, NodeOrder )
 	  SELECT	VectorID	=	v.ID
 			  , Name		=	cte.Name
 			  , Type		=	cte.Type
 			  , Units		=	cte.Units
-			  , Value		=	REPLACE( REPLACE( REPLACE( REPLACE( REPLACE( REPLACE( cte.Value, CHAR(10), CHAR(13) + CHAR(10) ), '&apos;', '''' ), '&lt;', '<' ), '&gt;', '>' ), '&quot;', '"' ), '&amp;', '&' )
+			  , Value		=	REPLACE( REPLACE( REPLACE( REPLACE( REPLACE( cte.Value, '&apos;', '''' ), '&lt;', '<' ), '&gt;', '>' ), '&quot;', '"' ), '&amp;', '&' )
 			  , NodeOrder	=	cte.NodeOrder
-		FROM	cte_result_element AS cte
-				LEFT JOIN xmlStage.vector AS v 
-						ON v.HeaderID = cte.HeaderID 
-							AND v.VectorNum = cte.VectorNum 
-							AND v.Loop = cte.Loop 
-							AND v.StartTime = cte.StartTime 
-				; 
+		FROM	cte_vector_element AS cte
+				INNER JOIN xmlStage.vector AS v
+						ON v.HeaderID = cte.HeaderID
+							AND v.VectorNum = cte.VectorNum
+							AND v.Loop = cte.Loop
+							AND v.StartTime = cte.StartTime
+;
 
-
-	--	Shred error_element data 
-		WITH	cte_error_element AS 
+--	8)	Shred result_element data into xmlStage schema
+	--	construction for the Value field
+	--		use the query() method to extract the individual <value> nodes into a comma-separated string
+	--		if the type is Array, create a JSON string from the use the comma-separated string
+	--		if the type is not array, use the comma-separated string
+		WITH	cte_result_element AS
 					(
 					  SELECT	HeaderID	=	@HeaderID
 							  , VectorNum	=	vector.xmlData.value( 'num[1]', 'int' )
 							  , Loop		=	ISNULL( vector.xmlData.value( 'Loop[1]', 'int' ), 0 )
-							  , StartTime	=	vector.xmlData.value( 'Timestamp/StartTime[1]', 'nvarchar(50)' )	
-							  , ErrorType	=	1									  
-							  , ErrorCode	=	error_element.xmlData.value( ' ( test_error/@code ) [1]', 'int' )
-							  , ErrorText	=	REPLACE( REPLACE( REPLACE( REPLACE( REPLACE( REPLACE( error_element.xmlData.value( 'test_error[1]', 'nvarchar(max)' ), CHAR(10), CHAR(13) + CHAR(10) ), '&apos;', '''' ), '&lt;', '<' ), '&gt;', '>' ), '&quot;', '"' ), '&amp;', '&' )
-							  , NodeOrder	=	DENSE_RANK() OVER( PARTITION BY vector.xmlData ORDER BY error_element.xmlData ) 
+							  , StartTime	=	vector.xmlData.value( 'Timestamp/StartTime[1]', 'nvarchar(50)' )
+							  , Name		=	result_element.xmlData.value( 'name[1]', 'nvarchar(250)' )
+							  , Type		=	result_element.xmlData.value( 'type[1]', 'nvarchar(100)' )
+							  , Units		=	result_element.xmlData.value( 'units[1]', 'nvarchar(100)' )
+							  , Value		=	CASE	LEFT( result_element.xmlData.value( 'type[1]', 'nvarchar(100)' ), 3 )
+														WHEN 'ARR'
+															THEN '[' +	( SELECT	ISNULL(
+																							STUFF
+																								(
+																									REPLACE( REPLACE( CONVERT( nvarchar(max), result_element.xmlData.query('./value') ), '<value>', ',"' ), '</value>', '"'	 )
+																									, 1, 1, ''
+																								)
+																						   , '')
+																		) + ']'
+															ELSE REPLACE( REPLACE( CONVERT( nvarchar(max), result_element.xmlData.query('./value') ), '<value>', '' ), '</value>', ''  )
+												END
+							  , NodeOrder	=	DENSE_RANK() OVER( PARTITION BY vector.xmlData ORDER BY result_element.xmlData )
 						FROM	@pInputXML.nodes( 'root/vector' ) AS vector( xmlData )
-								CROSS APPLY vector.xmlData.nodes('error_element') AS error_element( xmlData )
-
-				   UNION ALL
-					  SELECT	HeaderID	=	@HeaderID
-							  , VectorNum	=	vector.xmlData.value( 'num[1]', 'int' )
-							  , Loop		=	ISNULL( vector.xmlData.value( 'Loop[1]', 'int' ), 0 )
-							  , StartTime	=	vector.xmlData.value( 'Timestamp/StartTime[1]', 'nvarchar(50)' )	
-							  , ErrorType	=	2
-							  , ErrorCode	=	error_element.xmlData.value( ' ( data_error/@num) [1]', 'int' )
-							  , ErrorText	=	REPLACE( REPLACE( REPLACE( REPLACE( REPLACE( REPLACE( error_element.xmlData.value( 'data_error[1]', 'nvarchar(max)' ), CHAR(10), CHAR(13) + CHAR(10) ), '&apos;', '''' ), '&lt;', '<' ), '&gt;', '>' ), '&quot;', '"' ), '&amp;', '&' )
-							  , NodeOrder	=	DENSE_RANK() OVER( PARTITION BY vector.xmlData ORDER BY error_element.xmlData ) 
-						FROM	@pInputXML.nodes( 'root/vector' ) AS vector( xmlData )
-								CROSS APPLY vector.xmlData.nodes('error_element') AS error_element( xmlData )
-				   UNION ALL
-					  SELECT	HeaderID	=	@HeaderID
-							  , VectorNum	=	vector.xmlData.value( 'num[1]', 'int' )
-							  , Loop		=	ISNULL( vector.xmlData.value( 'Loop[1]', 'int' ), 0 )
-							  , StartTime	=	vector.xmlData.value( 'Timestamp/StartTime[1]', 'nvarchar(50)' )	
-							  , ErrorType	=	3
-							  , ErrorCode	=	error_element.xmlData.value( ' ( input_param_error/@num) [1]', 'int' )
-							  , ErrorText	=	REPLACE( REPLACE( REPLACE( REPLACE( REPLACE( REPLACE( error_element.xmlData.value( 'input_param_error[1]', 'nvarchar(max)' ), CHAR(10), CHAR(13) + CHAR(10) ), '&apos;', '''' ), '&lt;', '<' ), '&gt;', '>' ), '&quot;', '"' ), '&amp;', '&' )
-							  , NodeOrder	=	DENSE_RANK() OVER( PARTITION BY vector.xmlData ORDER BY error_element.xmlData ) 
-						FROM	@pInputXML.nodes( 'root/vector' ) AS vector( xmlData )
-								CROSS APPLY vector.xmlData.nodes('error_element') AS error_element( xmlData )
-
+								CROSS APPLY vector.xmlData.nodes( 'result_element' ) AS result_element( xmlData )
 					)
-	
-	  INSERT 	INTO xmlStage.error_element
+	  INSERT	INTO xmlStage.result_element
+					( VectorID, Name, Type, Units, Value, NodeOrder )
+	  SELECT	VectorID	=	v.ID
+			  , Name		=	cte.Name
+			  , Type		=	cte.Type
+			  , Units		=	cte.Units
+			  , Value		=	REPLACE( REPLACE( REPLACE( REPLACE( REPLACE( cte.Value, '&apos;', '''' ), '&lt;', '<' ), '&gt;', '>' ), '&quot;', '"' ), '&amp;', '&' )
+			  , NodeOrder	=	cte.NodeOrder
+		FROM	cte_result_element AS cte
+				LEFT JOIN xmlStage.vector AS v
+						ON v.HeaderID = cte.HeaderID
+							AND v.VectorNum = cte.VectorNum
+							AND v.Loop = cte.Loop
+							AND v.StartTime = cte.StartTime
+;
+
+--	9)	Shred error_element data into xmlStage schema
+	--	construction notes
+	--		error types are 1, 2, or 3 for test error, data error, or input error
+	--		each type of error has slightly different nodes and attributes
+	--		the UNION ALL produces a single record for each error with the correct error type and data
+		WITH	cte_error_element AS
+					(
+					  SELECT	HeaderID	=	@HeaderID
+							  , VectorNum	=	vector.xmlData.value( 'num[1]', 'int' )
+							  , Loop		=	ISNULL( vector.xmlData.value( 'Loop[1]', 'int' ), 0 )
+							  , StartTime	=	vector.xmlData.value( 'Timestamp/StartTime[1]', 'nvarchar(50)' )
+							  , ErrorType	=	1
+							  , ErrorCode	=	error_element.xmlData.value( '( test_error/@code)[1]', 'int' )
+							  , ErrorText	=	error_element.xmlData.value( 'test_error[1]', 'nvarchar(max)' )
+							  , NodeOrder	=	DENSE_RANK() OVER( PARTITION BY vector.xmlData ORDER BY error_element.xmlData )
+						FROM	@pInputXML.nodes( 'root/vector' ) AS vector( xmlData )
+								CROSS APPLY vector.xmlData.nodes('error_element') AS error_element( xmlData )
+
+				   UNION ALL
+					  SELECT	HeaderID	=	@HeaderID
+							  , VectorNum	=	vector.xmlData.value( 'num[1]', 'int' )
+							  , Loop		=	ISNULL( vector.xmlData.value( 'Loop[1]', 'int' ), 0 )
+							  , StartTime	=	vector.xmlData.value( 'Timestamp/StartTime[1]', 'nvarchar(50)' )
+							  , ErrorType	=	2
+							  , ErrorCode	=	error_element.xmlData.value( '(data_error/@num)[1]', 'int' )
+							  , ErrorText	=	error_element.xmlData.value( 'data_error[1]', 'nvarchar(max)' )
+							  , NodeOrder	=	DENSE_RANK() OVER( PARTITION BY vector.xmlData ORDER BY error_element.xmlData )
+						FROM	@pInputXML.nodes( 'root/vector' ) AS vector( xmlData )
+								CROSS APPLY vector.xmlData.nodes('error_element') AS error_element( xmlData )
+
+				   UNION ALL
+					  SELECT	HeaderID	=	@HeaderID
+							  , VectorNum	=	vector.xmlData.value( 'num[1]', 'int' )
+							  , Loop		=	ISNULL( vector.xmlData.value( 'Loop[1]', 'int' ), 0 )
+							  , StartTime	=	vector.xmlData.value( 'Timestamp/StartTime[1]', 'nvarchar(50)' )
+							  , ErrorType	=	3
+							  , ErrorCode	=	error_element.xmlData.value( '(input_param_error/@num)[1]', 'int' )
+							  , ErrorText	=	error_element.xmlData.value( 'input_param_error[1]', 'nvarchar(max)' )
+							  , NodeOrder	=	DENSE_RANK() OVER( PARTITION BY vector.xmlData ORDER BY error_element.xmlData )
+						FROM	@pInputXML.nodes( 'root/vector' ) AS vector( xmlData )
+								CROSS APPLY vector.xmlData.nodes('error_element') AS error_element( xmlData )
+					)
+	  INSERT	INTO xmlStage.error_element
 					( VectorID, ErrorType, ErrorCode, ErrorText, NodeOrder )
 	  SELECT	VectorID	=	v.ID
 			  , ErrorType	=	cte.ErrorType
 			  , ErrorCode	=	cte.ErrorCode
-			  , ErrorText	=	cte.ErrorText
+			  , ErrorText	=	REPLACE( REPLACE( REPLACE( REPLACE( REPLACE( cte.ErrorText, '&apos;', '''' ), '&lt;', '<' ), '&gt;', '>' ), '&quot;', '"' ), '&amp;', '&' )
 			  , NodeOrder	=	cte.NodeOrder
-		FROM	cte_error_element AS cte 
-				INNER JOIN xmlStage.vector AS v 
-						ON v.HeaderID = cte.HeaderID 
-							AND v.VectorNum = cte.VectorNum 
-							AND v.Loop = cte.Loop 
-							AND v.StartTime = cte.StartTime 
-	   WHERE	cte.ErrorCode IS NOT NULL ; 
-
-
-	RETURN 0 ; 
+		FROM	cte_error_element AS cte
+				INNER JOIN xmlStage.vector AS v
+						ON v.HeaderID = cte.HeaderID
+							AND v.VectorNum = cte.VectorNum
+							AND v.Loop = cte.Loop
+							AND v.StartTime = cte.StartTime
+	   WHERE	cte.ErrorCode IS NOT NULL
+;
+	RETURN 0
+;
 
 END TRY
-
 BEGIN CATCH
 
-	IF @@trancount > 0 ROLLBACK TRANSACTION ; 
-	
-	EXECUTE 	eLog.log_CatchProcessing  @pProcID = @@PROCID  ; 
-	
-	RETURN 55555 ; 
+	IF	( @@trancount > 0 ) ROLLBACK TRANSACTION
+;
+	EXECUTE eLog.log_CatchProcessing  @pProcID = @@PROCID
+;
+	RETURN 55555
+;
 
 END CATCH

@@ -34,8 +34,8 @@
 */
 AS
 
-SET NOCOUNT, XACT_ABORT ON ;
-
+SET NOCOUNT, XACT_ABORT ON
+;
  DECLARE	@p1					sql_variant
 		  , @p2					sql_variant
 		  , @p3					sql_variant
@@ -44,36 +44,34 @@ SET NOCOUNT, XACT_ABORT ON ;
 		  , @p6					sql_variant
 
 		  , @pInputParameters	nvarchar(4000)
-			;
-
+;
   SELECT	@pInputParameters	=	(
 										SELECT	[usp_RemoveDatasetFromRepository.@pHeaderID]		=	@pHeaderID
 											  , [usp_RemoveDatasetFromRepository.@pIncludeStage]	=	@pIncludeStage
 
 												FOR JSON PATH, WITHOUT_ARRAY_WRAPPER, INCLUDE_NULL_VALUES
 									)
-			;
-
+;
 BEGIN TRY
 
- DECLARE	@ErrorMessage	nvarchar(max)	=	NULL ;
+ DECLARE	@ErrorMessage	nvarchar(max)	=	NULL
+;
 
 --	Validate @pHeaderID, must not be NULL
 
 IF	@pHeaderID IS NULL
 BEGIN
 
-	  SELECT	@ErrorMessage = N'Input parameter @pHeaderID must not be NULL ' ;
-
+	  SELECT	@ErrorMessage = N'Input parameter @pHeaderID must not be NULL '
+;
 	 EXECUTE	eLog.log_ProcessEventLog
 					@pProcID		=	@@PROCID
 				  , @pMessage		=	@ErrorMessage
 				  , @pSeverity		=	16
 				  , @pRaiserror		=	1
 				  , @p1				=	@pInputParameters
-				;
+;
 END
-
 
 --	DELETE Test Errors
   DELETE	tmp
@@ -86,9 +84,36 @@ END
 									ON x.Item = v.HeaderID
 				   WHERE	v.VectorID = tmp.VectorID
 				)
-			;
+;
 
-
+--	DELETE Vector Results
+  DELETE	tmp
+	FROM	hwt.VectorResultExtended AS tmp
+   WHERE	EXISTS
+				(
+				  SELECT	1
+					FROM	hwt.Vector AS v
+							INNER JOIN utility.ufn_SplitString( @pHeaderID, '|' ) AS x
+									ON x.Item = v.HeaderID
+							INNER JOIN hwt.VectorResult AS vr 
+									ON vr.VectorResultID = tmp.VectorResultID
+				   WHERE	v.VectorID = vr.VectorID
+				)
+;
+--	DELETE Vector Results
+  DELETE	tmp
+	FROM	hwt.VectorResultValue AS tmp
+   WHERE	EXISTS
+				(
+				  SELECT	1
+					FROM	hwt.Vector AS v
+							INNER JOIN utility.ufn_SplitString( @pHeaderID, '|' ) AS x
+									ON x.Item = v.HeaderID
+							INNER JOIN hwt.VectorResult AS vr 
+									ON vr.VectorResultID = tmp.VectorResultID
+				   WHERE	v.VectorID = vr.VectorID
+				)
+;
 --	DELETE Vector Results
   DELETE	tmp
 	FROM	hwt.VectorResult AS tmp
@@ -100,8 +125,7 @@ END
 									ON x.Item = v.HeaderID
 				   WHERE	v.VectorID = tmp.VectorID
 				)
-			;
-
+;
 
 --	DELETE Vector Elements
   DELETE	tmp
@@ -114,8 +138,7 @@ END
 									ON x.Item = v.HeaderID
 				   WHERE	v.VectorID = tmp.VectorID
 				)
-			;
-
+;
 
 --	DELETE Vector Requirements
   DELETE	tmp
@@ -128,8 +151,7 @@ END
 									ON x.Item = v.HeaderID
 				   WHERE	v.VectorID = tmp.VectorID
 				)
-			;
-
+;
 
 --	DELETE Vector
   DELETE	tmp
@@ -140,8 +162,7 @@ END
 					FROM	utility.ufn_SplitString( @pHeaderID, '|' ) AS x
 				   WHERE	x.Item = tmp.HeaderID
 				)
-			;
-
+;
 
 --	DELETE HeaderTag
   DELETE	tmp
@@ -152,8 +173,7 @@ END
 					FROM	utility.ufn_SplitString( @pHeaderID, '|' ) AS x
 				   WHERE	x.Item = tmp.HeaderID
 				)
-			;
-
+;
 
 --	DELETE HeaderOption
   DELETE	tmp
@@ -164,8 +184,7 @@ END
 					FROM	utility.ufn_SplitString( @pHeaderID, '|' ) AS x
 				   WHERE	x.Item = tmp.HeaderID
 				)
-			;
-
+;
 
 --	DELETE HeaderLibraryFile
   DELETE	tmp
@@ -176,8 +195,7 @@ END
 					FROM	utility.ufn_SplitString( @pHeaderID, '|' ) AS x
 				   WHERE	x.Item = tmp.HeaderID
 				)
-			;
-
+;
 
 --	DELETE HeaderEquipment
   DELETE	tmp
@@ -188,8 +206,7 @@ END
 					FROM	utility.ufn_SplitString( @pHeaderID, '|' ) AS x
 				   WHERE	x.Item = tmp.HeaderID
 				)
-			;
-
+;
 
 --	DELETE HeaderAppConst
   DELETE	tmp
@@ -200,8 +217,7 @@ END
 					FROM	utility.ufn_SplitString( @pHeaderID, '|' ) AS x
 				   WHERE	x.Item = tmp.HeaderID
 				)
-			;
-
+;
 
 --	DELETE Header
   DELETE	tmp
@@ -212,7 +228,7 @@ END
 					FROM	utility.ufn_SplitString( @pHeaderID, '|' ) AS x
 				   WHERE	x.Item = tmp.HeaderID
 				)
-			;
+;
 
 
 	IF( @pIncludeStage = 1 )
@@ -227,8 +243,7 @@ END
 											ON x.Item = v.HeaderID
 						   WHERE	v.ID = tmp.VectorID
 						)
-					;
-
+;
 
 		  DELETE	tmp
 			FROM	labViewStage.result_element AS tmp
@@ -240,8 +255,7 @@ END
 											ON x.Item = v.HeaderID
 						   WHERE	v.ID = tmp.VectorID
 						)
-					;
-
+;
 
 		  DELETE	tmp
 			FROM	labViewStage.vector_element AS tmp
@@ -253,8 +267,7 @@ END
 											ON x.Item = v.HeaderID
 						   WHERE	v.ID = tmp.VectorID
 						)
-					;
-
+;
 
 		  DELETE	tmp
 			FROM	labViewStage.vector AS tmp
@@ -264,8 +277,7 @@ END
 							FROM	utility.ufn_SplitString( @pHeaderID, '|' ) AS x
 						   WHERE	x.Item = tmp.HeaderID
 						)
-					;
-
+;
 
 		  DELETE	tmp
 			FROM	labViewStage.appConst_element AS tmp
@@ -275,8 +287,7 @@ END
 							FROM	utility.ufn_SplitString( @pHeaderID, '|' ) AS x
 						   WHERE	x.Item = tmp.HeaderID
 						)
-					;
-
+;
 
 		  DELETE	tmp
 			FROM	labViewStage.equipment_element AS tmp
@@ -286,8 +297,7 @@ END
 							FROM	utility.ufn_SplitString( @pHeaderID, '|' ) AS x
 						   WHERE	x.Item = tmp.HeaderID
 						)
-					;
-
+;
 
 		  DELETE	tmp
 			FROM	labViewStage.libraryInfo_file AS tmp
@@ -297,8 +307,7 @@ END
 							FROM	utility.ufn_SplitString( @pHeaderID, '|' ) AS x
 						   WHERE	x.Item = tmp.HeaderID
 						)
-					;
-
+;
 
 		  DELETE	tmp
 			FROM	labViewStage.option_element AS tmp
@@ -308,8 +317,7 @@ END
 							FROM	utility.ufn_SplitString( @pHeaderID, '|' ) AS x
 						   WHERE	x.Item = tmp.HeaderID
 						)
-					;
-
+;
 
 		  DELETE	tmp
 			FROM	labViewStage.header AS tmp
@@ -319,32 +327,49 @@ END
 							FROM	utility.ufn_SplitString( @pHeaderID, '|' ) AS x
 						   WHERE	x.Item = tmp.ID
 						)
-					;
-
-
-
+;						
+		  DELETE 	tmp
+		    FROM	xmlStage.LegacyXML_Files AS tmp
+		   WHERE	EXISTS 
+						(
+						  SELECT	1
+							FROM	xmlStage.ShreddedFile AS s 
+									INNER JOIN 	utility.ufn_SplitString( @pHeaderID, '|' ) AS x
+											ON 	x.Item = s.HeaderID 
+						   WHERE	s.FileID = tmp.stream_id
+						)
+;
+		  DELETE 	tmp
+		    FROM	xmlStage.ShreddedFile AS tmp
+		   WHERE	EXISTS 
+						(
+						  SELECT	1
+							FROM	utility.ufn_SplitString( @pHeaderID, '|' ) AS x
+						   WHERE	x.Item = tmp.HeaderID
+						)
+;
 	END
 
-  SELECT	@ErrorMessage = N'Datasets DELETEd from Repository' ;
+  SELECT	@ErrorMessage = N'Datasets DELETEd from Repository'
+;
  EXECUTE	eLog.log_ProcessEventLog
 				@pProcID	=	@@PROCID
 			  , @pMessage	=	@ErrorMessage
 			  , @pSeverity	=	0
 			  , @p1			=	@pInputParameters
-			;
-
-  RETURN	0 ;
+;
+  RETURN	0
+;
 
 END TRY
 BEGIN CATCH
-
-	IF	( @@TRANCOUNT > 0 ) ROLLBACK TRANSACTION ;
+	IF	( @@TRANCOUNT > 0 ) ROLLBACK TRANSACTION
+;
 
 	 EXECUTE	eLog.log_CatchProcessing
 					@pProcID	=	@@PROCID
 				  , @p1			=	@pInputParameters
-				;
-
-	RETURN 55555 ;
-
+;
+	RETURN 55555
+;
 END CATCH

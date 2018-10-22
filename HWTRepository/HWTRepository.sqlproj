@@ -346,6 +346,8 @@
     <Build Include="xmlStage\Tables\xmlStage.XMLOutputCache.sql" />
     <Build Include="xmlStage\Stored Procedures\xmlStage.usp_ShredXMLData.sql" />
     <Build Include="hwt\Views\hwt.vw_HeaderTag_expanded.sql" />
+    <Build Include="utility\Tables\utility.ExcelAddIn.sql" />
+    <Build Include="utility\Stored Procedures\utility.usp_GetExcelAddIns.sql" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Publish Scripts\HWTRepositoryD.local.publish.xml" />

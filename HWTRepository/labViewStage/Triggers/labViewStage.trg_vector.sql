@@ -23,8 +23,8 @@
 */
 AS
 
-SET XACT_ABORT, NOCOUNT ON ;
-
+SET XACT_ABORT, NOCOUNT ON
+;
 BEGIN TRY
 
 --	1)	Load trigger data into temp storage
@@ -32,25 +32,24 @@ BEGIN TRY
 			  , i.HeaderID
 			  , i.VectorNum
 			  , i.Loop
-			  , i.ReqID			
+			  , i.ReqID
 			  , i.StartTime
 			  , i.EndTime
 			  , i.CreatedDate
 		INTO	#inserted
 		FROM	inserted AS i
-				;
-
+;
 
 --	2)	EXECUTE proc that loads vector data into repository
-	 EXECUTE	hwt.usp_LoadVectorFromStage ;
-
-	RETURN ;
-
+	 EXECUTE	hwt.usp_LoadVectorFromStage
+;
+	RETURN
+;
 
 END TRY
 BEGIN CATCH
-	 DECLARE	@pErrorData xml ;
-
+	 DECLARE	@pErrorData xml
+;
 	  SELECT	@pErrorData =	(
 								  SELECT
 											(
@@ -60,13 +59,12 @@ BEGIN CATCH
 											)
 											FOR XML PATH( 'trg_vector' ), TYPE
 								)
-				;
-
-	IF	( @@TRANCOUNT > 0 ) ROLLBACK TRANSACTION ;
+;
+	IF	( @@TRANCOUNT > 0 ) ROLLBACK TRANSACTION
+;
 
 	 EXECUTE	eLog.log_CatchProcessing
 					@pProcID	=	@@PROCID
 				  , @pErrorData =	@pErrorData
-				;
-
+;
 END CATCH

@@ -38,4 +38,4 @@ AS
 			  SELECT	HeaderID, VectorNum, Loop, ReqID, StartTime, EndTime
 				FROM	labViewStage.vector
 			) AS x
-			;
+;

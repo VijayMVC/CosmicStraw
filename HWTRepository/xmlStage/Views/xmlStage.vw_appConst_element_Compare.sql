@@ -1,4 +1,4 @@
-CREATE VIEW		xmlStage.vw_appConst_element_Compare
+CREATE	VIEW xmlStage.vw_appConst_element_Compare
 /*
 ***********************************************************************************************************************************
 
@@ -9,10 +9,10 @@ CREATE VIEW		xmlStage.vw_appConst_element_Compare
 	Notes
 	-----
 
-
 	Revision
 	--------
 	carsoc3		2018-08-31		labVIEW messaging architecture
+	carsoc3		2018-10-04		Revision -- Transform data in repository, accounting for differences in LabVIEW outputs
 
 ***********************************************************************************************************************************
 */
@@ -20,8 +20,10 @@ AS
 
   SELECT	TableName = 'labViewStage.appConst_element', *
 	FROM	(
-			  SELECT	HeaderID, Name, Type, Units, Value, NodeOrder
-				FROM	labViewStage.appConst_element
+			  SELECT	HeaderID, Name, Type, Units
+					  , Value = REPLACE( REPLACE( a.Value, NCHAR(13)+ NCHAR(10), NCHAR(10) ), NCHAR(13), NCHAR(10) )
+					  , NodeOrder
+				FROM	labViewStage.appConst_element AS a
 
 			  EXCEPT
 			  SELECT	HeaderID, Name, Type, Units, Value, NodeOrder
@@ -35,7 +37,9 @@ AS
 				FROM	xmlStage.appConst_element
 
 			  EXCEPT
-			  SELECT	HeaderID, Name, Type, Units, Value, NodeOrder
-				FROM	labViewStage.appConst_element
+			  SELECT	HeaderID, Name, Type, Units
+					  , Value = REPLACE( REPLACE( a.Value, NCHAR(13)+ NCHAR(10), NCHAR(10) ), NCHAR(13), NCHAR(10) )
+					  , NodeOrder
+				FROM	labViewStage.appConst_element AS a
 			) AS x
-			;
+;

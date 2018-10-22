@@ -1,4 +1,4 @@
-CREATE VIEW		xmlStage.vw_equipment_element_Compare
+CREATE	VIEW xmlStage.vw_equipment_element_Compare
 /*
 ***********************************************************************************************************************************
 
@@ -38,4 +38,4 @@ AS
 			  SELECT	HeaderID, Asset, Description, CalibrationDueDate, CostCenter, NodeOrder
 				FROM	labViewStage.equipment_element
 			) AS x
-			;
+;

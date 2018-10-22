@@ -17,7 +17,7 @@
 			;
 GO
 
-  CREATE	UNIQUE INDEX UX_hwt_Option_Name
+  CREATE	INDEX IX_hwt_Option_Name
 				ON hwt.[Option]
 					( Name ASC, DataType ASC, Units ASC )
 	WITH	( DATA_COMPRESSION = PAGE )

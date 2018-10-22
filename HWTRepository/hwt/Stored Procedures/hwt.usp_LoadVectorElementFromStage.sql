@@ -31,22 +31,23 @@
 */
 AS
 
-SET XACT_ABORT, NOCOUNT ON ;
+SET XACT_ABORT, NOCOUNT ON 
+;
 
 BEGIN TRY
-
-	 DECLARE	@ObjectID	int	=	OBJECT_ID( N'labViewStage.vector_element' ) ;
-
-	 DECLARE	@Records	TABLE	( RecordID int ) ; 
+	 DECLARE	@ObjectID	int	=	OBJECT_ID( N'labViewStage.vector_element' ) 
+;
+	 DECLARE	@Records	TABLE	( RecordID int ) 
+; 
 	 
---	7)	DELETE processed records from labViewStage.PublishAudit
+--	1)	DELETE processed records from labViewStage.PublishAudit
 	  DELETE	labViewStage.PublishAudit
 	  OUTPUT	deleted.RecordID 
 	    INTO	@Records( RecordID ) 
 	   WHERE	ObjectID = @ObjectID
-				;
+;
 
---	3)	INSERT new Element data from temp storage into hwt.Element
+--	2)	INSERT new Element data from temp storage into hwt.Element
 	  INSERT	hwt.Element
 					( Name, DataType, Units, UpdatedBy, UpdatedDate )
 	  SELECT	DISTINCT
@@ -69,14 +70,13 @@ BEGIN TRY
 					(
 					  SELECT	1
 						FROM	hwt.Element AS e
-					   WHERE	e.Name = lvs.Name
+					   WHERE	e.Name = lvs.Name COLLATE SQL_Latin1_General_CP1_CS_AS 
 								AND e.DataType = lvs.Type
-								AND e.Units = lvs.Units
+								AND e.Units = lvs.Units COLLATE SQL_Latin1_General_CP1_CS_AS 
 					)
-				;
-
+;
 				
---	2)	INSERT data into temp storage from PublishAudit
+--	3)	INSERT data into temp storage from PublishAudit
 	CREATE TABLE	#changes
 					(
 						ID				int
@@ -89,8 +89,7 @@ BEGIN TRY
 					  , OperatorName	nvarchar(50)
 					  , ElementID		int
 					)
-					;
-
+;
 	  INSERT	INTO #changes
 					( ID, VectorID, Name, Type, Units, Value, NodeOrder, OperatorName, ElementID )
 	  SELECT	i.ID
@@ -113,19 +112,19 @@ BEGIN TRY
 						ON 	h.ID = v.HeaderID 
 						
 				INNER JOIN	hwt.Element AS e
-						ON	e.Name = i.Name
+						ON	e.Name = i.Name COLLATE SQL_Latin1_General_CP1_CS_AS 
 								AND e.DataType = i.Type
-								AND e.Units = i.Units
-				;
-
+								AND e.Units = i.Units COLLATE SQL_Latin1_General_CP1_CS_AS 
+;
 	IF	( @@ROWCOUNT = 0 )
-		RETURN 0 ;
+		RETURN 0 
+;
 
-
---	5)	INSERT vector element data from temp storage into hwt.VectorElement
+--	4)	INSERT vector element data from temp storage into hwt.VectorElement
 	  INSERT	hwt.VectorElement
 					( VectorID, ElementID, NodeOrder, ElementValue, UpdatedBy, UpdatedDate )
-	  SELECT	VectorID
+	  SELECT	DISTINCT 
+				VectorID
 			  , ElementID
 			  , NodeOrder
 			  , Value
@@ -133,16 +132,13 @@ BEGIN TRY
 			  , SYSDATETIME()
 		FROM	#changes
 	ORDER BY	VectorID ASC, ElementID ASC
-				;
-
-
-	RETURN 0 ;
-
+;
+	RETURN 0 
+;
 END TRY
-
 BEGIN CATCH
-	 DECLARE	@pErrorData xml ;
-
+	 DECLARE	@pErrorData xml 
+;
 	  SELECT	@pErrorData =	(
 								  SELECT	(
 											  SELECT	*
@@ -151,15 +147,13 @@ BEGIN CATCH
 											)
 											FOR XML PATH( 'usp_LoadVectorElementFromStage' ), TYPE
 								)
-				;
-
-	IF	( @@TRANCOUNT > 0 ) ROLLBACK TRANSACTION ;
-
+;
+	IF	( @@TRANCOUNT > 0 ) ROLLBACK TRANSACTION 
+;
 	 EXECUTE	eLog.log_CatchProcessing
 					@pProcID	=	@@PROCID
 				  , @pErrorData =	@pErrorData
-				;
-
-	RETURN 55555 ;
-
+;
+	RETURN 55555 
+;
 END CATCH

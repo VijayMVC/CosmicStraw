@@ -23,13 +23,13 @@
 */
 AS
 
-SET XACT_ABORT, NOCOUNT ON ;
+SET XACT_ABORT, NOCOUNT ON
+;
 
 BEGIN TRY
-
 	IF	NOT EXISTS( SELECT 1 FROM inserted )
-		RETURN ;
-
+		RETURN
+;
 
 --	1)	Load trigger data into temp storage
 	  SELECT	i.ID
@@ -37,38 +37,37 @@ BEGIN TRY
 			  , i.StartTime
 			  , i.FinishTime
 			  , i.TestDuration
-			  , ProjectName			=	REPLACE( REPLACE( REPLACE( i.ProjectName, '&amp;', '&' ), '&lt;', '<' ), '&gt;', '>' )
-			  , FirmwareRev			=	REPLACE( REPLACE( REPLACE( i.FirmwareRev, '&amp;', '&' ), '&lt;', '<' ), '&gt;', '>' )
-			  , HardwareRev			=	REPLACE( REPLACE( REPLACE( i.HardwareRev, '&amp;', '&' ), '&lt;', '<' ), '&gt;', '>' )
-			  , PartSN				=	REPLACE( REPLACE( REPLACE( i.PartSN, '&amp;', '&' ), '&lt;', '<' ), '&gt;', '>' )
-			  , OperatorName		=	REPLACE( REPLACE( REPLACE( i.OperatorName, '&amp;', '&' ), '&lt;', '<' ), '&gt;', '>' )
+			  , ProjectName			=	REPLACE( REPLACE( REPLACE( REPLACE( REPLACE( i.ProjectName, '&apos;', '''' ), '&lt;', '<' ), '&gt;', '>' ), '&quot;', '"' ), '&amp;', '&' )
+			  , FirmwareRev			=	REPLACE( REPLACE( REPLACE( REPLACE( REPLACE( i.FirmwareRev, '&apos;', '''' ), '&lt;', '<' ), '&gt;', '>' ), '&quot;', '"' ), '&amp;', '&' )
+			  , HardwareRev			=	REPLACE( REPLACE( REPLACE( REPLACE( REPLACE( i.HardwareRev, '&apos;', '''' ), '&lt;', '<' ), '&gt;', '>' ), '&quot;', '"' ), '&amp;', '&' )
+			  , PartSN				=	REPLACE( REPLACE( REPLACE( REPLACE( REPLACE( i.PartSN, '&apos;', '''' ), '&lt;', '<' ), '&gt;', '>' ), '&quot;', '"' ), '&amp;', '&' )
+			  , OperatorName		=	REPLACE( REPLACE( REPLACE( REPLACE( REPLACE( i.OperatorName, '&apos;', '''' ), '&lt;', '<' ), '&gt;', '>' ), '&quot;', '"' ), '&amp;', '&' )
 			  , i.TestMode
-			  , TestStationID		=	REPLACE( REPLACE( REPLACE( i.TestStationID, '&amp;', '&' ), '&lt;', '<' ), '&gt;', '>' )
-			  , TestName			=	REPLACE( REPLACE( REPLACE( i.TestName, '&amp;', '&' ), '&lt;', '<' ), '&gt;', '>' )
-			  , TestConfigFile		=	REPLACE( REPLACE( REPLACE( i.TestConfigFile, '&amp;', '&' ), '&lt;', '<' ), '&gt;', '>' )
-			  , TestCodePathName	=	REPLACE( REPLACE( REPLACE( i.TestCodePathName, '&amp;', '&' ), '&lt;', '<' ), '&gt;', '>' )
+			  , TestStationID		=	REPLACE( REPLACE( REPLACE( REPLACE( REPLACE( i.TestStationID, '&apos;', '''' ), '&lt;', '<' ), '&gt;', '>' ), '&quot;', '"' ), '&amp;', '&' )
+			  , TestName			=	REPLACE( REPLACE( REPLACE( REPLACE( REPLACE( i.TestName, '&apos;', '''' ), '&lt;', '<' ), '&gt;', '>' ), '&quot;', '"' ), '&amp;', '&' )
+			  , TestConfigFile		=	REPLACE( REPLACE( REPLACE( REPLACE( REPLACE( i.TestConfigFile, '&apos;', '''' ), '&lt;', '<' ), '&gt;', '>' ), '&quot;', '"' ), '&amp;', '&' )
+			  , TestCodePathName	=	REPLACE( REPLACE( REPLACE( REPLACE( REPLACE( i.TestCodePathName, '&apos;', '''' ), '&lt;', '<' ), '&gt;', '>' ), '&quot;', '"' ), '&amp;', '&' )
 			  , i.TestCodeRev
 			  , i.HWTSysCodeRev
-			  , KdrivePath			=	REPLACE( REPLACE( REPLACE( i.KdrivePath, '&amp;', '&' ), '&lt;', '<' ), '&gt;', '>' )
-			  , Comments			=	REPLACE( REPLACE( REPLACE( i.Comments, '&amp;', '&' ), '&lt;', '<' ), '&gt;', '>' )
-			  , ExternalFileInfo	=	REPLACE( REPLACE( REPLACE( i.ExternalFileInfo, '&amp;', '&' ), '&lt;', '<' ), '&gt;', '>' )
+			  , KdrivePath			=	REPLACE( REPLACE( REPLACE( REPLACE( REPLACE( i.KdrivePath, '&apos;', '''' ), '&lt;', '<' ), '&gt;', '>' ), '&quot;', '"' ), '&amp;', '&' )
+			  , Comments			=	REPLACE( REPLACE( REPLACE( REPLACE( REPLACE( i.Comments, '&apos;', '''' ), '&lt;', '<' ), '&gt;', '>' ), '&quot;', '"' ), '&amp;', '&' )
+			  , ExternalFileInfo	=	REPLACE( REPLACE( REPLACE( REPLACE( REPLACE( i.ExternalFileInfo, '&apos;', '''' ), '&lt;', '<' ), '&gt;', '>' ), '&quot;', '"' ), '&amp;', '&' )
 			  , i.IsLegacyXML
 			  , i.VectorCount
 			  , i.CreatedDate
 			  , i.UpdatedDate
 		INTO	#inserted
 		FROM	inserted AS i
-				;
-
+;
 
 --	2)	EXECUTE proc that loads header data into repository
-	 EXECUTE	hwt.usp_LoadHeaderFromStage ;
-
+	 EXECUTE	hwt.usp_LoadHeaderFromStage
+;
 
 END TRY
-
 BEGIN CATCH
-	 DECLARE	@pErrorData xml ;
+	 DECLARE	@pErrorData xml
+;
 
 	IF EXISTS( SELECT 1 FROM deleted )
 		BEGIN
@@ -86,7 +85,7 @@ BEGIN CATCH
 													)
 													FOR XML PATH( 'trg_header' ), TYPE
 										)
-						;
+;
 		END
 	ELSE
 		BEGIN
@@ -99,16 +98,14 @@ BEGIN CATCH
 													)
 													FOR XML PATH( 'trg_header' ), TYPE
 										)
-						;
-
+;
 		END
 
-	IF	( @@TRANCOUNT > 0 ) ROLLBACK TRANSACTION ;
-
+	IF	( @@TRANCOUNT > 0 ) ROLLBACK TRANSACTION
+;
 	 EXECUTE	eLog.log_CatchProcessing
 					@pProcID	=	@@PROCID
 				  , @pErrorData =	@pErrorData
-				;
+;
 
 END CATCH
-

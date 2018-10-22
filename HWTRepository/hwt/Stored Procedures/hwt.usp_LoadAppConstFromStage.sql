@@ -33,27 +33,26 @@
 */
 AS
 
-SET XACT_ABORT, NOCOUNT ON ;
+SET XACT_ABORT, NOCOUNT ON 
+;
 
 BEGIN TRY
+	 DECLARE	@ObjectID	int	=	OBJECT_ID( N'labViewStage.appConst_element' ) 
+;
+	 DECLARE	@Records	TABLE	( RecordID int ) 
+;
 
-	 DECLARE	@ObjectID	int	=	OBJECT_ID( N'labViewStage.appConst_element' ) ;
-
-	 DECLARE	@Records	TABLE	( RecordID int ) ;
-
-
---	4)	DELETE processed records from labViewStage.PublishAudit
+--	1)	DELETE processed records from labViewStage.PublishAudit
 	  DELETE	labViewStage.PublishAudit 
 	  OUTPUT	deleted.RecordID
 		INTO	@Records( RecordID )
 	   WHERE	ObjectID = @ObjectID
-				;
-
+;
 	IF	( @@ROWCOUNT = 0 )
-		RETURN 0 ;
+		RETURN 0 
+;
 
-
---	1)	INSERT new AppConst data from temp storage into hwt
+--	2)	INSERT new AppConst data from temp storage into hwt
 	  INSERT	hwt.AppConst
 					( Name, DataType, Units, UpdatedBy, UpdatedDate )
 	  SELECT	DISTINCT
@@ -73,14 +72,13 @@ BEGIN TRY
 					(
 					  SELECT	1
 						FROM	hwt.AppConst AS ac
-					   WHERE	ac.Name = lvs.Name
+					   WHERE	ac.Name = lvs.Name COLLATE SQL_Latin1_General_CP1_CS_AS
 								AND ac.DataType = lvs.Type
-								AND ac.Units = lvs.Units
+								AND ac.Units = lvs.Units COLLATE SQL_Latin1_General_CP1_CS_AS
 					)
-				;
+;
 
-
---	2)	INSERT data into temp storage from PublishAudit and labViewStage
+--	3)	INSERT data into temp storage from PublishAudit and labViewStage
 	  CREATE	TABLE #changes
 					(
 						ID				int
@@ -93,8 +91,7 @@ BEGIN TRY
 					  , OperatorName	nvarchar(50)
 					  , AppConstID		int
 					)
-				;
-
+;
 	  INSERT	#changes
 					(
 						ID, HeaderID, Name, Type, Units, Value
@@ -117,33 +114,30 @@ BEGIN TRY
 						ON	h.ID = i.HeaderID
 
 				INNER JOIN	hwt.AppConst AS ac
-						ON	ac.Name = i.Name
+						ON	ac.Name = i.Name COLLATE SQL_Latin1_General_CP1_CS_AS 
 							AND ac.DataType = i.Type
-							AND ac.Units = i.Units
-				;
+							AND ac.Units = i.Units COLLATE SQL_Latin1_General_CP1_CS_AS 
+;
 
-
---	3)	INSERT header AppConst data from temp storage into hwt.HeaderAppConst
+--	4)	INSERT header AppConst data from temp storage into hwt.HeaderAppConst
 	  INSERT	hwt.HeaderAppConst
 					( HeaderID, AppConstID, NodeOrder, AppConstValue, UpdatedBy, UpdatedDate )
 
-	  SELECT	HeaderID
+	  SELECT	DISTINCT 
+				HeaderID
 			  , AppConstID
 			  , NodeOrder
 			  , Value
 			  , OperatorName
 			  , SYSDATETIME()
 		FROM	#changes
-				;
-
-
-	RETURN 0 ;
-
+;
+	RETURN 0 
+;
 END TRY
-
 BEGIN CATCH
-	 DECLARE	@pErrorData	xml ;
-
+	 DECLARE	@pErrorData	xml 
+;
 	  SELECT	@pErrorData	=	(
 								  SELECT	(
 											  SELECT	*
@@ -152,15 +146,13 @@ BEGIN CATCH
 											)
 											FOR XML PATH( 'usp_LoadAppConstFromStage' ), TYPE
 								)
-				;
-
-	IF	( @@TRANCOUNT > 0 ) ROLLBACK TRANSACTION ;
-
+;
+	IF	( @@TRANCOUNT > 0 ) ROLLBACK TRANSACTION 
+;
 	 EXECUTE	eLog.log_CatchProcessing
 					@pProcID	=	@@PROCID
 				  , @pErrorData	=	@pErrorData
-				;
-
-	RETURN 55555 ;
-
+;
+	RETURN 55555 
+;
 END CATCH
